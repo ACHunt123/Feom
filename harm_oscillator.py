@@ -53,10 +53,18 @@ def H_matrix(ns=150, m=1, omega=1, hbar=1, nx=150, xmin=-14, xmax=14):
 def rho0(beta=6, ns=150, m=1, omega=1, hbar=1, nx=150, xmin=-14, xmax=14):
     # Get eigenstates (alternatively we could use DVRs)
     psi_ns, E_ns, x_arr, dx = eigenstates(ns, m, omega, hbar, nx, xmin, xmax)
-    # Generate the Hamiltonian matrix in the position basis
+    # Generate the system thermal density matrix
     rho = np.zeros((ns,ns),dtype=complex)                   
     for s in range(0,ns):
         for sp in range(0,ns):
             rho[s,sp] = np.sum(np.exp(-beta*E_ns)*psi_ns[s,:]*np.conj(psi_ns[sp,:]))
+
+    if(0): #lets instead use |n><n|
+        n=1
+        rho = np.outer(psi_ns[:,n],np.conj(psi_ns[:,n]))
+    if(0): #lets instead use |n><n'|
+        n=1
+        nprime=2
+        rho = np.outer(psi_ns[:,n],np.conj(psi_ns[:,nprime]))
 
     return rho
