@@ -37,6 +37,9 @@ def generateHashmap(K,max_N,write_to_file = False):
         numbers = np.empty(length(n,k),dtype=object) 
         # numbers = ['xxx' for i in range(length(n,k))]
 
+        if k==1: #if there is only one element in the set
+            return [f'{n}']
+
         def generate_tuples_of_numbers(n, k):
             max_element = n
             allowed = range(max_element, -1, -1) #the allowed elements in the set
@@ -81,6 +84,7 @@ def generateHashmap(K,max_N,write_to_file = False):
         allnums= np.concatenate((allnums,generatenumbers(i,K))) #concatenate the set of indicies to the list of all indicies
 
     def tup2list(tup):
+        print   (tup)
         return [int(i) for i in tup.split(',')]
 
     # Create the hashmaps and format them as described above

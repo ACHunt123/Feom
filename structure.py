@@ -15,7 +15,8 @@ class Tensor(dict):
         self.pop(tup, None) 
         tup = tuple(key)
 
-    def add(self, *args):           
+    def add(self, *args):    #*args is used to pass a variable number of arguments to a function
+    # Add multiple ADO - shaped objects together        
         for other in args:
             for n, rho in other.items():
                 if n in self:
@@ -24,7 +25,7 @@ class Tensor(dict):
                     self[n] = np.copy(rho)
         return self
 
-    def __add__(self, other):            #this is for + operator between two tensor objects
+    def __add__(self, other):            #this is for + operator between two tensor objects PYTHON MAGIC METHOD
         dic = copy.deepcopy(self)
         for n, rho in other.items():
             if n in dic:

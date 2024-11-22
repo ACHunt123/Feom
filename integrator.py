@@ -6,9 +6,10 @@ from hashmap import generateHashmap
 #   This is the integrator for the HEOM
 #
 class Integrator:
-    def __init__(self,ns,Imax,H_mat,s_mat,K,hbar,max_N):
+    def __init__(self,ns,ds,Imax,H_mat,s_mat,K,hbar,L):
         self.ns = ns
         self.Imax = Imax
+        self.L = L
         self.K = K
         self.hbar = hbar
         # The formatting of the Hashmaps are as follows:
@@ -18,6 +19,7 @@ class Integrator:
         self.I2ind , self.ind2I = generateHashmap(K,max_N)
         self.H_mat = H_mat
         self.s_mat = s_mat
+        self.ds = ds
 
     # returns the tier of the ADO from its list of indices
     def tier(self,ind):
@@ -25,7 +27,9 @@ class Integrator:
 
     # returns the index of the ADO that is one element different from the input ADO
     def I_nk_plusminus(self,I,k,pm):
-        ind = self.I2ind[I]
+        index = self.I2ind[I] #copy the list of indexes of the ADO
+        ind = index.copy() #copy the list of indexes of the ADO
+
         nkpm = ind[k]+pm
         ind[k] = nkpm   #update the index of the ADO with the kth element changed to nkpm
 
@@ -33,7 +37,7 @@ class Integrator:
         if nkpm < 0:
             return -1
         # if the tier of the ADO index does not exist the function returns -1
-        elif self.tier(ind) >= self.Imax:
+        elif self.tier(ind) >= self.L:
             return -1
         # Otherwise, the function find the index of the ADO with the same elements as ind, but with the kth element changed to nkpm and return it
         else:
@@ -41,7 +45,7 @@ class Integrator:
             return self.ind2I[ind]  
 
     def commutator(self,A,B):
-        return A@B - B@A
+        return (A@B - B@A)*self.ds
 
     # gives the unperturbed Liouvillian acting on the ADO = i/hbar [H,rho]
     def L0(self,rho):
@@ -52,7 +56,7 @@ class Integrator:
         gradient = np.zeros((self.ns,self.ns,self.Imax),dtype=complex)
 
         for I in range(0,self.Imax):
-            n_ks = np.array(self.I2ind[I]) # the indexes of the ADO - will be used as coefficients 
+            # n_ks = np.array(self.I2ind[I]) # the indexes of the ADO - will be used as coefficients 
 
             gradient[:,:,I] = -self.L0(rho[:,:,I]) #+ np.sum(n_ks*gam_ks)*rho[:,:,I]
 

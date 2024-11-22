@@ -18,7 +18,7 @@ def eigenstates(ns, m, omega, hbar, nx, xmin, xmax):
         prefac = 1/np.sqrt(2.**i * np.math.factorial(i))   * (alph/np.pi)**0.25
         Hi = special.hermite(i)
         psi_ns[:,i] = prefac * Hi(np.sqrt(alph)*x_arr) * np.exp(-alph*x_arr**2/2)
-        E_ns[i] = hbar*omega*(i+0.5)
+        E_ns[i] = hbar*omega*(i)
 
     if(0):# plot the eigenstates
         fig = plt.figure()
