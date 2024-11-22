@@ -1,0 +1,93 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# A class for the Debye bath
+
+# We need to add in pade approximants, but otherwiseshould be mostly complete
+
+class Debye_bath():
+    def __init__(self,eta,gam,beta,hbar,K,mode='matsubara'):
+        self.eta = eta
+        self.gam = gam
+        self.beta = beta
+        self.K = K
+        self.hbar = hbar
+        self.mu = K-1 #number of pairs of matsubara modes/ r.p. modes. As there is one exponential term for debye, K-1 of the terms are matsubara terms
+        self.N = 2*self.mu+1 #number of beads or matsubara modes (ODD)
+        #
+        self.mode= mode
+        self.C0 = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
+
+    def J(self,w,plotme=False,ax=plt):
+        w = np.linspace(0,2,1000)
+        Jw = self.eta*self.gam*w/(w**2+self.gam**2)
+        if plotme : 
+            ax.plot(w,Jw)
+        return Jw,w
+
+    # Calculate the C_ks and gam_ks for a given set of ws
+    def calc_coefs(self,ws):
+        d = np.zeros(self.mu+1)
+        d0sum = np.sum(1/(self.gam**2*np.ones_like(ws) + ws**2))
+        d[0] = self.eta/self.beta + 2*self.eta*self.gam**2/self.beta + d0sum
+        d[1:] = -(2*self.eta*self.gam/self.beta) * ws[1:]/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2)
+        dI = -self.hbar*self.eta*self.gam/2
+
+        # Calculate the C_ks
+        C_ks = np.zeros(self.mu+1,dtype=complex)
+        C_ks[0] = (d[0] + dI*0+1.j)
+        C_ks[1:] = d[1:]
+
+        #Calculate the gam_ks
+        gam_ks = np.zeros(self.mu+1,dtype=complex)
+        gam_ks[0] = self.gam
+        gam_ks[1:] = ws[1:]
+
+
+        return C_ks,gam_ks
+
+    # output TCF for a given set of C_ks and gam_ks
+    def TCF(self,plotme=False,ax=plt,mode=None):
+        if mode is None: mode = self.mode #allowing override of the mode from the __init__
+
+        C_ks,gam_ks = self.get_coeffs(mode=mode)
+
+        t = np.linspace(0,10,1000)
+        C = np.zeros_like(t,dtype=complex)
+        C += C_ks[0]*np.exp(-gam_ks[0]*t)
+        for k in range(1,self.mu+1):
+            C += C_ks[k]*np.exp(-gam_ks[k]*t)
+        if plotme:
+            ax.plot(t,C.real)
+            print(mode)
+        return t,C
+
+    # Calculate the C_ks and gam_ks for a bath
+    def get_coeffs(self,mode=None):
+        if mode is None: mode = self.mode #allowing override of the mode from the __init__
+
+        if self.mu == 0:
+            return np.array([self.C0]),np.array([self.gam]) #the high temperature limit - no matsubara terms
+
+        if mode == 'matsubara':
+            betaN = self.beta/self.N
+            wN=1/(betaN*self.hbar)
+            wns = np.array([2*wN*np.pi*k/self.N for k in range(0,self.mu+1)])
+            print(wns)
+            return self.calc_coefs(wns)
+
+        if mode == 'nbead':
+            betaN =  self.beta/self.N
+            wN=1/(betaN*self.hbar)
+            wks = np.array([2*wN*np.sin(np.pi*k/self.N) for k in range(0,self.mu+1)])
+            print(wks)
+
+            return self.calc_coefs(wks)
+        else:
+            raise ValueError('Invalid mode')
+        return
+
+
+
+
+

@@ -1,8 +1,10 @@
 from hashmap import  total_length
 from harm_oscillator import H_matrix, rho0
+from debye_bath import Debye_bath
 from integrator import Integrator
 import numpy as np
 import scipy
+import sys
 import matplotlib.pyplot as plt
 #
 # Basic HEOM code
@@ -10,19 +12,30 @@ import matplotlib.pyplot as plt
 
 
 ### Parameters
-beta = 0.1
+beta = 10
+hbar=1
 ns = 50         # number of states/xtics (same thing really as we are in the position basis)
 K = 3           #  the number of elements in the BCFs
 max_N = 2       # the maximum number of elements in the ADOs
 
 ### Bath parameters - Debye bath
-gam_ks = np.ones(K,dtype=complex)           # the gammas for the BCFs
-C_ks = np.ones(K,dtype=complex)             # the prefactors for the BCFs
+bathmode = 'matsubara'
+eta=0.1
+gam=1
+
+
+bath = Debye_bath(eta,gam,beta,hbar,K,mode='matsubara')
+C_ks,gam_ks = bath.get_coeffs()
+
+fix,ax = plt.subplots()
+bath.TCF(plotme=True,mode='matsubara',ax=ax)
+bath.TCF(plotme=True,mode='nbead',  ax=ax)
+plt.show()
+sys.exit()
 
 ### Hamiltonian and system setup [tbc]
 m =1
 omega = 1
-hbar = 1
 
 nx = ns
 xmin = -10
