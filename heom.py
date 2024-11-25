@@ -12,15 +12,15 @@ import matplotlib.pyplot as plt
 
 
 ### Parameters
-beta = 10
+beta = 5
 hbar=1
-ns = 33         # number of states/xtics (same thing really as we are in the position basis)
-K = 1           #  the number of elements in the BCFs
-L = 1           # the depth of the ADO expansion
+ns = 70         # number of states/xtics (same thing really as we are in the position basis)
+K = 3           #  the number of elements in the BCFs
+L = 2           # the depth of the ADO expansion
 
 ### Bath parameters - Debye bath
 bathmode = 'matsubara'
-eta=0.1
+eta=0.01
 gam=1
 
 
@@ -40,18 +40,18 @@ xmax = 10
 
 H_mat, x_arr, ds = H_matrix(ns,m,omega,hbar,nx,xmin,xmax)  # Hamiltonian matrix
 
-s_mat = np.diag(x_arr) 
+s_mat_ds = np.diag(x_arr)                                  # position operator matrix, including one factor of ds to allow normalisation
 rho_s0 = rho0(beta,ns,m,omega,hbar,nx,xmin,xmax)           # initial system density matrix = e^(-beta*H_s) 
 
 #Trace operator
-def trace(matrix): return np.sum(np.diag(matrix))*ds    # the extra factor of ds is because we are in the position basis and it is continuous
+def trace(matrix): return (np.sum(np.diag(matrix))*ds )   # the extra factor of ds is because we are in the position basis and it is continuous
 
 #partition function
 Zs = trace(rho_s0)                                    # partition function - calculated without lamb shift
 
 
 
-if(1):  # tests
+if(0):  # tests
     # Test that the partition function is correct
     theta=hbar*omega*beta
     print(1/(1-np.exp(-theta)),'analytic partition function')
@@ -62,25 +62,20 @@ if(1):  # tests
     print((hbar/(2*m*omega)) * (1+x)/(1-x), 'analytic <q^2>')
 
     # Calculate the thermal expectation value of q^2 for the system
-    print(trace(rho_s0@s_mat**2*ds)/Zs,'<q^2> calculated')
+    print(trace(rho_s0@s_mat_ds**2)/Zs,'<q^2> ') #t
+    # When multiplying by the s matrix, we DO NOT ADD in the ds factor because the s matrix would otherwise be divergent
+    # lim dx->0[ <x_i|x_j> dx] = delta_ij
 
-    print(trace(rho_s0@s_mat**2)/Zs,'<q^2> calculated WITHOUT EXTRA FACTOR OF ds') #this is incorrect but seems to work
-
-
-    # Test that the thermal density matrix is stationary 
-    # print(((rho_s0@H_mat - H_mat@rho_s0)*ds).max(),'maximal deviation from stationarity')
-
-sys.exit()
 
 ### Variables and arrays
 Imax = total_length(K,L)                # the total number of ADOs
 # Iprop = #numbers of ADOs to propagete on the current time step
 
 rho = np.zeros((ns,ns,Imax),dtype=complex)  # holds all of the ADOs. rho[s,s',0] is the system density matrix
-rho[:,:,0] = rho_s0@s_mat*ds                # initial condition = e^-beta*H_s * s
+rho[:,:,0] = rho_s0@s_mat_ds                # initial condition = e^-beta*H_s * s
 
 #setup the integrator
-integrator = Integrator(ns,ds,Imax,H_mat,s_mat,K,hbar,L)
+integrator = Integrator(gam_ks,C_ks,ns,ds,Imax,H_mat,s_mat_ds,K,hbar,L)
 
 ### Propagation
 tmax = 10
@@ -107,7 +102,7 @@ for i in range (0,1000):
     rho = integrator.rk4_step(rho,dt)
 
     # print(rho[:,:,0]@x_*ds)
-    Css[i] = trace(rho[:,:,0]@s_mat*ds)/Zs #there is a factor of ds on the bottom missing
+    Css[i] = trace(rho[:,:,0]@s_mat_ds)/Zs 
     # plot the density matrix
     if(i%10==0):
         line.remove()

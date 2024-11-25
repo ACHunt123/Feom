@@ -27,6 +27,11 @@ def eigenstates(ns, m, omega, hbar, nx, xmin, xmax):
             ax.plot(x_arr,psi_ns[:,i],label='En='+str(E_ns[i]))
         plt.legend()
         plt.show()
+
+    if(0):# Test that the eigenstates are orthonormal
+        for i in range(0,nvecs):
+            for j in range(0,nvecs):
+                print(np.round(np.sum(psi_ns[:,i]*np.conj(psi_ns[:,j])*dx),4),i,j)
     
     return psi_ns, E_ns, x_arr, dx
 

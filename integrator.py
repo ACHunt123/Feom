@@ -6,7 +6,7 @@ from hashmap import generateHashmap
 #   This is the integrator for the HEOM
 #
 class Integrator:
-    def __init__(self,ns,ds,Imax,H_mat,s_mat,K,hbar,L):
+    def __init__(self,gam_ks,C_ks,ns,ds,Imax,H_mat,s_mat_ds,K,hbar,L):
         self.ns = ns
         self.Imax = Imax
         self.L = L
@@ -16,10 +16,13 @@ class Integrator:
         # I2ind[I] : int I -> list of ints corresponding to the BCF indecies
         # ind2I[ind] :tuple of ints -> int I
         # This is done because lists are not hashable, and tuples are   
-        self.I2ind , self.ind2I = generateHashmap(K,max_N)
+        self.I2ind , self.ind2I = generateHashmap(K,L)
         self.H_mat = H_mat
-        self.s_mat = s_mat
+        self.s_mat = s_mat_ds/ds # position operator matrix - division by to ensure divergence as ds -> 0
         self.ds = ds
+        # Bath coefficients
+        self.gam_ks = gam_ks
+        self.C_ks = C_ks
 
     # returns the tier of the ADO from its list of indices
     def tier(self,ind):
@@ -56,23 +59,27 @@ class Integrator:
         gradient = np.zeros((self.ns,self.ns,self.Imax),dtype=complex)
 
         for I in range(0,self.Imax):
-            # n_ks = np.array(self.I2ind[I]) # the indexes of the ADO - will be used as coefficients 
+            n_ks = np.array(self.I2ind[I]) # the indexes of the ADO - will be used as coefficients 
 
-            gradient[:,:,I] = -self.L0(rho[:,:,I]) #+ np.sum(n_ks*gam_ks)*rho[:,:,I]
+            gradient[:,:,I] = -self.L0(rho[:,:,I]) - np.sum(n_ks*self.gam_ks)*rho[:,:,I]
 
+            for k in range(self.K):
+                # the ADOs that are one element different from the current ADO
+                I_nkp1 = self.I_nk_plusminus(I,k,+1)
+                I_nkm1 = self.I_nk_plusminus(I,k,-1)
 
-            # for k in range(K):
-            #     # the ADOs that are one element different from the current ADO
-            #     I_nkp1 = self.I_nk_plusminus(I,k,+1)
-            #     I_nkm1 = self.I_nk_plusminus(I,k,-1)
+                Ck = self.C_ks[k]
+                nk = n_ks[k]
+                absCk = np.abs(Ck)
 
-            #     # The gradient for the +1 terms [may not exist]
-            #     if I_nkp1 != -1:
-            #         gradient[:,:,I] += 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(self.C_ks[k]*(self.n_ks[k]+1)) ###redo#
+                # The gradient for the +1 terms [may not exist]
+                if I_nkp1 != -1:
+                    gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
 
-            #     # The gradient for the -1 terms [may not exist]
-            #     if I_nkm1 != -1:
-            #         gradient[:,:,I] += 1.j/hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(C_ks[k]*(n_ks[k]+1)) ###redo#
+                # The gradient for the -1 terms [may not exist]
+                if I_nkm1 != -1:
+                    gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)*self.ds
+
 
         return gradient
 
