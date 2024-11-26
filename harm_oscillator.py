@@ -1,75 +1,70 @@
 import numpy as np
+import sys  
 from scipy import special
 import matplotlib.pyplot as plt
 
 
 ### Generates the Hamiltonian matrix for a harmonic oscillator in the position basis
+class Harmonic_oscillator:
+    def __init__(self,m,omega,hbar,xmin,xmax,dx,ns):
+        self.m = m
+        self.omega = omega
+        self.hbar = hbar
+        self.xmin = xmin
+        self.xmax = xmax
+        self.dx = dx
+        self.ns = ns
+        self.nx = int((self.xmax-self.xmin)/self.dx) # number of x points
+        
 
-# Generates the eigenstates of the Hamiltonian
-def eigenstates(ns, m, omega, hbar, nx, xmin, xmax):
-    nvecs = 25
-    x_arr= np.linspace(xmin,xmax,nx)
-    dx = x_arr[1]-x_arr[0]
+        
+    # Generates the eigenstates of the Hamiltonian in the posision basis - to be replaced with DVRs
+    def eigenstates(self):
+        x_arr= np.zeros(self.nx)      # x points
+        for i in range(self.nx):
+        # + 1 is there for consitency with adams code
+            x_arr[i] = self.dx*(i + 1 + int(self.xmin/self.dx))
 
-    psi_ns = np.zeros((ns,nvecs),dtype=complex)  # the eigenvectors of the Hamiltonian
-    E_ns = np.zeros(nvecs)                       # the eigenvalues of the Hamiltonian
-    for i in range(0,nvecs):
-        alph = m*omega/hbar
-        prefac = 1/np.sqrt(2.**i * np.math.factorial(i))   * (alph/np.pi)**0.25
-        Hi = special.hermite(i)
-        psi_ns[:,i] = prefac * Hi(np.sqrt(alph)*x_arr) * np.exp(-alph*x_arr**2/2)
-        E_ns[i] = hbar*omega*(i)
+        psi_ns = np.zeros((self.nx,self.ns),dtype=complex)  # the eigenvectors of the Hamiltonian
+        E_ns = np.zeros(self.ns)                       # the eigenvalues of the Hamiltonian
+        for i in range(0,self.ns):
+            alph = self.m*self.omega/self.hbar
+            prefac = 1/np.sqrt(2.**i * np.math.factorial(i))   * (alph/np.pi)**0.25
+            Hi = special.hermite(i)
+            psi_ns[:,i] = prefac * Hi(np.sqrt(alph)*x_arr) * np.exp(-alph*x_arr**2/2)
+            E_ns[i] = self.hbar*self.omega*(i)    # No lamb shift here
 
-    if(0):# plot the eigenstates
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        for i in range(0,25):
-            ax.plot(x_arr,psi_ns[:,i],label='En='+str(E_ns[i]))
-        plt.legend()
-        plt.show()
+        if(0):# plot the eigenstates
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            for i in range(0,self.ns):
+                ax.plot(x_arr,psi_ns[:,i],label='En='+str(E_ns[i]))
+            plt.legend()
+            plt.show()
 
-    if(0):# Test that the eigenstates are orthonormal
-        for i in range(0,nvecs):
-            for j in range(0,nvecs):
-                print(np.round(np.sum(psi_ns[:,i]*np.conj(psi_ns[:,j])*dx),4),i,j)
-    
-    return psi_ns, E_ns, x_arr, dx
+        if(0):# Test that the eigenstates are orthonormal
+            for i in range(0,self.ns):
+                for j in range(0,self.ns):
+                    print(np.round(np.sum(psi_ns[:,i]*np.conj(psi_ns[:,j])*dx),4),i,j)
+        
+        return psi_ns, E_ns, x_arr
 
-# Generates the Hamiltonian matrix in the position basis
-def H_matrix(ns=150, m=1, omega=1, hbar=1, nx=150, xmin=-14, xmax=14):
-    # Get eigenstates (alternatively we could use DVRs)
-    psi_ns, E_ns, x_arr, dx = eigenstates(ns, m, omega, hbar, nx, xmin, xmax)
-    # Generate the Hamiltonian matrix in the position basis
-    H = np.zeros((ns,ns),dtype=complex)                   
-    for s in range(0,ns):
-        for sp in range(0,ns):
-            H[s,sp] = np.sum(E_ns*psi_ns[s,:]*np.conj(psi_ns[sp,:]))
-    
-    if(0):# plot a surface plot of the Hamiltonian
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        X, Y = np.meshgrid(x_arr, x_arr)
-        ax.contourf(X, Y, H, cmap='viridis')
-        plt.show()
-    
-    return H, x_arr, dx
+    # Generates the Hamiltonian matrix in its eigenbasis
+    def H_matrix(self):
+        psi_ns, E_ns, x_arr = self.eigenstates()
+        return np.diag(E_ns)
 
-# Generates the initial system density matrix in the position basis
-def rho0(beta=6, ns=150, m=1, omega=1, hbar=1, nx=150, xmin=-14, xmax=14):
-    # Get eigenstates (alternatively we could use DVRs)
-    psi_ns, E_ns, x_arr, dx = eigenstates(ns, m, omega, hbar, nx, xmin, xmax)
-    # Generate the system thermal density matrix
-    rho = np.zeros((ns,ns),dtype=complex)                   
-    for s in range(0,ns):
-        for sp in range(0,ns):
-            rho[s,sp] = np.sum(np.exp(-beta*E_ns)*psi_ns[s,:]*np.conj(psi_ns[sp,:]))
+    def pos_matrix(self):
+        psi_ns, E_ns, x_arr = self.eigenstates()
+        # Generate the position matrix in energy basis
+        pos_matrix = np.zeros((self.ns,self.ns),dtype=complex)                   
+        for m in range(0,self.ns):
+            for n in range(0,self.ns):
+                pos_matrix[m,n] = np.sum(x_arr[:]*np.conj(psi_ns[:,m])*psi_ns[:,n]*self.dx)
+        return pos_matrix#, x_arr, dx
 
-    if(0): #lets instead use |n><n|
-        n=1
-        rho = np.outer(psi_ns[:,n],np.conj(psi_ns[:,n]))
-    if(0): #lets instead use |n><n'|
-        n=1
-        nprime=2
-        rho = np.outer(psi_ns[:,n],np.conj(psi_ns[:,nprime]))
-
-    return rho
+    # Generates the initial system density matrix in the position basis
+    def rho0(self,beta):
+        # Get eigenstates (alternatively we could use DVRs)
+        psi_ns, E_ns, x_arr = self.eigenstates()
+        return np.diag(np.exp(-beta*E_ns))

@@ -5,8 +5,9 @@ from hashmap import generateHashmap
 #
 #   This is the integrator for the HEOM
 #
+#   it is done in the energy eigenbasis
 class Integrator:
-    def __init__(self,gam_ks,C_ks,ns,ds,Imax,H_mat,s_mat_ds,K,hbar,L):
+    def __init__(self,gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L):
         self.ns = ns
         self.Imax = Imax
         self.L = L
@@ -18,8 +19,7 @@ class Integrator:
         # This is done because lists are not hashable, and tuples are   
         self.I2ind , self.ind2I = generateHashmap(K,L)
         self.H_mat = H_mat
-        self.s_mat = s_mat_ds/ds # position operator matrix - division by to ensure divergence as ds -> 0
-        self.ds = ds
+        self.s_mat = s_mat # position operator matrix 
         # Bath coefficients
         self.gam_ks = gam_ks
         self.C_ks = C_ks
@@ -48,7 +48,7 @@ class Integrator:
             return self.ind2I[ind]  
 
     def commutator(self,A,B):
-        return (A@B - B@A)*self.ds
+        return (A@B - B@A)
 
     # gives the unperturbed Liouvillian acting on the ADO = i/hbar [H,rho]
     def L0(self,rho):
@@ -78,7 +78,7 @@ class Integrator:
 
                 # The gradient for the -1 terms [may not exist]
                 if I_nkm1 != -1:
-                    gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)*self.ds
+                    gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
 
 
         return gradient
