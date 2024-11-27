@@ -23,6 +23,11 @@ class Integrator:
         # Bath coefficients
         self.gam_ks = gam_ks
         self.C_ks = C_ks
+        # objects in RK4 calculation
+        self.k1 = np.zeros((ns,ns,Imax),dtype=complex)
+        self.k2 = np.zeros((ns,ns,Imax),dtype=complex)
+        self.k3 = np.zeros((ns,ns,Imax),dtype=complex)
+        self.k4 = np.zeros((ns,ns,Imax),dtype=complex)
 
     # returns the tier of the ADO from its list of indices
     def tier(self,ind):
@@ -55,41 +60,47 @@ class Integrator:
         return 1.j/self.hbar * self.commutator(self.H_mat,rho)
 
     # gives the gradient of the density matrix with respect to time
-    def drhodt(self,rho):
-        gradient = np.zeros((self.ns,self.ns,self.Imax),dtype=complex)
+    def drhodt(self,rho, gradient):
+        gradient[:,:,:] = 0
 
         for I in range(0,self.Imax):
             n_ks = np.array(self.I2ind[I]) # the indexes of the ADO - will be used as coefficients 
 
-            gradient[:,:,I] = -self.L0(rho[:,:,I]) - np.sum(n_ks*self.gam_ks)*rho[:,:,I]
+            gradient[:,:,I] = -self.L0(rho[:,:,I])# - np.sum(n_ks*self.gam_ks)*rho[:,:,I]
 
-            for k in range(self.K):
-                # the ADOs that are one element different from the current ADO
-                I_nkp1 = self.I_nk_plusminus(I,k,+1)
-                I_nkm1 = self.I_nk_plusminus(I,k,-1)
+            # for k in range(self.K):
+            #     # the ADOs that are one element different from the current ADO
+            #     I_nkp1 = self.I_nk_plusminus(I,k,+1)
+            #     I_nkm1 = self.I_nk_plusminus(I,k,-1)
 
-                Ck = self.C_ks[k]
-                nk = n_ks[k]
-                absCk = np.abs(Ck)
+            #     Ck = self.C_ks[k]
+            #     nk = n_ks[k]
+            #     absCk = np.abs(Ck)
 
-                # The gradient for the +1 terms [may not exist]
-                if I_nkp1 != -1:
-                    gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
+            #     # The gradient for the +1 terms [may not exist]
+            #     if I_nkp1 != -1:
+            #         gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
 
-                # The gradient for the -1 terms [may not exist]
-                if I_nkm1 != -1:
-                    gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
+            #     # The gradient for the -1 terms [may not exist]
+            #     if I_nkm1 != -1:
+            #         gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
 
 
         return gradient
 
     # RK4 step
     def rk4_step(self,x0,dt):
-        k1 = self.drhodt(x0)
-        k2 = self.drhodt(x0 + 0.5*dt*k1)
-        k3 = self.drhodt(x0 + 0.5*dt*k2)
-        k4 = self.drhodt(x0 + dt*k3)
-        return x0 + dt/6*(k1 + 2*k2 + 2*k3 + k4)
+        self.drhodt(x0,gradient=self.k1)
+        self.k1 = self.k1 * (dt/2)
+
+        self.drhodt(x0+self.k1,gradient=self.k2)
+        self.k2 = self.k2 * (dt/2)
+
+        self.drhodt(x0+self.k2,gradient=self.k3)
+        self.k3 = self.k3 * (dt)
+        
+        self.drhodt(x0+self.k3,gradient=self.k4)
+        return x0 + dt/6.*self.k4 + (2./3.)*self.k2 + (self.k3 + self.k1)/3.
 
 if(0): #old rk4 testing code
     p0 = np.ones(2)

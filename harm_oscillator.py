@@ -32,7 +32,7 @@ class Harmonic_oscillator:
             prefac = 1/np.sqrt(2.**i * np.math.factorial(i))   * (alph/np.pi)**0.25
             Hi = special.hermite(i)
             psi_ns[:,i] = prefac * Hi(np.sqrt(alph)*x_arr) * np.exp(-alph*x_arr**2/2)
-            E_ns[i] = self.hbar*self.omega*(i)    # No lamb shift here
+            E_ns[i] = self.hbar*self.omega*(i+0.5)    # No lamb shift here
 
         if(0):# plot the eigenstates
             fig = plt.figure()
@@ -61,10 +61,12 @@ class Harmonic_oscillator:
         for m in range(0,self.ns):
             for n in range(0,self.ns):
                 pos_matrix[m,n] = np.sum(x_arr[:]*np.conj(psi_ns[:,m])*psi_ns[:,n]*self.dx)
+                # pos_matrix[m,n] = np.vdot(np.conj(psi_ns[:,m]),x_arr[:]*psi_ns[:,n])*self.dx
         return pos_matrix#, x_arr, dx
 
     # Generates the initial system density matrix in the position basis
     def rho0(self,beta):
         # Get eigenstates (alternatively we could use DVRs)
         psi_ns, E_ns, x_arr = self.eigenstates()
-        return np.diag(np.exp(-beta*E_ns))
+        delEs = E_ns - E_ns[0] #assumes the ground state is the zero of energy
+        return np.diag(np.exp(-beta*delEs))

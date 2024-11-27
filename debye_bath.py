@@ -16,7 +16,7 @@ class Debye_bath():
         self.N = 2*self.mu+1 #number of beads or matsubara modes (ODD)
         #
         self.mode= mode
-        self.C0 = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
+        self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
 
     def J(self,w,plotme=False,ax=plt):
         w = np.linspace(0,2,1000)
@@ -28,14 +28,19 @@ class Debye_bath():
     # Calculate the C_ks and gam_ks for a given set of ws
     def calc_coefs(self,ws):
         d = np.zeros(self.mu+1)
-        d0sum = np.sum(1/(self.gam**2*np.ones_like(ws) + ws**2))
-        d[0] = self.eta/self.beta + 2*self.eta*self.gam**2/self.beta + d0sum
+        if self.mode == 'nbead':
+            d0sum = np.sum(1/(self.gam**2 - ws**2))
+            d[0] = self.eta/self.beta + (2*self.eta*self.gam**2/self.beta) * d0sum
+        elif self.mode == 'matsubara': #give the infinite mode prefactor
+            d[0] = (self.hbar*self.eta*self.gam/2) /np.tan(self.beta*self.hbar*self.gam/2)
+        else:
+            raise ValueError('Invalid mode')
         d[1:] = -(2*self.eta*self.gam/self.beta) * ws[1:]/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2)
         dI = -self.hbar*self.eta*self.gam/2
 
         # Calculate the C_ks
         C_ks = np.zeros(self.mu+1,dtype=complex)
-        C_ks[0] = (d[0] + dI*0+1.j)
+        C_ks[0] = (d[0] + dI*1.j)
         C_ks[1:] = d[1:]
 
         #Calculate the gam_ks
@@ -66,21 +71,21 @@ class Debye_bath():
     def get_coeffs(self,mode=None):
         if mode is None: mode = self.mode #allowing override of the mode from the __init__
 
-        if self.mu == 0:
-            return np.array([self.C0]),np.array([self.gam]) #the high temperature limit - no matsubara terms
+        if mode == 'highT':
+            return np.array([self.C0hot]),np.array([self.gam]) #the high temperature limit - no matsubara terms
 
         if mode == 'matsubara':
             betaN = self.beta/self.N
             wN=1/(betaN*self.hbar)
             wns = np.array([2*wN*np.pi*k/self.N for k in range(0,self.mu+1)])
-            print(wns)
+            # print(wns)
             return self.calc_coefs(wns)
 
         if mode == 'nbead':
             betaN =  self.beta/self.N
             wN=1/(betaN*self.hbar)
             wks = np.array([2*wN*np.sin(np.pi*k/self.N) for k in range(0,self.mu+1)])
-            print(wks)
+            # print(wks)
 
             return self.calc_coefs(wks)
         else:
