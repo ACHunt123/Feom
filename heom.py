@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# File: heom.py
 from hashmap import  total_length
 from harm_oscillator import Harmonic_oscillator
 from debye_bath import Debye_bath
@@ -25,9 +27,9 @@ beta150 = 2105.167529048837
 
 beta = beta150 #in Adam's code
 hbar=1
-K = 1           #  the number of elements in the BCFs
-L = 0           # the depth of the ADO expansion
-ns = 4         # number of eigenstates to be propagated
+L = 3           # the depth of the ADO expansion
+K = 3           #  the number of elements in the BCFs
+ns = 10         # number of eigenstates to be propagated
 
 
 ### Hamiltonian and system setup - harmonic oscillator - same as Adam's code
@@ -38,10 +40,6 @@ diff = 2 * d0 *  alpha**2
 const = d0 *  alpha**2
 omega = (diff/m)**(0.5)
 
-mass                      =     1741.1
-beta                      =     2105.167529048837
-eta                       =     118.60676594240476
-omega                     =     0.01703043563586307
 
 ### Position basis parameters for calculation of matrices
 xmin = -5
@@ -59,7 +57,7 @@ gam= omega
 
 ### Get bath coefficients
 bath = Debye_bath(eta,gam,beta,hbar,K,bathmode)
-C_ks,gam_ks = bath.get_coeffs()
+C_ks,gam_ks = bath.get_coeffs() 
 
 ## Generate matrices in eigenbasis
 pot = Harmonic_oscillator(m,omega,hbar,xmin,xmax,dx,ns)
@@ -71,17 +69,6 @@ rho_s = pot.rho0(beta)  #unrormed system density matrix = e^(-beta*H_s)
 Zs = np.trace(rho_s)     #partition function
 rho_s0 = rho_s@s_mat/Zs  # initial density operator, normalised by the partition function 
 
-## FOR bBENCHMARKING
-# # load the matrices from Adam's code
-# H_mat = np.loadtxt('hams/ham.dat',dtype=complex)
-# s_mat = np.loadtxt('q_mats/q_mat.dat',dtype=complex)
-# rho_s0 = np.loadtxt('rhos/rho0.dat',    dtype=complex)
-# rho_s0 = rho_s@s_mat/Zs  # initial density operator, normalised by the partition function 
-
-#save to a files
-# np.savetxt('rhos/COLErho0.txt',np.round(np.real(rho_s0),10))
-# np.savetxt('q_mats/COLEqmat.txt',np.round(np.real(s_mat),10))
-# np.savetxt('hams/COLEham.txt',np.round(np.real(H_mat),10))
 
 if(0):  # tests
     print('### Tests ###')
@@ -103,13 +90,14 @@ if(0):  # tests
 ### Variables and arrays
 Imax = total_length(K,L)                    # the total number of ADOs
 rho = np.zeros((ns,ns,Imax),dtype=complex)  # holds all of the ADOs. rho[s,s',0] is the system density matrix
-rho[:,:,0] = rho_s0                         # initial condition = e^-beta*H_s * s
+rho[:,:,0] = rho_s0                         # put in the initial density matrix into the ADOS
 
 #setup the integrator
-integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L)
+lowTcoef = eta/(beta*hbar**2) - (1/hbar**2)*np.sum(np.real(C_ks)/gam_ks) if bathmode == 'matsubara' else 0
+integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef)
 
 ### Propagation
-tmax = 100
+tmax = 200
 dt= 1
 nt =int(tmax/dt)+1
 t_arr = np.arange(nt)*dt

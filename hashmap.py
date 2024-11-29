@@ -21,14 +21,19 @@ import matplotlib.pyplot as plt
 # number of ADOs in the n'th tier with k elements
 def length(n,k):
     return np.math.factorial(n+k-1) // np.math.factorial(k-1) // np.math.factorial(n) # = [ (n+k-1) C (k-1)]
+    # return np.math.factorial(n) // (np.math.factorial(k_)* np.math.factorial(n-k_))
 
 # total number of ADOs for a given K and max_N
-def total_length(K,max_N):
+def total_length(K_old,max_N):
+    K=K_old+1
     return sum([length(n,K) for n in range(0,max_N+1)])
     
 
 
-def generateHashmap(K,max_N,write_to_file = False):
+def generateHashmap(K_old,max_N,write_to_file = False):
+    K=K_old+1
+    # K here is the number of exponential terms in the BCF
+    # K_old is the number of modes (K in HEOM literature)
 
     #generates the set of indicies corresponding to the n'th tier with K elements
     def generatenumbers(n, k): 
@@ -84,7 +89,6 @@ def generateHashmap(K,max_N,write_to_file = False):
         allnums= np.concatenate((allnums,generatenumbers(i,K))) #concatenate the set of indicies to the list of all indicies
 
     def tup2list(tup):
-        print   (tup)
         return [int(i) for i in tup.split(',')]
 
     # Create the hashmaps and format them as described above

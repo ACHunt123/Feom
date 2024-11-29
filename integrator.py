@@ -1,5 +1,5 @@
 import numpy as np
-import scipy
+import scipy, sys
 import matplotlib.pyplot as plt
 from hashmap import generateHashmap
 #
@@ -7,12 +7,13 @@ from hashmap import generateHashmap
 #
 #   it is done in the energy eigenbasis
 class Integrator:
-    def __init__(self,gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L):
+    def __init__(self,gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef):
         self.ns = ns
         self.Imax = Imax
         self.L = L
         self.K = K
         self.hbar = hbar
+        self.lowTcoef=lowTcoef
         # The formatting of the Hashmaps are as follows:
         # I2ind[I] : int I -> list of ints corresponding to the BCF indecies
         # ind2I[ind] :tuple of ints -> int I
@@ -45,7 +46,7 @@ class Integrator:
         if nkpm < 0:
             return -1
         # if the tier of the ADO index does not exist the function returns -1
-        elif self.tier(ind) >= self.L:
+        elif self.tier(ind) > self.L:
             return -1
         # Otherwise, the function find the index of the ADO with the same elements as ind, but with the kth element changed to nkpm and return it
         else:
@@ -66,25 +67,29 @@ class Integrator:
         for I in range(0,self.Imax):
             n_ks = np.array(self.I2ind[I]) # the indexes of the ADO - will be used as coefficients 
 
-            gradient[:,:,I] = -self.L0(rho[:,:,I])# - np.sum(n_ks*self.gam_ks)*rho[:,:,I]
+            gradient[:,:,I] = -self.L0(rho[:,:,I]) - np.sum(n_ks*self.gam_ks)*rho[:,:,I]
 
-            # for k in range(self.K):
-            #     # the ADOs that are one element different from the current ADO
-            #     I_nkp1 = self.I_nk_plusminus(I,k,+1)
-            #     I_nkm1 = self.I_nk_plusminus(I,k,-1)
+            # if self.lowTcoef!=0 : # if the bath is in the matsubara mode employ the Ishizaki-Tanimura method
+            #     gradient[:,:,I] -= self.commutator(self.s_mat,self.commutator(self.s_mat,rho[:,:,I])) * self.lowTcoef
 
-            #     Ck = self.C_ks[k]
-            #     nk = n_ks[k]
-            #     absCk = np.abs(Ck)
+            for k in range(self.K+1): # as there are K+1 terms in the BCF
 
-            #     # The gradient for the +1 terms [may not exist]
-            #     if I_nkp1 != -1:
-            #         gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
+                # the ADOs that are one element different from the current ADO
+                I_nkp1 = self.I_nk_plusminus(I,k,+1)
+                I_nkm1 = self.I_nk_plusminus(I,k,-1)
 
-            #     # The gradient for the -1 terms [may not exist]
-            #     if I_nkm1 != -1:
-            #         gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
+                Ck = self.C_ks[k]
+                nk = n_ks[k]
+                absCk = np.abs(Ck)
 
+                # The gradient for the +1 terms [may not exist]
+                if I_nkp1 != -1:
+                    gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
+
+                # The gradient for the -1 terms [may not exist]
+                if I_nkm1 != -1:
+                    gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
+                    # gradient[:,:,I_nkm1] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I]) * np.sqrt(absCk*(nk+1)) 
 
         return gradient
 
@@ -102,29 +107,3 @@ class Integrator:
         self.drhodt(x0+self.k3,gradient=self.k4)
         return x0 + dt/6.*self.k4 + (2./3.)*self.k2 + (self.k3 + self.k1)/3.
 
-if(0): #old rk4 testing code
-    p0 = np.ones(2)
-    A = np.array([[0,1],[-1,2]])
-    def grad(p):
-        return A.T@p
-
-
-    dt = 0.1
-    p = p0
-    ps = np.zeros((100,2))
-    analyt_ps = np.zeros((100,2))
-    t = []
-    for i in range(100):
-        ti=i*dt
-        p_dp = rk4_step(p,dt)
-        ps[i,:] = p
-        t.append(ti)
-        analyt_ps[i,:] = p0@scipy.linalg.expm(A*ti)
-        p = p_dp
-
-
-    plt.plot(t,ps[:,0])
-    plt.plot(t,ps[:,1])
-    plt.plot(t,analyt_ps[:,0],'--')
-    plt.plot(t,analyt_ps[:,1],'--')
-    plt.show()

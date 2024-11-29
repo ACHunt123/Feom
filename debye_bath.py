@@ -7,12 +7,13 @@ import matplotlib.pyplot as plt
 
 class Debye_bath():
     def __init__(self,eta,gam,beta,hbar,K,mode='matsubara'):
+        #K is the number of matsubara modes
         self.eta = eta
         self.gam = gam
         self.beta = beta
-        self.K = K
         self.hbar = hbar
-        self.mu = K-1 #number of pairs of matsubara modes/ r.p. modes. As there is one exponential term for debye, K-1 of the terms are matsubara terms
+        self.mu = K #number of pairs of matsubara modes/ r.p. modes. As there is one exponential term for debye, K-1 of the terms are matsubara terms
+        # The above line is true for the debye bath, but not for the general case with other numbers of exponential terms
         self.N = 2*self.mu+1 #number of beads or matsubara modes (ODD)
         #
         self.mode= mode
