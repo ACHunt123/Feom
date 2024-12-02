@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 
 
 # Avoiding numpy parallelisation
-# import os
-# os.environ['OPENBLAS_NUM_THREADS'] = '1'
-# os.environ['MKL_NUM_THREADS'] = '1'
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
 
 #
 # Basic HEOM code

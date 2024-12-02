@@ -85,11 +85,12 @@ class Integrator:
                 # The gradient for the +1 terms [may not exist]
                 if I_nkp1 != -1:
                     gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
+                    # gradient[:,:,I_nkp1] -= 1.j/self.hbar * np.sqrt((nk+1)/absCk) * (Ck*self.s_mat@rho[:,:,I] - np.conj(Ck)*rho[:,:,I]@self.s_mat)
 
                 # The gradient for the -1 terms [may not exist]
                 if I_nkm1 != -1:
                     gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
-                    # gradient[:,:,I_nkm1] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I]) * np.sqrt(absCk*(nk+1)) 
+                    # gradient[:,:,I_nkm1] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I]) * np.sqrt(absCk*(nk)) 
 
         return gradient
 

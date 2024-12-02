@@ -1,0 +1,5 @@
+#!/bin/bash
+for directory in ????-??-??_??-??-??_*/;do
+    touch ${directory}${directory/"/"/""}
+    mv ${directory} ${directory:20}
+done
