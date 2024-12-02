@@ -86,4 +86,5 @@ sop_decomposition_types = {
         "pade_N-1/N",
         "pade_N/N",
         "pade_N+1/N",
+        "nbead",
         }

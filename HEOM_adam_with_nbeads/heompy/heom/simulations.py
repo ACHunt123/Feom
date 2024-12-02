@@ -13,6 +13,9 @@ import pickle
 from heom.general import hbar, pi, formatflt, write_complex_pair, write_int_mat, write_real_mat, write_cplx_mat, get_flattening_coefficients
 import heom.dvr as dvr
 import heom.psd as psd
+# Add the nbead jagged mode debye bath from my code
+sys.path.append('/home/ach221/software/phd/heom/')
+from debye_bath import Debye_bath 
 
 #import pyheom
 #******************************************************************************
@@ -623,7 +626,7 @@ class SimMats(object):
     def make_gammas(self):
         gammas = []
         if "debye" in self.bath_type:
-            gammas.append(self.gamma)
+            gammas.append(self.gamma) #the zeroth gamma is the system one
             if self.sop_decomposition_type=="matsubara":
                 for k in range(1,self.cK+1):
                     gammas.append(2*pi*k/(self.beta*hbar))
@@ -633,6 +636,12 @@ class SimMats(object):
                 for k in range(1,self.cK+1):
                     gammas.append(self.psd_xi[k-1]/(self.beta*hbar))
                     # xi_k = beta*hbar*gamma_k
+            elif self.sop_decomposition_type=="nbead": #NOTE- nbead BCF implementaion, sines go here
+                bathmode = ['nbead','matsubara'][0]
+                bathobj = Debye_bath(self.eta*self.gamma,self.gamma,self.beta,hbar,self.cK,bathmode)
+                _,gammas = bathobj.get_coeffs() 
+                gammas = gammas.tolist()
+                # sys.exit()
         elif "white" in self.bath_type:
             if "pade" in self.sop_decomposition_type:
                 psd.scheme = self.sop_decomposition_type
@@ -671,6 +680,17 @@ class SimMats(object):
                 for i in range(1,self.cK+1):
                     self.low_T_coef_R += (-1/(hbar**2))*self.cs[i]/self.gammas[i]
                 self.low_T_coef_I = (-1j/(hbar**2))*self.c0I/self.gamma
+            #********************************************************
+            # Nbead jagged mode
+            #********************************************************
+            elif self.sop_decomposition_type=="nbead":  #NOTE- nbead BCF implementaion, Cks go here
+                bathmode = ['nbead','matsubara'][0]
+                bathobj = Debye_bath(self.eta*self.gamma,self.gamma,self.beta,hbar,self.cK,bathmode)
+                self.cs,_ = bathobj.get_coeffs() 
+                self.cs = self.cs.tolist()
+                self.low_T_coef_R = 0
+                self.low_T_coef_I = 0
+                #still not sure what the lowT correction will be (is this the xi thing?)
             #********************************************************
             # Pade
             #********************************************************
