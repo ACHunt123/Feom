@@ -26,8 +26,8 @@ beta150 = 2105.167529048837
 
 beta = beta150 #in Adam's code
 hbar=1
-L = 2           # the depth of the ADO expansion
-K = 2           #  the number of elements in the BCFs
+L = 0           # the depth of the ADO expansion
+K = 0           #  the number of elements in the BCFs
 ns = 10         # number of states to be propagated
 
 
@@ -39,7 +39,7 @@ diff = 2 * d0 *  alpha**2
 omega = (diff/m)**(0.5)
 bathmode = ['nbead','matsubara'][1]
 eta_crit = 2*m*omega  #critical cutoff frequency 
-eta_ADAM=0.2*eta_crit
+eta_ADAM=2*eta_crit
 eta = eta_ADAM*omega 
 gam= omega
 
@@ -87,8 +87,8 @@ lowTcoef = eta/(beta*hbar**2) - (1/hbar**2)*np.sum(np.real(C_ks)/gam_ks) if bath
 integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef)
 
 ### Propagation
-tmax = 2000
-dt= 1
+tmax = 20
+dt= 0.01
 nt =int(tmax/dt)+1
 t_arr = np.arange(nt)*dt
 
@@ -101,9 +101,8 @@ if show_plots:
     line, = ax2.plot(t_arr,np.zeros_like(t_arr),'b',label='numerical')
     plt.ion()
     if(1):# plot the analytical solution for uncoupled harmonic oscillator
-        x = np.exp(beta*hbar*omega/2)
-        xm1 = x**-1
-        Css_analyt_re = ((hbar/(2*m*omega)) * (x+xm1)/(x-xm1))*np.cos(omega*t_arr)
+        t_arr,Css_analyt_re = pot.analytic_uncoupled(beta,t_arr=t_arr)
+
         ax2.plot(t_arr,Css_analyt_re,'--',color='red',label='analytical') if show_plots else [None]
         np.savetxt('CssANALYTIC.txt',np.transpose([t_arr,Css_analyt_re]))
     line, = ax2.plot(t_arr,np.zeros_like(t_arr),'b',label='numerical') if show_plots else [None]

@@ -20,7 +20,7 @@ class Integrator:
         # This is done because lists are not hashable, and tuples are   
         self.I2ind , self.ind2I = generateHashmap(K,L)
         self.H_mat = H_mat
-        self.s_mat = s_mat # position operator matrix 
+        self.s_mat = s_mat # perturbation operator (could be q for example) 
         # Bath coefficients
         self.gam_ks = gam_ks
         self.C_ks = C_ks

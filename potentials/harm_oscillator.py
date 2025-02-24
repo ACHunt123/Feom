@@ -91,3 +91,11 @@ class Harmonic_oscillator:
     # Generate the correlation function (this is hardcoded)
     def corr(self,rho_s,t):
         return np.trace(rho_s[:,:]@self.pos_matrix()),t
+
+    
+    def analytic_uncoupled(self,beta,t_arr=np.arange(0,10,0.1)):# calculatees the analytic solution for the uncoupled system
+        x = np.exp(beta*self.hbar*self.omega/2)
+        xm1 = x**-1
+        Css_analyt_re = ((self.hbar/(2*self.m*self.omega)) * (x+xm1)/(x-xm1))*np.cos(self.omega*t_arr)
+
+        return t_arr,Css_analyt_re
