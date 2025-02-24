@@ -68,7 +68,7 @@ class Debye_bath():
             print(mode)
         return t,C
 
-    # Calculate the C_ks and gam_ks for a bath
+    # Calculate the C_ks and gam_ks for a bath, mode is the bath decomposition mode
     def get_coeffs(self,mode=None):
         if mode is None: mode = self.mode #allowing override of the mode from the __init__
 

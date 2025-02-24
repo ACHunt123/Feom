@@ -78,21 +78,23 @@ class Integrator:
                 I_nkp1 = self.I_nk_plusminus(I,k,+1)
                 I_nkm1 = self.I_nk_plusminus(I,k,-1)
 
+                if(0):
+                    print('I:',I,'===',self.I2ind[I], '-- k =',k)
+                    print('I_nkp1:',self.I2ind[I_nkp1]) if I_nkp1 != -1 else print('I_nkp1:',I_nkp1,'===','not here')
+                    print('I_nkm1:',self.I2ind[I_nkm1]) if I_nkm1 != -1 else print('I_nkm1:',I_nkm1,'===','not here')
+                    print('---')
+
                 Ck = self.C_ks[k]
                 nk = n_ks[k]
                 absCk = np.abs(Ck)
 
                 # The gradient for the +1 terms [may not exist]
                 if I_nkp1 != -1:
-                    # gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
-                    gradient[:,:,I_nkp1] -= 1.j/self.hbar * np.sqrt((nk+1)/absCk) * (Ck*self.s_mat@rho[:,:,I] - np.conj(Ck)*rho[:,:,I]@self.s_mat)
+                    gradient[:,:,I] -= 1.j/self.hbar *np.sqrt((nk+1)*absCk) * self.commutator(self.s_mat,rho[:,:,I_nkp1])
 
                 # The gradient for the -1 terms [may not exist]
                 if I_nkm1 != -1:
-                    # gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
-                    gradient[:,:,I_nkm1] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I]) * np.sqrt(absCk*(nk)) 
-
-        return gradient
+                    gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
 
     # RK4 step
     def rk4_step(self,x0,dt):

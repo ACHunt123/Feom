@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# File: heom.py
 from hashmap import  total_length
 from integrator import Integrator
 import Heom.baths as baths
@@ -10,51 +9,61 @@ import sys
 import matplotlib.pyplot as plt
 
 
-# Avoiding numpy parallelisation
-import os
-os.environ['OPENBLAS_NUM_THREADS'] = '1'
-os.environ['MKL_NUM_THREADS'] = '1'
+if(0):    # Avoid numpy parallelisation
+    import os
+    os.environ['OPENBLAS_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
 
 #
 # Basic HEOM code
 #
 
-
-### Parameters
-beta600 = 526.2918822622093
-beta300 = 1052.5837645244185
-beta150 = 2105.167529048837
-
-beta = beta150 #in Adam's code
+### Parameters 
 hbar=1
-L = 0           # the depth of the ADO expansion
-K = 0           #  the number of elements in the BCFs
+L = 3           # the depth of the ADO expansion
+K = 3           #  the number of elements in the BCFs
 ns = 2         # number of states to be propagated
 
+### more Parameters
+    # beta600 = 526.2918822622093
+    # beta300 = 1052.5837645244185
+    # beta150 = 2105.167529048837
 
-### Bath parameters - Debye bath [from ADAM]
-m =1741.1
-d0 = 0.18748
-alpha = 1.1605
-diff = 2 * d0 *  alpha**2
-omega = (diff/m)**(0.5)
-bathmode = ['nbead','matsubara'][1]
-eta_crit = 2*m*omega  #critical cutoff frequency 
-eta_ADAM=2*eta_crit
-eta = eta_ADAM*omega 
-gam= omega
+    # beta = beta150 #in Adam's code
+
+    ### Bath parameters - Debye bath [from ADAM]
+    # m =1741.1
+    # d0 = 0.18748
+    # alpha = 1.1605
+    # diff = 2 * d0 *  alpha**2
+    # omega = (diff/m)**(0.5)
+    # eta_crit = 2*m*omega  #critical cutoff frequency 
+    # eta_ADAM=2*eta_crit
+    # eta = eta_ADAM*omega 
+    # gam= omega
+
+Delta=1
+wc=1*Delta
+eps=1*Delta
+Lambda = 0.5*Delta
+beta=0.25/Delta
+
+eta = Lambda/2
+gam = wc
+
 
 
 ### Get bath coefficients
 bathname = ['debye'][0]
+bathmode = ['nbead','matsubara'][1]
 bath = baths.getbath(bathname)(eta,gam,beta,hbar,K,bathmode)
 C_ks,gam_ks = bath.get_coeffs() 
 
 ## Generate matrices in eigenbasis
 potname=['harmonic','spinboson'][1]
 pot = potentials.getpotential(potname)(ns=ns)
-H_mat = pot.H_matrix()  # Hamiltonian matrix in the eigenbasis
-s_mat = pot.pos_matrix() # position operator matrix in the eigenbasis
+H_mat = pot.H_matrix()      # Hamiltonian matrix in the eigenbasis
+s_mat = pot.pos_matrix()    # position operator matrix in the eigenbasis
 
 ### Initial conditions and correlation function function [all hardcoded into potentials]
 rho_s0,Zs = pot.initcond(beta) # initial density operator and partition function 
@@ -88,7 +97,7 @@ integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef)
 
 ### Propagation
 tmax = 20
-dt= 0.01
+dt= 0.001
 nt =int(tmax/dt)+1
 t_arr = np.arange(nt)*dt
 
@@ -112,7 +121,7 @@ for it in range(nt):
 
     Css[it], t_arr[it] = Corr(rho[:,:,0],t_arr[it]) #t is an arguement as it may be scaled by potential params
     rho = integrator.rk4_step(rho,dt)
-
+    # if it==2:sys.exit()
     # plot the density matrix and the Css
     if(it%10==0 and show_plots):
         line.remove()
@@ -125,7 +134,6 @@ for it in range(nt):
 # NOTE need a file namer
 np.savetxt('Css.txt',np.transpose([t_arr,np.real(Css)]))
 print('files saved')
-print(Css.shape)
 plt.show()
 
 ### Functions
