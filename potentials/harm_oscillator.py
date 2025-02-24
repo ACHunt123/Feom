@@ -6,10 +6,25 @@ import matplotlib.pyplot as plt
 
 ### Generates the Hamiltonian matrix for a harmonic oscillator in the position basis
 class Harmonic_oscillator:
-    def __init__(self,m,omega,hbar,xmin,xmax,dx,ns):
+    def __init__(self,ns=10):
+        ### Hamiltonian and system setup - harmonic oscillator - same as Adam's code
+        m =1741.1
+        d0 = 0.18748
+        alpha = 1.1605
+        diff = 2 * d0 *  alpha**2
+        const = d0 *  alpha**2
+        omega = (diff/m)**(0.5)
+
+        ### Position basis parameters for calculation of matrices
+        xmin = -5
+        xmax = 5
+        dx = 0.01
+        ns = 10         # number of eigenstates to be propagated
+
+
         self.m = m
         self.omega = omega
-        self.hbar = hbar
+        self.hbar = 1
         self.xmin = xmin
         self.xmax = xmax
         self.dx = dx

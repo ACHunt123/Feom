@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # File: heom.py
 from hashmap import  total_length
-from harm_oscillator import Harmonic_oscillator
 from debye_bath import Debye_bath
 from integrator import Integrator
 import numpy as np
@@ -29,25 +28,15 @@ beta = beta150 #in Adam's code
 hbar=1
 L = 2           # the depth of the ADO expansion
 K = 2           #  the number of elements in the BCFs
-ns = 10         # number of eigenstates to be propagated
+ns = 10         # number of states to be propagated
 
 
-### Hamiltonian and system setup - harmonic oscillator - same as Adam's code
+### Bath parameters - Debye bath [from ADAM]
 m =1741.1
 d0 = 0.18748
 alpha = 1.1605
 diff = 2 * d0 *  alpha**2
-const = d0 *  alpha**2
 omega = (diff/m)**(0.5)
-
-
-### Position basis parameters for calculation of matrices
-xmin = -5
-xmax = 5
-dx = 0.01
-
-
-### Bath parameters - Debye bath
 bathmode = ['nbead','matsubara'][1]
 eta_crit = 2*m*omega  #critical cutoff frequency 
 eta_ADAM=0.2*eta_crit
@@ -60,7 +49,9 @@ bath = Debye_bath(eta,gam,beta,hbar,K,bathmode)
 C_ks,gam_ks = bath.get_coeffs() 
 
 ## Generate matrices in eigenbasis
-pot = Harmonic_oscillator(m,omega,hbar,xmin,xmax,dx,ns)
+import Heom.potentials as potentials
+potname=['harmonic','spinboson'][0]
+pot = potentials.getpotential(potname)(ns=ns)
 
 H_mat = pot.H_matrix()  # Hamiltonian matrix in the eigenbasis
 s_mat = pot.pos_matrix() # position operator matrix in the eigenbasis
