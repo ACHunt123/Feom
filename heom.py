@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # File: heom.py
 from hashmap import  total_length
-from debye_bath import Debye_bath
 from integrator import Integrator
+import Heom.baths as baths
+import Heom.potentials as potentials
 import numpy as np
 import scipy
 import sys
@@ -28,7 +29,7 @@ beta = beta150 #in Adam's code
 hbar=1
 L = 0           # the depth of the ADO expansion
 K = 0           #  the number of elements in the BCFs
-ns = 10         # number of states to be propagated
+ns = 2         # number of states to be propagated
 
 
 ### Bath parameters - Debye bath [from ADAM]
@@ -45,14 +46,13 @@ gam= omega
 
 
 ### Get bath coefficients
-bath = Debye_bath(eta,gam,beta,hbar,K,bathmode)
+bathname = ['debye'][0]
+bath = baths.getbath(bathname)(eta,gam,beta,hbar,K,bathmode)
 C_ks,gam_ks = bath.get_coeffs() 
 
 ## Generate matrices in eigenbasis
-import Heom.potentials as potentials
-potname=['harmonic','spinboson'][0]
+potname=['harmonic','spinboson'][1]
 pot = potentials.getpotential(potname)(ns=ns)
-
 H_mat = pot.H_matrix()  # Hamiltonian matrix in the eigenbasis
 s_mat = pot.pos_matrix() # position operator matrix in the eigenbasis
 
@@ -98,14 +98,12 @@ show_plots = 1
 if show_plots:
     fig, (ax1, ax2) = plt.subplots(1,2)
     s_arr = np.arange(ns)
-    line, = ax2.plot(t_arr,np.zeros_like(t_arr),'b',label='numerical')
     plt.ion()
     if(1):# plot the analytical solution for uncoupled harmonic oscillator
         t_arr,Css_analyt_re = pot.analytic_uncoupled(beta,t_arr=t_arr)
-
-        ax2.plot(t_arr,Css_analyt_re,'--',color='red',label='analytical') if show_plots else [None]
+        ax2.plot(t_arr,Css_analyt_re,'--',color='red',label='analytical')
         np.savetxt('CssANALYTIC.txt',np.transpose([t_arr,Css_analyt_re]))
-    line, = ax2.plot(t_arr,np.zeros_like(t_arr),'b',label='numerical') if show_plots else [None]
+    line, = ax2.plot([],[],'b',label='numerical')
 
 
 Css = np.zeros_like(t_arr,dtype=complex)
