@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 ### Generates the Hamiltonian matrix spin boson model in diabatic representation
 # Note adiabatic repn is without _'s and diabatic repn is with _'s on matrices
 class Spin_boson:
-    def __init__(self,ns=2):
-        assert ns == 2, "Spin boson model is hardcoded for two levels"
-        self.ns = ns
-        self.Delta = 1
-        self.eps = 1*self.Delta
+    def __init__(self,params):
+        assert params.ns == 2, "Spin boson model is hardcoded for two levels"
+        self.ns = params.ns
+        self.Delta = params.Delta
+        self.eps = params.eps
         # compute the diabatic<->adiabatic transformation matrix ONCE
         H_mat = np.zeros((self.ns,self.ns),dtype=complex)
         H_mat[0,0] = -self.eps
@@ -32,7 +32,7 @@ class Spin_boson:
         return s_mat
 
     # Generates the initial system density matrix and the partition function
-    def initcond(self,beta): #(here we just put the system in the excited state)
+    def initcond(self): #(here we just put the system in the excited state)
         rho_s0 = np.zeros((self.ns,self.ns),dtype=complex)
         rho_s0[1,1] = 1
         Zs = 1
@@ -42,7 +42,7 @@ class Spin_boson:
     def corr(self,rho_s,t): # (return population of the excited diabatic state)
         return rho_s[1,1],t
 
-    def analytic_uncoupled(self,beta,t_arr=np.arange(0,10,0.1)):# calculatees the analytic solution for the uncoupled system
+    def analytic_uncoupled(self,t_arr=np.arange(0,10,0.1)):# calculatees the analytic solution for the uncoupled system
         phi_0=np.zeros((self.ns),dtype=complex)
         phi_0[1]=1
         phi_0 = self.Uda.T@phi_0 #transform into eigenbasis

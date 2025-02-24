@@ -3,6 +3,7 @@ from hashmap import  total_length
 from integrator import Integrator
 import Heom.baths as baths
 import Heom.potentials as potentials
+from Heom.parser import   params
 import numpy as np
 import scipy
 import sys
@@ -19,54 +20,23 @@ if(0):    # Avoid numpy parallelisation
 #
 
 ### Parameters 
-hbar=1
-L = 3           # the depth of the ADO expansion
-K = 3           #  the number of elements in the BCFs
-ns = 2         # number of states to be propagated
-
-### more Parameters
-    # beta600 = 526.2918822622093
-    # beta300 = 1052.5837645244185
-    # beta150 = 2105.167529048837
-
-    # beta = beta150 #in Adam's code
-
-    ### Bath parameters - Debye bath [from ADAM]
-    # m =1741.1
-    # d0 = 0.18748
-    # alpha = 1.1605
-    # diff = 2 * d0 *  alpha**2
-    # omega = (diff/m)**(0.5)
-    # eta_crit = 2*m*omega  #critical cutoff frequency 
-    # eta_ADAM=2*eta_crit
-    # eta = eta_ADAM*omega 
-    # gam= omega
-
-Delta=1
-wc=1*Delta
-eps=1*Delta
-Lambda = 0.5*Delta
-beta=0.25/Delta
-
-eta = Lambda/2
-gam = wc
-
+hbar=params.hbar
+L = params.L           # the depth of the ADO expansion
+K = params.K           #  the number of elements in the BCFs
+ns = params.ns         # number of states to be propagated
 
 
 ### Get bath coefficients
-bathname = ['debye'][0]
-bathmode = ['nbead','matsubara'][1]
-bath = baths.getbath(bathname)(eta,gam,beta,hbar,K,bathmode)
+bath = baths.getbath(params.bathname)(params)
 C_ks,gam_ks = bath.get_coeffs() 
 
 ## Generate matrices in eigenbasis
-potname=['harmonic','spinboson'][1]
-pot = potentials.getpotential(potname)(ns=ns)
+pot = potentials.getpotential(params.potname)(params)
 H_mat = pot.H_matrix()      # Hamiltonian matrix in the eigenbasis
 s_mat = pot.pos_matrix()    # position operator matrix in the eigenbasis
 
 ### Initial conditions and correlation function function [all hardcoded into potentials]
-rho_s0,Zs = pot.initcond(beta) # initial density operator and partition function 
+rho_s0,Zs = pot.initcond() # initial density operator and partition function 
 Corr = pot.corr                # function object to calculate the correlation function - also scales time if neccesary
 
 if(0):  # tests
@@ -92,7 +62,7 @@ rho = np.zeros((ns,ns,Imax),dtype=complex)  # holds all of the ADOs. rho[s,s',0]
 rho[:,:,0] = rho_s0                         # put in the initial density matrix into the ADOS
 
 #setup the integrator
-lowTcoef = eta/(beta*hbar**2) - (1/hbar**2)*np.sum(np.real(C_ks)/gam_ks) if bathmode == 'matsubara' else 0
+lowTcoef = params.eta/(params.beta*params.hbar**2) - (1/params.hbar**2)*np.sum(np.real(C_ks)/gam_ks) if params.bathmode == 'matsubara' else 0
 integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef)
 
 ### Propagation
@@ -109,7 +79,7 @@ if show_plots:
     s_arr = np.arange(ns)
     plt.ion()
     if(1):# plot the analytical solution for uncoupled harmonic oscillator
-        t_arr,Css_analyt_re = pot.analytic_uncoupled(beta,t_arr=t_arr)
+        t_arr,Css_analyt_re = pot.analytic_uncoupled(t_arr=t_arr)
         ax2.plot(t_arr,Css_analyt_re,'--',color='red',label='analytical')
         np.savetxt('CssANALYTIC.txt',np.transpose([t_arr,Css_analyt_re]))
     line, = ax2.plot([],[],'b',label='numerical')

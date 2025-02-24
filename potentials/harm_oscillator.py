@@ -6,31 +6,17 @@ import matplotlib.pyplot as plt
 
 ### Generates the Hamiltonian matrix for a harmonic oscillator in the position basis
 class Harmonic_oscillator:
-    def __init__(self,ns=10):
-        ### Hamiltonian and system setup - harmonic oscillator - same as Adam's code
-        m =1741.1
-        d0 = 0.18748
-        alpha = 1.1605
-        diff = 2 * d0 *  alpha**2
-        const = d0 *  alpha**2
-        omega = (diff/m)**(0.5)
-
-        ### Position basis parameters for calculation of matrices
-        xmin = -5
-        xmax = 5
-        dx = 0.01
-        ns = 10         # number of eigenstates to be propagated
-
-
-        self.m = m
-        self.omega = omega
-        self.hbar = 1
-        self.xmin = xmin
-        self.xmax = xmax
-        self.dx = dx
-        self.ns = ns
+    def __init__(self,params):
+        self.m=params.m
+        self.omega=params.omega
+        self.beta=params.beta
+        self.hbar=params.hbar
+        self.xmin=params.xmin
+        self.xmax=params.xmax
+        self.dx=params.dx
+        self.ns=params.ns
         self.nx = int((self.xmax-self.xmin)/self.dx) # number of x points
-        
+        return
 
         
     # Generates the eigenstates of the Hamiltonian in the posision basis - to be replaced with DVRs
@@ -79,11 +65,11 @@ class Harmonic_oscillator:
         return pos_matrix
 
     # Generates the initial system density matrix and the partition function
-    def initcond(self,beta):
+    def initcond(self):
         # Get eigenstates (alternatively we could use DVRs)
         psi_ns, E_ns, x_arr = self.eigenstates()
         delEs = E_ns - E_ns[0] # the ground state is the zero of energy
-        rho_s = np.diag(np.exp(-beta*delEs))
+        rho_s = np.diag(np.exp(-self.beta*delEs))
         Zs = np.trace(rho_s)
         rho_s0 = rho_s@self.pos_matrix()/Zs
         return rho_s0,Zs
@@ -93,8 +79,8 @@ class Harmonic_oscillator:
         return np.trace(rho_s[:,:]@self.pos_matrix()),t
 
     
-    def analytic_uncoupled(self,beta,t_arr=np.arange(0,10,0.1)):# calculatees the analytic solution for the uncoupled system
-        x = np.exp(beta*self.hbar*self.omega/2)
+    def analytic_uncoupled(self,t_arr=np.arange(0,10,0.1)):# calculatees the analytic solution for the uncoupled system
+        x = np.exp(self.beta*self.hbar*self.omega/2)
         xm1 = x**-1
         Css_analyt_re = ((self.hbar/(2*self.m*self.omega)) * (x+xm1)/(x-xm1))*np.cos(self.omega*t_arr)
 

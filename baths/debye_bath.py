@@ -6,17 +6,17 @@ import matplotlib.pyplot as plt
 # We need to add in pade approximants, but otherwiseshould be mostly complete
 
 class Debye_bath():
-    def __init__(self,eta,gam,beta,hbar,K,mode='matsubara'):
+    def __init__(self,params):
         #K is the number of matsubara modes
-        self.eta = eta
-        self.gam = gam
-        self.beta = beta
-        self.hbar = hbar
-        self.mu = K #number of pairs of matsubara modes/ r.p. modes. As there is one exponential term for debye, K-1 of the terms are matsubara terms
+        self.eta = params.eta
+        self.gam = params.gam
+        self.beta = params.beta
+        self.hbar = params.hbar
+        self.mu = params.K #number of pairs of matsubara modes/ r.p. modes. As there is one exponential term for debye, K-1 of the terms are matsubara terms
         # The above line is true for the debye bath, but not for the general case with other numbers of exponential terms
         self.N = 2*self.mu+1 #number of beads or matsubara modes (ODD)
         #
-        self.mode= mode
+        self.mode= params.bathmode
         self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
 
     def J(self,w,plotme=False,ax=plt):
