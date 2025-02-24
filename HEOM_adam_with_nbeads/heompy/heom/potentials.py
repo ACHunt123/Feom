@@ -298,3 +298,22 @@ class PotDW2(PotDW):
         # originally the mass of the proton = 1836.15267344 a.u.
         mass = inp.mass
         PotDW.__init__(self,mass,eb,omega_b)
+
+#******************************************************************************
+class PotTwoLsys(object):
+    """Two level system potential"""
+    def __init__(self, inp):
+        # self.epsilon = inp.tls_epsilon
+        # self.delta = inp.tls_delta
+        self.epsilon = 1.0
+        self.delta = 2.0
+    def calc(self,x):
+        sys.exit('This potential is a two level system potential')
+
+    def switch(self):
+        self.x0 = self.x0_switch
+        self.const = self.const_switch
+
+    def diff(self,x):
+        sys.exit('This potential is a two level system potential')
+#******************************************************************************

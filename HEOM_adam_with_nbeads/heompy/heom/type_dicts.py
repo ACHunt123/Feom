@@ -19,6 +19,7 @@ potentials = {
         "morse": pots.PotMorse,
         "dw1": pots.PotDW1,
         "dw2": pots.PotDW2,
+        "twoLsys":pots.PotTwoLsys,
         }
 
 states = {

@@ -69,8 +69,8 @@ class Integrator:
 
             gradient[:,:,I] = -self.L0(rho[:,:,I]) - np.sum(n_ks*self.gam_ks)*rho[:,:,I]
 
-            # if self.lowTcoef!=0 : # if the bath is in the matsubara mode employ the Ishizaki-Tanimura method
-            #     gradient[:,:,I] -= self.commutator(self.s_mat,self.commutator(self.s_mat,rho[:,:,I])) * self.lowTcoef
+            if self.lowTcoef!=0 : # if the bath is in the matsubara mode employ the Ishizaki-Tanimura method
+                gradient[:,:,I] -= self.commutator(self.s_mat,self.commutator(self.s_mat,rho[:,:,I])) * self.lowTcoef
 
             for k in range(self.K+1): # as there are K+1 terms in the BCF
 
@@ -84,13 +84,13 @@ class Integrator:
 
                 # The gradient for the +1 terms [may not exist]
                 if I_nkp1 != -1:
-                    gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
-                    # gradient[:,:,I_nkp1] -= 1.j/self.hbar * np.sqrt((nk+1)/absCk) * (Ck*self.s_mat@rho[:,:,I] - np.conj(Ck)*rho[:,:,I]@self.s_mat)
+                    # gradient[:,:,I] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I_nkp1]) * np.sqrt(absCk*(nk+1)) 
+                    gradient[:,:,I_nkp1] -= 1.j/self.hbar * np.sqrt((nk+1)/absCk) * (Ck*self.s_mat@rho[:,:,I] - np.conj(Ck)*rho[:,:,I]@self.s_mat)
 
                 # The gradient for the -1 terms [may not exist]
                 if I_nkm1 != -1:
-                    gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
-                    # gradient[:,:,I_nkm1] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I]) * np.sqrt(absCk*(nk)) 
+                    # gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
+                    gradient[:,:,I_nkm1] -= 1.j/self.hbar * self.commutator(self.s_mat,rho[:,:,I]) * np.sqrt(absCk*(nk)) 
 
         return gradient
 

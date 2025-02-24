@@ -58,7 +58,7 @@ class Debye_bath():
 
         C_ks,gam_ks = self.get_coeffs(mode=mode)
 
-        t = np.linspace(0,10,1000)
+        t = np.linspace(0,100,1000)
         C = np.zeros_like(t,dtype=complex)
         C += C_ks[0]*np.exp(-gam_ks[0]*t)
         for k in range(1,self.mu+1):

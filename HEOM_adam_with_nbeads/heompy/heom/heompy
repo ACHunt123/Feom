@@ -184,7 +184,7 @@ def main_heompy(nametag,inp):
     file_checkpoint2 = "checkpoint2.pickle"
     file_exit = "exit"
     file_ado_trend = "ado_trend"
-    max_RAM_GB = 5
+    max_RAM_GB = 50
     #******************************************************************************
     # Timing - Start
     #******************************************************************************
@@ -195,7 +195,7 @@ def main_heompy(nametag,inp):
     # Initialising objects
     #******************************************************************************
     print("Input eta:",inp.eta)
-    pot_orig = potentials[inp.pot_type](inp)
+    pot_orig = potentials[inp.pot_type](inp) #setup the original potential without renormalisation then the POTEFF object is created to add on the renormalisation
     print("inp bath_type: ",inp.bath_type)
 
     # Renormalisation coefficient
@@ -221,7 +221,12 @@ def main_heompy(nametag,inp):
     # basis of the potential with a_ren
     print("Pot has a_ren:", pot.a_ren)
     state = states[inp.init_state](inp, pot)
-    sim = simulations[inp.sim_type](inp, pot, state)
+
+    #Assertions for my added methods (as they have not been implemented in the other sim types)
+    if inp.sop_decomposition_type =='nbead': assert inp.sim_type=='lowT_qm_ee' and inp.bath_type=='debye'
+    if inp.pot_type =='twoLsys': assert inp.sim_type=='lowT_qm_ee' and inp.a_ren_type=="none"
+
+    sim = simulations[inp.sim_type](inp, pot, state) #NOTE- sim object creation
     if inp.sim_type=="heomc":
         pot = potentials["PotEff"](pot_orig,a_ren=inp.eta/inp.dt)
         ham = dvr.hamiltonian(sim.qs,pot,sim.mass)
@@ -361,10 +366,12 @@ def main_heompy(nametag,inp):
     # Propagating for t>0
     #******************************************************************************
     t_zeropoint = t
+    first = True
     while t<sim.n_t and stability and not exitbool:
         print_status(sim,percent,t)
-        sim.propagate(pot, sim.dt)
-        t = t+1
+        if not first:
+            sim.propagate(pot, sim.dt)
+            t = t+1
         if (dirprod) and t==t_zeropoint+1 and (inp.bath_type == "white"):
             sim.ham = tmp_ham
             sim.iham = (-1j/gen.hbar)*sim.ham
@@ -382,7 +389,7 @@ def main_heompy(nametag,inp):
                 sim.write_tcf_q2q2(file_tcf_q2q2_real, file_tcf_q2q2_imag, sim.ts[t])
             elif inp.heom_switch=="kubo_q2q2":
                 sim.write_tcf_q2q2(file_tcf_q2q2_kubo_real, file_tcf_q2q2_kubo_imag, sim.ts[t])
-
+        first = False
     #******************************************************************************
     # Saving checkpoint 2
     #******************************************************************************

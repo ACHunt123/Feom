@@ -67,7 +67,7 @@ class SimBase(object):
 
         # Setting up the position grid
         self.ns = np.arange(0,self.cL+1)
-        self.qs = np.zeros([self.n_q])
+        self.qs = np.zeros([self.n_q]) #NOTE-qmatrix
         for i in range(self.n_q):
             # + 1 is there just for consistency with Fortran
             self.qs[i] = self.dq*(i + 1 + int(self.q0/self.dq))
@@ -602,6 +602,10 @@ class SimMats(object):
        include the Matsubara terms.
        """
     def __init__(self,inp):
+        # boolean for saving to files
+        self.save_gams = True
+        self.save_cs = True
+        self.exit_after_saving = True
         # Assumes being called with self containing necessary variables
         self.pruning_type = inp.pruning_type
         self.cK = inp.cK
@@ -610,6 +614,7 @@ class SimMats(object):
 
         self.gammas = self.make_gammas()
         self.make_cs() # makes self.cs, self.low_T_coef_R/I
+        if self.exit_after_saving: sys.exit('exit after saving cs and gams')
         self.n0 = tuple(np.zeros(self.cK+1, dtype=int))
         # Scaling variables
         self.coef_up = np.ones([self.cL+1,self.cK+1])
@@ -641,7 +646,6 @@ class SimMats(object):
                 bathobj = Debye_bath(self.eta*self.gamma,self.gamma,self.beta,hbar,self.cK,bathmode)
                 _,gammas = bathobj.get_coeffs() 
                 gammas = gammas.tolist()
-                # sys.exit()
         elif "white" in self.bath_type:
             if "pade" in self.sop_decomposition_type:
                 psd.scheme = self.sop_decomposition_type
@@ -656,6 +660,17 @@ class SimMats(object):
 
         else:
             raise SystemExit("This bath has not yet been implemented")
+        if(self.save_gams): # save to file
+            sop_decomposition_types = {
+            "nbead": "nbead",
+            "matsubara": "matsubara",
+            "pade_N-1/N": "psdM",
+            "pade_N/N": "psdE",
+            "pade_N+1/N": "psdP",
+            }
+            suffix=sop_decomposition_types[self.sop_decomposition_type]
+            np.savetxt(f"gammas_{suffix}.txt",np.array(gammas)+0j)
+
         return tuple(gammas)
 
     def make_cs(self):
@@ -739,6 +754,17 @@ class SimMats(object):
             self.cs = np.zeros(self.cK+1)
         else:
             print("This bath has not yet been implemented")
+        if(self.save_cs): # save to file
+            sop_decomposition_types = {
+            "nbead": "nbead",
+            "matsubara": "matsubara",
+            "pade_N-1/N": "psdM",
+            "pade_N/N": "psdE",
+            "pade_N+1/N": "psdP",
+            }
+            suffix=sop_decomposition_types[self.sop_decomposition_type]
+            np.savetxt(f"cs_{suffix}.txt",np.array(self.cs)+0j)
+
         self.cs = tuple(self.cs)
 
     def propagate(self, pot, dt):

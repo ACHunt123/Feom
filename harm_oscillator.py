@@ -61,12 +61,18 @@ class Harmonic_oscillator:
         for m in range(0,self.ns):
             for n in range(0,self.ns):
                 pos_matrix[m,n] = np.sum(x_arr[:]*np.conj(psi_ns[:,m])*psi_ns[:,n]*self.dx)
-                # pos_matrix[m,n] = np.vdot(np.conj(psi_ns[:,m]),x_arr[:]*psi_ns[:,n])*self.dx
-        return pos_matrix#, x_arr, dx
+        return pos_matrix
 
-    # Generates the initial system density matrix in the position basis
-    def rho0(self,beta):
+    # Generates the initial system density matrix and the partition function
+    def initcond(self,beta):
         # Get eigenstates (alternatively we could use DVRs)
         psi_ns, E_ns, x_arr = self.eigenstates()
-        delEs = E_ns - E_ns[0] #assumes the ground state is the zero of energy
-        return np.diag(np.exp(-beta*delEs))
+        delEs = E_ns - E_ns[0] # the ground state is the zero of energy
+        rho_s = np.diag(np.exp(-beta*delEs))
+        Zs = np.trace(rho_s)
+        rho_s0 = rho_s@self.pos_matrix()/Zs
+        return rho_s0,Zs
+
+    # Generate the correlation function (this is hardcoded)
+    def corr(self,rho_s,t):
+        return np.trace(rho_s[:,:]@self.pos_matrix()),t
