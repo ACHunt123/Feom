@@ -10,12 +10,10 @@ import scipy
 import sys
 import matplotlib.pyplot as plt
 
-
 if(0):    # Avoid numpy parallelisation
     import os
     os.environ['OPENBLAS_NUM_THREADS'] = '1'
     os.environ['MKL_NUM_THREADS'] = '1'
-
 #
 # Basic HEOM code
 #
@@ -69,7 +67,7 @@ integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef,N_nonm
 
 ### Propagation
 tmax = 20
-dt= 0.01
+dt= 0.001
 nt =int(tmax/dt)+1
 t_arr = np.arange(nt)*dt
 
@@ -88,12 +86,11 @@ if show_plots:
 
 
 Css = np.zeros_like(t_arr,dtype=complex)
-
+FORTRAN=1
 for it in range(nt):
 
     Css[it], t_arr[it] = Corr(rho[:,:,0],t_arr[it]) #t is an arguement as it may be scaled by potential params
-    rho = integrator.rk4_step(rho,dt)
-    # if it==2:sys.exit()
+    rho = integrator.rk4_step(rho,dt, FORTRAN=FORTRAN)
     # plot the density matrix and the Css
     if(it%10==0):
         print_progress(it,nt)
@@ -108,6 +105,10 @@ for it in range(nt):
 # NOTE need a file namer
 np.savetxt('Css.txt',np.transpose([t_arr,np.real(Css)]))
 print('files saved')
+plt.plot(t_arr,Css.real)
+data=np.loadtxt('CssANALYTIC.txt')
+plt.plot(data[:,0],data[:,1],'--')
+plt.show()
 if show_plots: plt.show()
 
 ### Functions

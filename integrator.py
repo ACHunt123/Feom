@@ -2,6 +2,8 @@ import numpy as np
 import scipy, sys
 import matplotlib.pyplot as plt
 from hashmap import generateHashmap,Convert_to_list
+import Heom.fort.executables.propagator as prop
+
 #
 #   This is the integrator for the HEOM - done with scaled matrices st dx = 1 (or discrete basis)
 #
@@ -13,6 +15,7 @@ class Integrator:
         self.K = K
         self.hbar = hbar
         self.lowTcoef=lowTcoef
+        self.N_nonmats = N_nonmats
         # The formatting of the Hashmaps are as follows:
         # I2ind[I] : int I -> list of ints corresponding to the BCF indecies
         # ind2I[ind] :tuple of ints -> int I
@@ -97,8 +100,8 @@ class Integrator:
 
             gradient[:,:,I] = -self.L0(rho[:,:,I]) - np.sum(n_ks*self.gam_ks)*rho[:,:,I]
 
-            if self.lowTcoef!=0 : # if the bath is in the matsubara mode employ the Ishizaki-Tanimura method
-                gradient[:,:,I] -= self.commutator(self.s_mat,self.commutator(self.s_mat,rho[:,:,I])) * self.lowTcoef
+            # if self.lowTcoef!=0 : # if the bath is in the matsubara mode employ the Ishizaki-Tanimura method
+            #     gradient[:,:,I] -= self.commutator(self.s_mat,self.commutator(self.s_mat,rho[:,:,I])) * self.lowTcoef
 
             for k in range(self.K+1): # as there are K+1 terms in the BCF
 
@@ -126,16 +129,39 @@ class Integrator:
                     gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
         # sys.exit()
     # RK4 step
-    def rk4_step(self,x0,dt):
-        self.drhodt(x0,gradient=self.k1)
-        self.k1 = self.k1 * (dt/2)
+    def rk4_step(self,x0,dt,FORTRAN=0):
+        if not FORTRAN:
+            self.drhodt(x0,gradient=self.k1)
+            self.k1 = self.k1 * (dt/2)
 
-        self.drhodt(x0+self.k1,gradient=self.k2)
-        self.k2 = self.k2 * (dt/2)
+            self.drhodt(x0+self.k1,gradient=self.k2)
+            self.k2 = self.k2 * (dt/2)
 
-        self.drhodt(x0+self.k2,gradient=self.k3)
-        self.k3 = self.k3 * (dt)
-        
-        self.drhodt(x0+self.k3,gradient=self.k4)
-        return x0 + dt/6.*self.k4 + (2./3.)*self.k2 + (self.k3 + self.k1)/3.
+            self.drhodt(x0+self.k2,gradient=self.k3)
+            self.k3 = self.k3 * (dt)
+            
+            self.drhodt(x0+self.k3,gradient=self.k4)
+            return x0 + dt/6.*self.k4 + (2./3.)*self.k2 + (self.k3 + self.k1)/3.
+        else:
+            x0fort =np.zeros((self.Imax,self.ns,self.ns),dtype=complex,order='F')
+            for I in range(self.Imax):
+                x0fort[I,:,:] = np.asfortranarray(x0[:,:,I])
 
+            ADO_index = np.asfortranarray(self.ADO_index)
+            I0s = np.asfortranarray(self.I0s)
+            gam_ks = np.asfortranarray(self.gam_ks)
+            C_ks = np.asfortranarray(self.C_ks)
+            H_mat = np.asfortranarray(self.H_mat)
+            s_mat = np.asfortranarray(self.s_mat)
+            K = self.K
+            L = self.L
+            hbar = self.hbar
+            lowTcoef = self.lowTcoef
+            N_nonmats = self.N_nonmats
+            Imax = self.Imax
+            ns = self.ns
+            prop.vvstep(x0fort,ADO_index,I0s,gam_ks,C_ks,H_mat,s_mat,K,hbar,dt,lowTcoef,N_nonmats,imax=Imax,l=L,ns=ns)
+
+            for I in range(self.Imax):
+                x0[:,:,I] = x0fort[I,:,:]
+            return x0
