@@ -1,13 +1,12 @@
 import numpy as np
 import scipy, sys
 import matplotlib.pyplot as plt
-from hashmap import generateHashmap
+from hashmap import generateHashmap,Convert_to_list
 #
-#   This is the integrator for the HEOM
+#   This is the integrator for the HEOM - done with scaled matrices st dx = 1 (or discrete basis)
 #
-#   it is done in the energy eigenbasis
 class Integrator:
-    def __init__(self,gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef):
+    def __init__(self,gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef,N_nonmats):
         self.ns = ns
         self.Imax = Imax
         self.L = L
@@ -18,7 +17,8 @@ class Integrator:
         # I2ind[I] : int I -> list of ints corresponding to the BCF indecies
         # ind2I[ind] :tuple of ints -> int I
         # This is done because lists are not hashable, and tuples are   
-        self.I2ind , self.ind2I = generateHashmap(K,L)
+        self.I2ind , self.ind2I = generateHashmap(K,L,N_nonmats) #hash map from the index of the ADO to the index of the BCF
+        self.ADO_index, self.I0s = Convert_to_list(self.I2ind) #new indexing 
         self.H_mat = H_mat
         self.s_mat = s_mat # perturbation operator (could be q for example) 
         # Bath coefficients
@@ -53,6 +53,34 @@ class Integrator:
             ind = str(ind).replace('[','').replace(']','').replace(' ','')
             return self.ind2I[ind]  
 
+    ### Slower but more verbose version of function that can be put into FORTRAN
+    # def I_nk_plusminus(self,I,k,pm):
+    #     index = self.ADO_index[I,:].copy() 
+    #     tier0 = self.tier(index) # Initial tier of the ADO
+    #     # Calculate the new index
+    #     index[k] += pm
+    #     # Check if the new index is valid
+    #     if  self.tier(index)> self.L :
+    #         return -1
+    #     if index[k]<0 :
+    #         return -1
+    #     # Find the place to search for the ADO
+    #     # I0/I1 = minimum/minimum index of where to look for the next ADO
+    #     if pm == +1:
+    #         I0 = self.I0s[tier0+1]
+    #         I1 = self.I0s[tier0+2]
+    #     else:
+    #         I0 = self.I0s[tier0-1]
+    #         I1 = self.I0s[tier0]
+
+    #     def find_index(indices, index):
+    #         for i in range(len(indices)):
+    #             if np.all(indices[i] == index):
+    #                 return i
+    #         raise ValueError('Index not found')
+
+    #     return find_index(self.ADO_index[I0:I1,:],index)+I0
+
     def commutator(self,A,B):
         return (A@B - B@A)
 
@@ -83,7 +111,8 @@ class Integrator:
                     print('I_nkp1:',self.I2ind[I_nkp1]) if I_nkp1 != -1 else print('I_nkp1:',I_nkp1,'===','not here')
                     print('I_nkm1:',self.I2ind[I_nkm1]) if I_nkm1 != -1 else print('I_nkm1:',I_nkm1,'===','not here')
                     print('---')
-
+                    # print(self.I2ind)
+                    # sys.exit()
                 Ck = self.C_ks[k]
                 nk = n_ks[k]
                 absCk = np.abs(Ck)
@@ -95,7 +124,7 @@ class Integrator:
                 # The gradient for the -1 terms [may not exist]
                 if I_nkm1 != -1:
                     gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
-
+        # sys.exit()
     # RK4 step
     def rk4_step(self,x0,dt):
         self.drhodt(x0,gradient=self.k1)

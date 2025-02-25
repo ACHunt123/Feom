@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from hashmap import  total_length
+from utils import print_progress
 from integrator import Integrator
 import Heom.baths as baths
 import Heom.potentials as potentials
@@ -21,14 +22,15 @@ if(0):    # Avoid numpy parallelisation
 
 ### Parameters 
 hbar=params.hbar
-L = params.L           # the depth of the ADO expansion
-K = params.K           #  the number of elements in the BCFs
+L = params.L           # the max tier of the ADO expansion
+K = params.K           # the number of thermal exponentials in the BCFs - [for debye the number of exponentials = K+1]
 ns = params.ns         # number of states to be propagated
 
 
 ### Get bath coefficients
 bath = baths.getbath(params.bathname)(params)
 C_ks,gam_ks = bath.get_coeffs() 
+N_nonmats = bath.N_nonmats # Get the number of non-matsubara terms in the BCF
 
 ## Generate matrices in eigenbasis
 pot = potentials.getpotential(params.potname)(params)
@@ -57,23 +59,23 @@ if(0):  # tests
     print('')
 
 ### Variables and arrays
-Imax = total_length(K,L)                    # the total number of ADOs
+Imax = total_length(K,L,N_nonmats)          # the total number of ADOs
 rho = np.zeros((ns,ns,Imax),dtype=complex)  # holds all of the ADOs. rho[s,s',0] is the system density matrix
 rho[:,:,0] = rho_s0                         # put in the initial density matrix into the ADOS
 
 #setup the integrator
 lowTcoef = params.eta/(params.beta*params.hbar**2) - (1/params.hbar**2)*np.sum(np.real(C_ks)/gam_ks) if params.bathmode == 'matsubara' else 0
-integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef)
+integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef,N_nonmats)
 
 ### Propagation
 tmax = 20
-dt= 0.001
+dt= 0.01
 nt =int(tmax/dt)+1
 t_arr = np.arange(nt)*dt
 
 
 ### Plotting
-show_plots = 1
+show_plots = 0
 if show_plots:
     fig, (ax1, ax2) = plt.subplots(1,2)
     s_arr = np.arange(ns)
@@ -93,18 +95,20 @@ for it in range(nt):
     rho = integrator.rk4_step(rho,dt)
     # if it==2:sys.exit()
     # plot the density matrix and the Css
-    if(it%10==0 and show_plots):
-        line.remove()
-        ax1.clear()
-        line, = ax2.plot(t_arr[:it],Css[:it].real,'b',label='numerical')
-        ax1.contourf(s_arr,s_arr,np.real(rho[:,:,0]),cmap='viridis')
-        plt.pause(0.01)
+    if(it%10==0):
+        print_progress(it,nt)
+        if(show_plots):
+            line.remove()
+            ax1.clear()
+            line, = ax2.plot(t_arr[:it],Css[:it].real,'b',label='numerical')
+            ax1.contourf(s_arr,s_arr,np.real(rho[:,:,0]),cmap='viridis')
+            plt.pause(0.01)
 
 #write results to file
 # NOTE need a file namer
 np.savetxt('Css.txt',np.transpose([t_arr,np.real(Css)]))
 print('files saved')
-plt.show()
+if show_plots: plt.show()
 
 ### Functions
 

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 # INPUTS
 # K       #number of exponential terms in the BCF - either the truncation of the number of beads + 1
-# max_N   #maximum depth of the ADO expansion
+# L   #maximum depth of the ADO expansion
 
 # OUTPUTS
 # I_to_index #hash map from the index of the ADO to the index of the BCF
@@ -23,19 +23,21 @@ def length(n,k):
     return np.math.factorial(n+k-1) // np.math.factorial(k-1) // np.math.factorial(n) # = [ (n+k-1) C (k-1)]
     # return np.math.factorial(n) // (np.math.factorial(k_)* np.math.factorial(n-k_))
 
-# total number of ADOs for a given K and max_N
-def total_length(K_old,max_N):
-    K=K_old+1
-    return sum([length(n,K) for n in range(0,max_N+1)])
+# total number of ADOs for a given K and L
+def total_length(K,L,N_nonmats):
+    Ktot=K+N_nonmats
+    return sum([length(n,Ktot) for n in range(0,L+1)])
     
 
 
-def generateHashmap(K_old,max_N,write_to_file = False):
-    K=K_old+1
-    # K here is the number of exponential terms in the BCF
-    # K_old is the number of modes (K in HEOM literature)
+def generateHashmap(K,L,N_nonmats,write_to_file = False):
+    Ktot=K+N_nonmats
+    # K here is the number of matsubara exponentials in the BCF
+    # N_nonmats is the number of non-matsubara terms in the BCF
+    # Ktot is the total number of exponential terms in the BCF (Ktot = K + N_nonmats)
+    # L is the maximum depth of the ADO expansion
 
-    #generates the set of indicies corresponding to the n'th tier with K elements
+    # generates the set of indicies corresponding to the n'th tier with K elements
     def generatenumbers(n, k): 
 
         # output is a list of the strings of the indicies separated by commas
@@ -85,8 +87,8 @@ def generateHashmap(K_old,max_N,write_to_file = False):
 
     # Collect all of the indices
     allnums = np.array([])
-    for i in range(0,max_N+1):
-        allnums= np.concatenate((allnums,generatenumbers(i,K))) #concatenate the set of indicies to the list of all indicies
+    for i in range(0,L+1):
+        allnums= np.concatenate((allnums,generatenumbers(i,Ktot))) #concatenate the set of indicies to the list of all indicies
 
     def tup2list(tup):
         return [int(i) for i in tup.split(',')]
@@ -103,15 +105,44 @@ def generateHashmap(K_old,max_N,write_to_file = False):
 
     return I_to_index, index_to_I
 
+### Convert the hashmaps to a list - FOR FORTRAN
+# also find the first indices of each tier for faster indexing
+def Convert_to_list(I_to_index):
+    I_to_index_list = np.array([I_to_index[i] for i in range(len(I_to_index))])         # List of each ADO index
+    tiers = np.array([np.sum(I_to_index_list[i]) for i in range(len(I_to_index_list))]) # Tier of each ADO index
+    I0s =[0]
+    tiernow = 0
+    for index, tier in enumerate(tiers):
+        if tier != tiernow:
+            tiernow = tier
+            I0s.append(index)
+    I0s.append(len(I_to_index_list))
+    I0s = np.array(I0s)
+    return I_to_index_list, I0s
+
 if __name__ == '__main__':
-    # index_to_I = dict() #hash map from the index of the BCF to the index of the ADO
 
     # INPUTS
-    K = 3      #number of exponential terms in the BCF - either the truncation of the number of beads + 1
-    max_N = 3   #maximum depth of the ADO expansion
+    K = 3   #number of exponential terms in the BCF - either the truncation of the number of beads + 1
+    L = 3   #maximum depth of the ADO expansion
+    N_nonmats = 1
 
-    I_to_index, index_to_I = generateHashmap(K,max_N)
+    # Get hashmaps
+    I_to_index, index_to_I = generateHashmap(K,L,N_nonmats)   
+    print('\n')
+    ADO_index=Convert_to_list(I_to_index) # this list has dimensions [I, K] (where K is the number of exponential terms in the BCF)
+    print(ADO_index)
+    print('\n')
 
-    # print(I_to_index)
-    print(index_to_I)
+    tier=2
+    n=2
+    pm=-1
+    I0s = np.array([np.sum([length(n,K+1) for n in range(0,tier)]) for tier in range(0,L+1)],dtype=int)
+    I0 = I0s[tier]
+    I1 = I0s[tier+1]
+    print(I0,I1)
+    print(ADO_index[I0:I1,:])
+    sys.exit()
+
+    print(lst[1,:])  
 
