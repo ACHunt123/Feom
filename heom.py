@@ -7,7 +7,7 @@ import Heom.potentials as potentials
 from Heom.parser import   params
 import numpy as np
 import scipy
-import sys
+import sys,os
 import matplotlib.pyplot as plt
 
 if(0):    # Avoid numpy parallelisation
@@ -17,6 +17,9 @@ if(0):    # Avoid numpy parallelisation
 #
 # Basic HEOM code
 #
+### Switches
+FORTRAN=1       # 1 to propagate with f2py vvstep, 0 to propagate with python
+FULLFORTRAN=0   # 1 do generate input files and run the fortran code
 
 ### Parameters 
 hbar=params.hbar
@@ -85,12 +88,32 @@ if show_plots:
     line, = ax2.plot([],[],'b',label='numerical')
 
 
+### Run the fortran code (if neccesary)
+if(FULLFORTRAN):
+    print('### Generating input files for fortran ###')
+    integrator.generate_input_files()
+    print('### Running fortran code ###')
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.system(f' cp {script_dir}/fort/executables/propagation ./tmp/') # copy the executable to the temporary folder containing the input files 
+    run_here = True
+    if(run_here): # run the fortran code in the temporary directory
+        os.system('cd tmp/; ./propagation')
+        # Load the data from the fortran execution and save it to a file with header showing params
+        fname = TM_out_filename(potkey,simulation,Nx,dt,tmax,m,xa,xb)
+        data= np.loadtxt('tmp/output')
+        np.savetxt(fname,data,header=header)
+        os.system(f'mv tmp/output {fname}')
+        # os.system('rm -r tmp/') #clean up the temporary directory
+    else:
+        print('Files and executables ready to go' )
+    sys.exit()
+
+### Propagate the system    
 Css = np.zeros_like(t_arr,dtype=complex)
-FORTRAN=0
 for it in range(nt):
 
     Css[it], t_arr[it] = Corr(rho[:,:,0],t_arr[it]) #t is an arguement as it may be scaled by potential params
-    rho = integrator.rk4_step(rho,dt, FORTRAN=FORTRAN)
+    rho = integrator.rk4_step(rho,dt, FORTRAN=FORTRAN) # Propagate either with python or fortran
     # plot the density matrix and the Css
     if(it%10==0):
         print_progress(it,nt)

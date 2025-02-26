@@ -1,8 +1,9 @@
 import numpy as np
-import scipy, sys
+import sys, os
 import matplotlib.pyplot as plt
 from hashmap import generateHashmap,Convert_to_list
 import Heom.fort.executables.propagator as prop
+npF = np.asfortranarray # Aliasing to make the code more legible
 
 #
 #   This is the integrator for the HEOM - done with scaled matrices st dx = 1 (or discrete basis)
@@ -109,13 +110,6 @@ class Integrator:
                 I_nkp1 = self.I_nk_plusminus(I,k,+1)
                 I_nkm1 = self.I_nk_plusminus(I,k,-1)
 
-                if(0):
-                    print('I:',I,'===',self.I2ind[I], '-- k =',k)
-                    print('I_nkp1:',self.I2ind[I_nkp1]) if I_nkp1 != -1 else print('I_nkp1:',I_nkp1,'===','not here')
-                    print('I_nkm1:',self.I2ind[I_nkm1]) if I_nkm1 != -1 else print('I_nkm1:',I_nkm1,'===','not here')
-                    print('---')
-                    # print(self.I2ind)
-                    # sys.exit()
                 Ck = self.C_ks[k]
                 nk = n_ks[k]
                 absCk = np.abs(Ck)
@@ -127,10 +121,10 @@ class Integrator:
                 # The gradient for the -1 terms [may not exist]
                 if I_nkm1 != -1:
                     gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
-        # sys.exit()
+
     # RK4 step
     def rk4_step(self,x0,dt,FORTRAN=0):
-        if not FORTRAN:
+        if not FORTRAN: # RK$ using python
             self.drhodt(x0,gradient=self.k1)
             self.k1 = self.k1 * (dt/2)
 
@@ -142,26 +136,37 @@ class Integrator:
             
             self.drhodt(x0+self.k3,gradient=self.k4)
             return x0 + dt/6.*self.k4 + (2./3.)*self.k2 + (self.k3 + self.k1)/3.
-        else:
+        else: # Propagation using FORTRAN
+            # Format all of the data
             x0fort =np.zeros((self.Imax,self.ns,self.ns),dtype=complex,order='F')
             for I in range(self.Imax):
-                x0fort[I,:,:] = np.asfortranarray(x0[:,:,I])
-
-            ADO_index = np.asfortranarray(self.ADO_index)
-            I0s = np.asfortranarray(self.I0s)
-            gam_ks = np.asfortranarray(self.gam_ks)
-            C_ks = np.asfortranarray(self.C_ks)
-            H_mat = np.asfortranarray(self.H_mat)
-            s_mat = np.asfortranarray(self.s_mat)
-            K = self.K
-            L = self.L
-            hbar = self.hbar
-            lowTcoef = self.lowTcoef
-            N_nonmats = self.N_nonmats
-            Imax = self.Imax
-            ns = self.ns
-            prop.vvstep(x0fort,ADO_index,I0s,gam_ks,C_ks,H_mat,s_mat,K,hbar,dt,lowTcoef,N_nonmats,imax=Imax,l=L,ns=ns)
-
+                x0fort[I,:,:] = npF(x0[:,:,I])
+            # Propagate the density matrix
+            prop.prop_subroutines.vvstep(x0fort,npF(self.ADO_index),npF(self.I0s),npF(self.gam_ks),
+                npF(self.C_ks),npF(self.H_mat),npF(self.s_mat),self.K,self.hbar,dt,
+                self.lowTcoef,self.N_nonmats,imax=self.Imax,l=self.L,ns=self.ns)
+            # Reformat the density matrix for python
             for I in range(self.Imax):
                 x0[:,:,I] = x0fort[I,:,:]
             return x0
+
+    def generate_input_files():
+        os.system('mkdir tmp') #make a temporary directory to store the input files
+        # Format all of the data
+        x0fort =np.zeros((self.Imax,self.ns,self.ns),dtype=complex,order='F')
+        for I in range(self.Imax):
+            x0fort[I,:,:] = npF(x0[:,:,I])
+        ADO_index = npF(self.ADO_index)
+        I0s = npF(self.I0s)
+        gam_ks = npF(self.gam_ks)
+        C_ks = npF(self.C_ks)
+        H_mat = npF(self.H_mat)
+        s_mat = npF(self.s_mat)
+        K = self.K
+        L = self.L
+        hbar = self.hbar
+        lowTcoef = self.lowTcoef
+        N_nonmats = self.N_nonmats
+        Imax = self.Imax
+        ns = self.ns
+        return

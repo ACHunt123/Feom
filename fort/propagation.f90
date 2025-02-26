@@ -1,7 +1,7 @@
 ! Fortran module to propagate the HEOM code
-! module prop_subroutines
-! implicit none
-! contains
+module prop_subroutines
+implicit none
+contains
 
 
 ! rk4 propagation of HEOM for one step
@@ -18,7 +18,6 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
     ! Local variables
     complex(8) :: ii = (0.d0,1.d0)
     complex(8) :: k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns)
-    integer(4) :: nsi
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
     
     ! Calculate the k values for the Runge-Kutta method
@@ -39,7 +38,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
         integer(4) :: I, n_ks(N_nonmats+K), I_nkp1, I_nkm1,ki
 
         s_mat2(:,:) = matmul(s_mat,s_mat)
-        grad(:,:,:) = (0.d0,0.d0)
+        ! grad(:,:,:) = (0.d0,0.d0) !no need to initialize as it is fully overwritten
         do I = 1, Imax
             ! Get the n values for the ADOs
             n_ks = ADO_index(I,:)
@@ -159,14 +158,14 @@ end subroutine
     !     close(20);close(30);close(40);close(50) !close the files
     ! end subroutine
 
-! end module prop_subroutines
+end module prop_subroutines
 
 
-! program main
-!     use prop_subroutines
-!     implicit none
+program main
+    use prop_subroutines
+    implicit none
 
      
-! end program main
+end program main
 
 
