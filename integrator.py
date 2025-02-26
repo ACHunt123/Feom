@@ -100,8 +100,8 @@ class Integrator:
 
             gradient[:,:,I] = -self.L0(rho[:,:,I]) - np.sum(n_ks*self.gam_ks)*rho[:,:,I]
 
-            # if self.lowTcoef!=0 : # if the bath is in the matsubara mode employ the Ishizaki-Tanimura method
-            #     gradient[:,:,I] -= self.commutator(self.s_mat,self.commutator(self.s_mat,rho[:,:,I])) * self.lowTcoef
+            if self.lowTcoef!=0 : # if the bath is in the matsubara mode employ the Ishizaki-Tanimura method
+                gradient[:,:,I] -= self.commutator(self.s_mat,self.commutator(self.s_mat,rho[:,:,I])) * self.lowTcoef
 
             for k in range(self.K+1): # as there are K+1 terms in the BCF
 

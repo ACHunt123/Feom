@@ -40,7 +40,6 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
 
         s_mat2(:,:) = matmul(s_mat,s_mat)
         grad(:,:,:) = (0.d0,0.d0)
-        grad(1,:,:) = -ii/hbar * (matmul(H_mat,rho(1,:,:)) - matmul(rho(1,:,:),H_mat))
         do I = 1, Imax
             ! Get the n values for the ADOs
             n_ks = ADO_index(I,:)
@@ -49,10 +48,10 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
             grad(I,:,:) = -ii/hbar * (matmul(H_mat,rho(I,:,:)) - matmul(rho(I,:,:),H_mat)) &
                   - sum(n_ks * gam_ks) * rho(I,:,:) 
             ! Itziki Trucation (if present)
-            ! if (abs(lowTcoef).ne.0) then
-            !     grad(I,:,:) = grad(I,:,:) + lowTcoef  &
-            !     * (matmul(s_mat2,rho(I,:,:)) + matmul(rho(I,:,:),s_mat2) - 2.d0*matmul(matmul(s_mat,rho(I,:,:)),s_mat))
-            ! end if
+            if (int(abs(lowTcoef*10**6)).ne.0) then
+                grad(I,:,:) = grad(I,:,:) - lowTcoef  &
+                * (matmul(s_mat2,rho(I,:,:)) + matmul(rho(I,:,:),s_mat2) - 2.d0*matmul(matmul(s_mat,rho(I,:,:)),s_mat))
+            end if
 
             ! Execute the off-diagonal superoperator terms
             do ki = 1, (N_nonmats+K)

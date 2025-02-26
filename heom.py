@@ -86,7 +86,7 @@ if show_plots:
 
 
 Css = np.zeros_like(t_arr,dtype=complex)
-FORTRAN=1
+FORTRAN=0
 for it in range(nt):
 
     Css[it], t_arr[it] = Corr(rho[:,:,0],t_arr[it]) #t is an arguement as it may be scaled by potential params
