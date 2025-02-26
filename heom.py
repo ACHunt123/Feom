@@ -64,7 +64,7 @@ Imax = total_length(K,L,N_nonmats)          # the total number of ADOs
 rho = np.zeros((ns,ns,Imax),dtype=complex)  # holds all of the ADOs. rho[s,s',0] is the system density matrix
 rho[:,:,0] = rho_s0                         # put in the initial density matrix into the ADOS
 
-#setup the integrator
+#setup the integrator and the low temperature coefficient
 lowTcoef = params.eta/(params.beta*params.hbar**2) - (1/params.hbar**2)*np.sum(np.real(C_ks)/gam_ks) if params.bathmode == 'matsubara' else 0
 integrator = Integrator(gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef,N_nonmats)
 
@@ -91,7 +91,7 @@ if show_plots:
 ### Run the fortran code (if neccesary)
 if(FULLFORTRAN):
     print('### Generating input files for fortran ###')
-    integrator.generate_input_files()
+    integrator.generate_input_files(rho,dt,nt)
     print('### Running fortran code ###')
     script_dir = os.path.dirname(os.path.abspath(__file__))
     os.system(f' cp {script_dir}/fort/executables/propagation ./tmp/') # copy the executable to the temporary folder containing the input files 
@@ -99,10 +99,10 @@ if(FULLFORTRAN):
     if(run_here): # run the fortran code in the temporary directory
         os.system('cd tmp/; ./propagation')
         # Load the data from the fortran execution and save it to a file with header showing params
-        fname = TM_out_filename(potkey,simulation,Nx,dt,tmax,m,xa,xb)
-        data= np.loadtxt('tmp/output')
-        np.savetxt(fname,data,header=header)
-        os.system(f'mv tmp/output {fname}')
+        fname = header = 'test'#TM_out_filename(potkey,simulation,Nx,dt,tmax,m,xa,xb)
+        # data= np.loadtxt('tmp/output')
+        # np.savetxt(fname,data,header=header)
+        # os.system(f'mv tmp/output {fname}')
         # os.system('rm -r tmp/') #clean up the temporary directory
     else:
         print('Files and executables ready to go' )

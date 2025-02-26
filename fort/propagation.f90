@@ -8,23 +8,26 @@ contains
 subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lowTcoef,N_nonmats,ns)
     implicit none
     integer, intent(in) :: Imax, N_nonmats, ns, K, L
-    real(8), intent(in) :: hbar,dt
-    complex(8), intent(in) :: C_ks(N_nonmats+K), gam_ks(N_nonmats+K), lowTcoef
+    real(8), intent(in) :: hbar,dt, lowTcoef
+    complex(8), intent(in) :: C_ks(N_nonmats+K), gam_ks(N_nonmats+K)
     complex(8), intent(in) :: H_mat(ns,ns), s_mat(ns,ns)
     complex(8), intent(inout) :: ADOs(Imax,ns,ns)
     ! Arrays for the ADO index and the I0s
     integer(4), intent(in) :: ADO_index(Imax,N_nonmats+K) 
-    integer(4), intent(in) :: I0s(L)
+    integer(4), intent(in) :: I0s(0:L+1)
     ! Local variables
     complex(8) :: ii = (0.d0,1.d0)
-    complex(8) :: k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns)
+    complex(8) :: k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns)
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
     
     ! Calculate the k values for the Runge-Kutta method
-    k1 = grad(ADOs)*dt/2.
-    k2 = grad(ADOs+k1)*dt/2.
-    k3 = grad(ADOs+k2)*dt
-    k4 = grad(ADOs+k3)
+    k1 = grad(ADOs)*dt/2. !need to split the computation here into two lines to avoid a bug
+    ktmp = ADOs+k1
+    k2 = grad(ktmp)*dt/2.
+    ktmp = ADOs+k2
+    k3 = grad(ktmp)*dt
+    ktmp = ADOs+k3
+    k4 = grad(ktmp)
 
     ! Update the density matrix
     ADOs = ADOs + (dt/6.d0)*k4 + (2.d0/3.d0)*k2 + (k3 + k1)/3.d0 ! doest work for fourth order method
@@ -99,9 +102,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
             I1 = I0s(tier0)
         end if
         ! find the index in the block
-        ! print*, indx,'indx'
-        ! print*, I0,I1
-        do I_nk_plusminus = 1,Imax
+        do I_nk_plusminus = I0,I1 !the +1 is to account for the fact that fortran is 1 indexed
             ! print*, ADO_index(I_nk_plusminus,:)
             if (all(indx.eq.ADO_index(I_nk_plusminus,:))) return
         end do
@@ -111,60 +112,100 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
 
 end subroutine
 
+! Read the matrices from the files
+subroutine read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,L,N_nonmats,ns)
+        implicit none
+        integer, intent(in) :: Imax, N_nonmats, ns, K, L
+        complex(8), intent(inout) :: C_ks(N_nonmats+K), gam_ks(N_nonmats+K)
+        complex(8), intent(inout) :: H_mat(ns,ns), s_mat(ns,ns)
+        complex(8), intent(inout) :: ADOs(Imax,ns,ns)
+        ! Arrays for the ADO index and the I0s
+        integer(4), intent(inout) :: ADO_index(Imax,N_nonmats+K) 
+        integer(4), intent(inout) :: I0s(0:L+1)
+        ! Local variables
+        real(8) :: z_real, z_imag ! real and imaginary parts of the complex number
+        integer :: Ii, Ij, si, sj
 
+        ! Open the files, skipping first line
+        ! small matrices
+        open(30, file='FortC_ks', status='old', action='read');read(30,*)
+        open(40, file='Fortgam_ks', status='old', action='read');read(40,*)
+        open(50, file='FortI0s', status='old', action='read');read(50,*)
+        ! large matrices
+        open(60, file='FortH_mat', status='old', action='read');read(60,*)
+        open(70, file='Fortrho', status='old', action='read');read(70,*)
+        open(80, file='Forts_mat', status='old', action='read');read(80,*)
+        open(90, file='FortADO_index', status='old', action='read');read(90,*)
 
+        ! read the large matrices
+        do Ii = 1, Imax
+            do Ij = 1, N_nonmats+k
+                read(90,'(I10)') ADO_index(Ii,Ij)
+            end do
+        do si = 1, ns
+        do sj = 1, ns
+            read(70,'(D22.15)') z_real
+            read(70,'(D22.15)') z_imag
+            ADOs(Ii,si,sj) = dcmplx(z_real, z_imag)
+            if (Ii==1) then
+                read(60,'(D22.15)') z_real
+                read(60,'(D22.15)') z_imag
+                H_mat(si,sj) = dcmplx(z_real, z_imag)
+                read(80,'(D22.15)') z_real
+                read(80,'(D22.15)') z_imag
+                s_mat(si,sj) = dcmplx(z_real, z_imag)
+            end if
+        end do; end do; end do
 
+        ! read the small matrices
+        do Ii = 1,N_nonmats+k
+            read(30,'(D22.15)') z_real
+            read(30,'(D22.15)') z_imag
+            C_ks(Ii) = dcmplx(z_real, z_imag)
+            read(40,'(D22.15)') z_real
+            read(40,'(D22.15)') z_imag
+            gam_ks(Ii) = dcmplx(z_real, z_imag)
+        end do
+        do Ii = 0,L+1
+            read(50,'(I10)') I0s(Ii)
+        end do
 
-! subroutine read_matrices(rho, Lv_dto2, Lk_dt, Uda, Ns, Ns2, Nx, Nx_padded)
-    !     implicit none
-    !     integer, intent(in) :: Ns, Ns2, Nx, Nx_padded
-    !     complex(8), intent(inout) :: rho(Ns2,Nx,Nx)
-    !     complex(8), intent(inout) :: Lv_dto2(Ns2,Ns2,Nx,Nx)
-    !     complex(8), intent(inout) :: Lk_dt(Ns2,Ns2,Nx_padded,Nx_padded)
-    !     complex(8), intent(inout) :: Uda(Ns,Ns,Nx)
-    !     real(8) :: z_real, z_imag ! real and imaginary parts of the complex number
-    !     integer :: xi, xj, si, sj
-
-    !     open(20, file='Fortrho', status='old', action='read');read(20,*)
-    !     open(30, file='FortLv_dto2', status='old', action='read');read(30,*)
-    !     open(40, file='FortLk_dt', status='old', action='read');read(40,*)
-    !     open(50, file='FortUda', status='old', action='read');read(50,*)
-    !     do si = 1, Ns2 
-    !     do sj = 1, Ns2
-    !     do xi = 1, Nx_padded
-    !     do xj = 1, Nx_padded
-    !         if (si==1 .and. xi<=Nx .and. xj<=Nx) then
-    !             read(20,'(D22.15)') z_real
-    !             read(20,'(D22.15)') z_imag
-    !             rho(sj,xi,xj) = dcmplx(z_real, z_imag)
-    !         end if
-
-    !         if (xi<=Nx .and. xj<=Nx)  then
-    !             read(30,'(D22.15)') z_real
-    !             read(30,'(D22.15)') z_imag
-    !             Lv_dto2(si,sj,xi,xj) = dcmplx(z_real, z_imag)
-    !         end if
-
-    !         if (xj==1 .and. xi<=Nx .and. si<=Ns .and. sj<=Ns) then
-    !             read(50,'(D22.15)') z_real
-    !             read(50,'(D22.15)') z_imag
-    !             Uda(si,sj,xi) = dcmplx(z_real, z_imag)
-    !         end if
-    !         read(40,'(D22.15)') z_real
-    !         read(40,'(D22.15)') z_imag
-    !         Lk_dt(si,sj,xi,xj) = dcmplx(z_real, z_imag)
-
-    !     end do; end do; end do; end do  
-    !     close(20);close(30);close(40);close(50) !close the files
-    ! end subroutine
+        close(30);close(40);close(50);close(60);close(70);close(80);close(90) !close the files
+    end subroutine
 
 end module prop_subroutines
-
 
 program main
     use prop_subroutines
     implicit none
+    integer :: Imax, N_nonmats, ns, K, L, nttot
+    real(8) :: hbar, dt, lowTcoef
+    complex(8), allocatable :: ADOs(:,:,:), H_mat(:,:), s_mat(:,:), C_ks(:), gam_ks(:)
+    integer(4), allocatable :: ADO_index(:,:)
+    integer(4), allocatable :: I0s(:)
+    ! Local variables
+    integer :: stat,it
+    ! read the parameters from the input file
+    open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
+    read(10,'(I10, I10, D22.15, D22.15, I10, I10, I10, D22.15, I10)') K, L, hbar, lowTcoef, N_nonmats, Imax, ns, dt, nttot
+    close(10)
+    ! print*, K, L, hbar, lowTcoef, N_nonmats, Imax, ns, dt, nttot
+    ! allocate the arrays
+    allocate(ADOs(Imax,ns,ns), H_mat(ns,ns), s_mat(ns,ns), C_ks(N_nonmats+K), gam_ks(N_nonmats+K))
+    allocate(ADO_index(Imax,N_nonmats+K), I0s(0:L+1))
+    ! read the matrices from the files
+    call read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,L,N_nonmats,ns)
 
+    ! outfile
+    open(10, file='output', status='unknown', action='write')
+    ! Propagate the system
+    do it = 1, nttot
+        if (mod(it,100).eq.0) print*, it,'/',nttot
+        call vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lowTcoef,N_nonmats,ns)
+        write(10,*) it*dt, real(ADOs(1,1,1)), real(ADOs(1,2,2))
+    end do
+    close(10)
+    deallocate(ADOs, H_mat, s_mat, C_ks, gam_ks, ADO_index, I0s)
      
 end program main
 

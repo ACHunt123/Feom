@@ -3,6 +3,8 @@ import sys, os
 import matplotlib.pyplot as plt
 from hashmap import generateHashmap,Convert_to_list
 import Heom.fort.executables.propagator as prop
+from utils import writeZ,writeI,writeParams
+
 npF = np.asfortranarray # Aliasing to make the code more legible
 
 #
@@ -150,23 +152,19 @@ class Integrator:
                 x0[:,:,I] = x0fort[I,:,:]
             return x0
 
-    def generate_input_files():
-        os.system('mkdir tmp') #make a temporary directory to store the input files
+    def generate_input_files(self,x0,dt,nttot):
         # Format all of the data
         x0fort =np.zeros((self.Imax,self.ns,self.ns),dtype=complex,order='F')
         for I in range(self.Imax):
             x0fort[I,:,:] = npF(x0[:,:,I])
-        ADO_index = npF(self.ADO_index)
-        I0s = npF(self.I0s)
-        gam_ks = npF(self.gam_ks)
-        C_ks = npF(self.C_ks)
-        H_mat = npF(self.H_mat)
-        s_mat = npF(self.s_mat)
-        K = self.K
-        L = self.L
-        hbar = self.hbar
-        lowTcoef = self.lowTcoef
-        N_nonmats = self.N_nonmats
-        Imax = self.Imax
-        ns = self.ns
+        # Write the data to the files
+        writeZ('Fortrho',x0fort)
+        writeI('FortADO_index',npF(self.ADO_index)) 
+        writeI('FortI0s',npF(self.I0s)+1) # +1 because fortran is 1 indexed (not 0 indexed like in python)
+        writeZ('Fortgam_ks',npF(self.gam_ks))
+        writeZ('FortC_ks',npF(self.C_ks))
+        writeZ('FortH_mat',npF(self.H_mat))
+        writeZ('Forts_mat',npF(self.s_mat))
+        # Write the parameters to the file
+        writeParams('Fortparams',self,dt,nttot)
         return
