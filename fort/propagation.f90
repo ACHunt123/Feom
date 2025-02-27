@@ -5,18 +5,17 @@ contains
 
 
 ! rk4 propagation of HEOM for one step
-subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lowTcoef,N_nonmats,ns)
+subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
     implicit none
-    integer, intent(in) :: Imax, N_nonmats, ns, K, L
-    real(8), intent(in) :: hbar,dt, lowTcoef
-    complex(8), intent(in) :: C_ks(N_nonmats+K), gam_ks(N_nonmats+K)
-    complex(8), intent(in) :: H_mat(ns,ns), s_mat(ns,ns)
+    integer, intent(in) :: Imax, Ktot, ns, L
+    real(8), intent(in) :: dt, lowTcoef
+    complex(8), intent(in) :: C_ks(Ktot), gam_ks(Ktot)
+    complex(8), intent(in) :: iH_mat(ns,ns), is_mat(ns,ns)
     complex(8), intent(inout) :: ADOs(Imax,ns,ns)
     ! Arrays for the ADO index and the I0s
-    integer(4), intent(in) :: ADO_index(Imax,N_nonmats+K) 
+    integer(4), intent(in) :: ADO_index(Imax,Ktot) 
     integer(4), intent(in) :: I0s(0:L+1)
     ! Local variables
-    complex(8) :: ii = (0.d0,1.d0)
     complex(8) :: k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns)
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
     
@@ -37,26 +36,30 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
     complex(8) function grad(rho)
         dimension grad(Imax,ns,ns)
         complex(8), intent(in) :: rho(Imax,ns,ns) ! fortran is column major so the last index is the fastest changing
-        complex(8) :: s_mat2(ns,ns),Ck,nk
-        integer(4) :: I, n_ks(N_nonmats+K), I_nkp1, I_nkm1,ki
+        complex(8) :: is_mat2(ns,ns),Ck,nk
+        complex(8) :: rhoI(ns,ns),gradI(ns,ns) !temporary variables for the ADO and the gradient (speeds up code for large I and ns)
+        integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki
 
-        s_mat2(:,:) = matmul(s_mat,s_mat)
-        ! grad(:,:,:) = (0.d0,0.d0) !no need to initialize as it is fully overwritten
+        is_mat2(:,:) = matmul(is_mat,is_mat)
+
+        ! Loop over the ADOs
         do I = 1, Imax
+            ! temporary variable for the ADO (same done for the gradient, but needn't be initiallised as is overwritten)
+            rhoI = rho(I,:,:)
             ! Get the n values for the ADOs
             n_ks = ADO_index(I,:)
 
             ! Execute the diagonal superoperator terms
-            grad(I,:,:) = -ii/hbar * (matmul(H_mat,rho(I,:,:)) - matmul(rho(I,:,:),H_mat)) &
-                  - sum(n_ks * gam_ks) * rho(I,:,:) 
+            gradI = ( - matmul(iH_mat,rhoI) + matmul(rhoI,iH_mat)) &
+                  - sum(n_ks * gam_ks) * rhoI 
             ! Itziki Trucation (if present)
             if (int(abs(lowTcoef*10**6)).ne.0) then
-                grad(I,:,:) = grad(I,:,:) - lowTcoef  &
-                * (matmul(s_mat2,rho(I,:,:)) + matmul(rho(I,:,:),s_mat2) - 2.d0*matmul(matmul(s_mat,rho(I,:,:)),s_mat))
+                gradI = gradI + lowTcoef  &
+                * (- matmul(is_mat2,rhoI) - matmul(rhoI,is_mat2) + 2.d0*matmul(matmul(is_mat,rhoI),is_mat))
             end if
 
             ! Execute the off-diagonal superoperator terms
-            do ki = 1, (N_nonmats+K)
+            do ki = 1, (Ktot)
                 Ck = C_ks(ki)
                 nk = n_ks(ki)
                 ! Calculate the indices of the ADOs with nk+1 and nk-1
@@ -64,16 +67,17 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
                 I_nkm1 = I_nk_plusminus(I,ki,-1)
 
                 if (I_nkp1.ne.-1) then
-                    grad(I,:,:) = grad(I,:,:) &
-                    - ii/hbar * sqrt((nk+1)*abs(Ck)) * (matmul(s_mat,rho(I_nkp1,:,:)) - matmul(rho(I_nkp1,:,:),s_mat))
+                    gradI = gradI &
+                  +  sqrt((nk+1)*abs(Ck)) * ( - matmul(is_mat,rho(I_nkp1,:,:)) + matmul(rho(I_nkp1,:,:),is_mat))
                 end if
 
                 if (I_nkm1.ne.-1) then
-                    grad(I,:,:) = grad(I,:,:) &
-                    - ii/hbar * sqrt(nk/abs(Ck)) * (Ck*matmul(s_mat,rho(I_nkm1,:,:)) - conjg(Ck)*matmul(rho(I_nkm1,:,:),s_mat))
+                    gradI = gradI &
+                  +  sqrt(nk/abs(Ck)) * (- Ck*matmul(is_mat,rho(I_nkm1,:,:)) + conjg(Ck)*matmul(rho(I_nkm1,:,:),is_mat))
                 end if
             end do
-
+            ! Update the gradient array
+            grad(I,:,:) = gradI
         end do
     end function grad
 
@@ -82,7 +86,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
     integer(4) function I_nk_plusminus(I,ki,pm) !pm is +1 or -1, I is the inital index in the ADOs, k is which nk we are changing
         implicit none
         integer(4), intent(in) :: I,ki,pm
-        integer(4) :: indx(N_nonmats+K),I0,I1,tier0
+        integer(4) :: indx(Ktot),I0,I1,tier0
 
         indx = ADO_index(I,:) !deepcopy NOT need to chekc if it is a copy and not a pointer
         tier0 = sum(indx)
@@ -93,7 +97,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
             return
         end if
         ! Find the index in the ADOs
-        ! get the block in which the index is
+        ! get the block in which the index is - will speed up the search
         if (pm.eq.1) then
             I0 = I0s(tier0+1)
             I1 = I0s(tier0+2)
@@ -101,9 +105,8 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
             I0 = I0s(tier0-1)
             I1 = I0s(tier0)
         end if
-        ! find the index in the block
-        do I_nk_plusminus = I0,I1 !the +1 is to account for the fact that fortran is 1 indexed
-            ! print*, ADO_index(I_nk_plusminus,:)
+        ! search for the new index within the block
+        do I_nk_plusminus = I0,I1
             if (all(indx.eq.ADO_index(I_nk_plusminus,:))) return
         end do
         ! if we get this far, something is wrong
@@ -113,14 +116,14 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lo
 end subroutine
 
 ! Read the matrices from the files
-subroutine read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,L,N_nonmats,ns)
+subroutine read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,ns)
         implicit none
-        integer, intent(in) :: Imax, N_nonmats, ns, K, L
-        complex(8), intent(inout) :: C_ks(N_nonmats+K), gam_ks(N_nonmats+K)
-        complex(8), intent(inout) :: H_mat(ns,ns), s_mat(ns,ns)
+        integer, intent(in) :: Imax, ns, Ktot, L
+        complex(8), intent(inout) :: C_ks(Ktot), gam_ks(Ktot)
+        complex(8), intent(inout) :: iH_mat(ns,ns), is_mat(ns,ns)
         complex(8), intent(inout) :: ADOs(Imax,ns,ns)
         ! Arrays for the ADO index and the I0s
-        integer(4), intent(inout) :: ADO_index(Imax,N_nonmats+K) 
+        integer(4), intent(inout) :: ADO_index(Imax,Ktot) 
         integer(4), intent(inout) :: I0s(0:L+1)
         ! Local variables
         real(8) :: z_real, z_imag ! real and imaginary parts of the complex number
@@ -139,7 +142,7 @@ subroutine read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,L,N_n
 
         ! read the large matrices
         do Ii = 1, Imax
-            do Ij = 1, N_nonmats+k
+            do Ij = 1, Ktot
                 read(90,'(I10)') ADO_index(Ii,Ij)
             end do
         do si = 1, ns
@@ -150,15 +153,15 @@ subroutine read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,L,N_n
             if (Ii==1) then
                 read(60,'(D22.15)') z_real
                 read(60,'(D22.15)') z_imag
-                H_mat(si,sj) = dcmplx(z_real, z_imag)
+                iH_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives H)
                 read(80,'(D22.15)') z_real
                 read(80,'(D22.15)') z_imag
-                s_mat(si,sj) = dcmplx(z_real, z_imag)
+                is_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives s)
             end if
         end do; end do; end do
 
         ! read the small matrices
-        do Ii = 1,N_nonmats+k
+        do Ii = 1,Ktot
             read(30,'(D22.15)') z_real
             read(30,'(D22.15)') z_imag
             C_ks(Ii) = dcmplx(z_real, z_imag)
@@ -178,34 +181,37 @@ end module prop_subroutines
 program main
     use prop_subroutines
     implicit none
-    integer :: Imax, N_nonmats, ns, K, L, nttot
+    integer :: Imax, Ktot, ns, L, nttot
     real(8) :: hbar, dt, lowTcoef
-    complex(8), allocatable :: ADOs(:,:,:), H_mat(:,:), s_mat(:,:), C_ks(:), gam_ks(:)
+    complex(8), allocatable :: ADOs(:,:,:), iH_mat(:,:), is_mat(:,:), C_ks(:), gam_ks(:)
     integer(4), allocatable :: ADO_index(:,:)
     integer(4), allocatable :: I0s(:)
     ! Local variables
     integer :: stat,it
     ! read the parameters from the input file
     open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
-    read(10,'(I10, I10, D22.15, D22.15, I10, I10, I10, D22.15, I10)') K, L, hbar, lowTcoef, N_nonmats, Imax, ns, dt, nttot
+    read(10,'(I10, I10, D22.15, D22.15, I10,  I10, D22.15, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
     close(10)
-    ! print*, K, L, hbar, lowTcoef, N_nonmats, Imax, ns, dt, nttot
+    ! print*, Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
     ! allocate the arrays
-    allocate(ADOs(Imax,ns,ns), H_mat(ns,ns), s_mat(ns,ns), C_ks(N_nonmats+K), gam_ks(N_nonmats+K))
-    allocate(ADO_index(Imax,N_nonmats+K), I0s(0:L+1))
+    allocate(ADOs(Imax,ns,ns), iH_mat(ns,ns), is_mat(ns,ns), C_ks(Ktot), gam_ks(Ktot))
+    allocate(ADO_index(Imax,Ktot), I0s(0:L+1))
     ! read the matrices from the files
-    call read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,L,N_nonmats,ns)
-
+    call read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,ns)
+    ! scale the matrices to reduce number of FLOPs
+    iH_mat = iH_mat/hbar
+    is_mat = is_mat/hbar
+    lowTcoef = -lowTcoef*hbar**2 ! counterracts the scaling of the s matrix (-1 for i^2)
     ! outfile
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 1, nttot
         if (mod(it,100).eq.0) print*, it,'/',nttot
-        call vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,H_mat,s_mat,K,hbar,L,dt,lowTcoef,N_nonmats,ns)
+        call vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
         write(10,*) it*dt, real(ADOs(1,1,1)), real(ADOs(1,2,2))
     end do
     close(10)
-    deallocate(ADOs, H_mat, s_mat, C_ks, gam_ks, ADO_index, I0s)
+    deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s)
      
 end program main
 

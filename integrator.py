@@ -143,10 +143,17 @@ class Integrator:
             x0fort =np.zeros((self.Imax,self.ns,self.ns),dtype=complex,order='F')
             for I in range(self.Imax):
                 x0fort[I,:,:] = npF(x0[:,:,I])
-            # Propagate the density matrix
-            prop.prop_subroutines.vvstep(x0fort,npF(self.ADO_index),npF(self.I0s),npF(self.gam_ks),
-                npF(self.C_ks),npF(self.H_mat),npF(self.s_mat),self.K,self.hbar,dt,
-                self.lowTcoef,self.N_nonmats,imax=self.Imax,l=self.L,ns=self.ns)
+            ### Propagate the density matrix
+            # ADO index shifted +1 for fortran (as we start at 1 for fortran)
+            # We make I0s index at 0 in fortran so the logic is the same as above
+            # We scale H_mat, Smat by 1.j/hbar, and the lowTcoef by -hbar^2 to account for s_mat
+            # vvstep(ADOs,ADO_index,I0s,gam_ks,
+            #C_ks,Imax,iH_mat,is_mat,Ktot,
+            #L,dt,lowTcoef,ns)
+            Ktot = self.K + self.N_nonmats
+            prop.prop_subroutines.vvstep(x0fort,npF(self.ADO_index),npF(self.I0s)+1,npF(self.gam_ks),
+                npF(self.C_ks),npF(self.H_mat)*1.j/self.hbar,npF(self.s_mat)*1.j/self.hbar,
+                dt,-self.hbar**2*self.lowTcoef,imax=self.Imax,l=self.L,ns=self.ns,ktot=Ktot)
             # Reformat the density matrix for python
             for I in range(self.Imax):
                 x0[:,:,I] = x0fort[I,:,:]

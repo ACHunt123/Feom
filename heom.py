@@ -99,11 +99,11 @@ if(FULLFORTRAN):
     if(run_here): # run the fortran code in the temporary directory
         os.system('cd tmp/; ./propagation')
         # Load the data from the fortran execution and save it to a file with header showing params
-        fname = header = 'test'#TM_out_filename(potkey,simulation,Nx,dt,tmax,m,xa,xb)
-        # data= np.loadtxt('tmp/output')
-        # np.savetxt(fname,data,header=header)
+        fname = header = 'Css.txt'#TM_out_filename(potkey,simulation,Nx,dt,tmax,m,xa,xb)
+        data= np.loadtxt('tmp/output')
+        np.savetxt(fname,data,header=header)
         # os.system(f'mv tmp/output {fname}')
-        # os.system('rm -r tmp/') #clean up the temporary directory
+        # os.system('rm -r tmp/ -f') #clean up the temporary directory
     else:
         print('Files and executables ready to go' )
     sys.exit()
