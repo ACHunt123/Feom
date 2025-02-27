@@ -1,10 +1,23 @@
 #!/usr/bin/env python3
+'''
+   +---------------------------------------+
+   |   FEOM: Fortran heirarchical          |  
+   |       Equations Of Motion             |
+   |           By A. C. Hunt 2025          |
+   +---------------------------------------+
+
+   This implementation can calculate correlation functions
+   with 3 different methods: 
+    FULLFORTRAN : 1 to generate input files and run the fortran code
+    FORTRAN     : 1 to propagate with f2py vvstep
+    else        : propagate with python
+'''
 from hashmap import  total_length
 from utils import print_progress
 from integrator import Integrator
-import Heom.baths as baths
-import Heom.potentials as potentials
-from Heom.parser import   params
+import Feom.baths as baths
+import Feom.potentials as potentials
+from Feom.parser import   params
 import numpy as np
 import scipy
 import sys,os
@@ -18,12 +31,11 @@ if(0):    # Avoid numpy parallelisation
 # Basic HEOM code
 #
 ### Switches
-FORTRAN=0       # 1 to propagate with f2py vvstep, 0 to propagate with python
+FORTRAN=1       # 1 to propagate with f2py vvstep, 0 to propagate with python
 FULLFORTRAN=1   # 1 do generate input files and run the fortran code
 
 ### Get bath coefficients
 bath = baths.getbath(params.bathname)(params)
-bath.get_coeffs()       # calculate the coefficients for the bath and add them to the bath object
 
 ## Generate matrices in eigenbasis
 pot = potentials.getpotential(params.potname)(params)
@@ -59,11 +71,9 @@ if show_plots:
 if(FULLFORTRAN):
     print('### Generating input files for fortran ###')
     integrator.generate_input_files(rho)
-    print('### Running fortran code ###')
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    os.system(f' cp {script_dir}/fort/executables/propagation ./tmp/') # copy the executable to the temporary folder containing the input files 
     run_here = True
     if(run_here): # run the fortran code in the temporary directory
+        print('### Running fortran code ###')
         os.system('cd tmp/; ./propagation')
         # Load the data from the fortran execution and save it to a file with header showing params
         fname = header = 'Css.txt'#TM_out_filename(potkey,simulation,Nx,dt,tmax,m,xa,xb)

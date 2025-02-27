@@ -2,7 +2,7 @@ import numpy as np
 import sys, os
 import matplotlib.pyplot as plt
 from hashmap import generateHashmap,Convert_to_list
-import Heom.fort.executables.propagator as prop
+import Feom.fort.executables.propagator as prop
 from utils import writeZ,writeI,writeParams
 
 npF = np.asfortranarray # Aliasing to make the code more legible
@@ -175,4 +175,7 @@ class Integrator:
         writeZ('Forts_mat',npF(self.s_mat))
         # Write the parameters to the file
         writeParams('Fortparams',self)
+        # Copy the fortran executable to the temporary directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        os.system(f' cp {script_dir}/fort/executables/propagation ./tmp/') 
         return

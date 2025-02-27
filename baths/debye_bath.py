@@ -22,6 +22,8 @@ class Debye_bath():
         #
         self.mode= params.bathmode
         self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
+        ### Calculate the C_ks and gam_ks for the bath and add to the class
+        self.get_coeffs()
 
     def J(self,w,plotme=False,ax=plt):
         w = np.linspace(0,2,1000)

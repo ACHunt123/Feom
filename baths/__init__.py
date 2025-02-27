@@ -1,6 +1,6 @@
 import numpy as np
 ### Importing baths
-from Heom.baths.debye_bath import Debye_bath
+from Feom.baths.debye_bath import Debye_bath
 ### Mapping of potential names to potential classes
 bath_mapping = {
 'debye': Debye_bath,
