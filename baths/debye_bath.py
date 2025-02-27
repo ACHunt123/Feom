@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 
 class Debye_bath():
     def __init__(self,params):
+        # Bathmode and settings
+        self.bathmode = params.bathmode
         # General parameters
         self.eta = params.eta
         self.gam = params.gam
@@ -53,8 +55,13 @@ class Debye_bath():
         gam_ks[0] = self.gam
         gam_ks[1:] = ws[1:]
 
+        # Calculate the low temperature coefficient for LowT correction
+        self.lowTcoef = self.eta/(self.beta*self.hbar**2) - (1/self.hbar**2)*np.sum(np.real(C_ks)/gam_ks) if self.bathmode == 'matsubara' else 0
 
-        return C_ks,gam_ks
+        self.C_ks = C_ks
+        self.gam_ks = gam_ks
+        return 
+        # return C_ks,gam_ks
 
     # output TCF for a given set of C_ks and gam_ks
     def TCF(self,plotme=False,ax=plt,mode=None):

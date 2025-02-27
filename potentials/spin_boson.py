@@ -12,24 +12,28 @@ class Spin_boson:
         self.ns = params.ns
         self.Delta = params.Delta
         self.eps = params.eps
-        # compute the diabatic<->adiabatic transformation matrix ONCE
-        H_mat = np.zeros((self.ns,self.ns),dtype=complex)
-        H_mat[0,0] = -self.eps
-        H_mat[1,1] = self.eps
-        H_mat[1,0] = self.Delta
-        H_mat[0,1] = self.Delta
-        self.H_mat = H_mat
-        self.eigs,self.Uda = np.linalg.eigh(H_mat) # diagonalize the Hamiltonian
+        ### Generate the Hamiltonian matrix in the diabatic basis
+        self.H_matrix()
+        ### compute the diabatic<->adiabatic transformation matrix ONCE
+        self.eigs,self.Uda = np.linalg.eigh(self.H_mat) # diagonalize the Hamiltonian
+        ### generate the perturbation matrix in the diabatic basis
+        self.s_mat = self.pos_matrix()
+        return
 
     # Generates the Hamiltonian matrix in the diabatic basis
     def H_matrix(self):
-        return self.H_mat
+        self.H_mat = np.zeros((self.ns,self.ns),dtype=complex)
+        self.H_mat[0,0] = -self.eps
+        self.H_mat[1,1] = self.eps
+        self.H_mat[1,0] = self.Delta
+        self.H_mat[0,1] = self.Delta
+        return 
 
     def pos_matrix(self): # perturbation matrix in diabatic basis
-        s_mat = np.zeros((self.ns,self.ns),dtype=complex)
-        s_mat[0,0] = -1
-        s_mat[1,1] = 1
-        return s_mat
+        q_mat = np.zeros((self.ns,self.ns),dtype=complex)
+        q_mat[0,0] = -1
+        q_mat[1,1] = 1
+        return q_mat
 
     # Generates the initial system density matrix and the partition function
     def initcond(self): #(here we just put the system in the excited state)

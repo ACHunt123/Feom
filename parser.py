@@ -68,6 +68,11 @@ def parse_args():
 
 params = parse_args()
 
+### Propagation
+params.tmax = 20
+params.dt= 0.001
+params.nttot =int(params.tmax/params.dt)+1
+params.t_arr = np.arange(params.nttot)*params.dt
 
 ### more Parameters
     # beta600 = 526.2918822622093

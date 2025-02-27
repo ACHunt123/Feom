@@ -11,30 +11,31 @@ npF = np.asfortranarray # Aliasing to make the code more legible
 #   This is the integrator for the HEOM - done with scaled matrices st dx = 1 (or discrete basis)
 #
 class Integrator:
-    def __init__(self,gam_ks,C_ks,ns,Imax,H_mat,s_mat,K,hbar,L,lowTcoef,N_nonmats):
-        self.ns = ns
-        self.Imax = Imax
-        self.L = L
-        self.K = K
-        self.hbar = hbar
-        self.lowTcoef=lowTcoef
-        self.N_nonmats = N_nonmats
+    def __init__(self,bath,pot,params):
+        ### Add all of the parameters to the class
+        self.__dict__.update(vars(params))
+        ### Add the bath parameters that are needed
+        self.gam_ks = bath.gam_ks
+        self.C_ks = bath.C_ks
+        self.lowTcoef = bath.lowTcoef
+        self.N_nonmats = bath.N_nonmats
+        ### Arguments for the integrator
+        self.H_mat = pot.H_mat # Hamiltonian matrix
+        self.s_mat = pot.s_mat # perturbation operator (could be q for example) 
+
+        ### Calculate Hashmaps
         # The formatting of the Hashmaps are as follows:
         # I2ind[I] : int I -> list of ints corresponding to the BCF indecies
         # ind2I[ind] :tuple of ints -> int I
         # This is done because lists are not hashable, and tuples are   
-        self.I2ind , self.ind2I = generateHashmap(K,L,N_nonmats) #hash map from the index of the ADO to the index of the BCF
-        self.ADO_index, self.I0s = Convert_to_list(self.I2ind) #new indexing 
-        self.H_mat = H_mat
-        self.s_mat = s_mat # perturbation operator (could be q for example) 
-        # Bath coefficients
-        self.gam_ks = gam_ks
-        self.C_ks = C_ks
+        self.I2ind , self.ind2I = generateHashmap(self.K,self.L,self.N_nonmats) #hash map from the index of the ADO to the index of the BCF
+        self.ADO_index, self.I0s = Convert_to_list(self.I2ind) # new indexing for FORTRAN
+
         # objects in RK4 calculation
-        self.k1 = np.zeros((ns,ns,Imax),dtype=complex)
-        self.k2 = np.zeros((ns,ns,Imax),dtype=complex)
-        self.k3 = np.zeros((ns,ns,Imax),dtype=complex)
-        self.k4 = np.zeros((ns,ns,Imax),dtype=complex)
+        self.k1 = np.zeros((self.ns,self.ns,self.Imax),dtype=complex)
+        self.k2 = np.zeros((self.ns,self.ns,self.Imax),dtype=complex)
+        self.k3 = np.zeros((self.ns,self.ns,self.Imax),dtype=complex)
+        self.k4 = np.zeros((self.ns,self.ns,self.Imax),dtype=complex)
 
     # returns the tier of the ADO from its list of indices
     def tier(self,ind):
@@ -125,19 +126,19 @@ class Integrator:
                     gradient[:,:,I] -= 1.j/self.hbar * np.sqrt(nk/absCk) * (Ck*self.s_mat@rho[:,:,I_nkm1] - np.conj(Ck)*rho[:,:,I_nkm1]@self.s_mat)
 
     # RK4 step
-    def rk4_step(self,x0,dt,FORTRAN=0):
+    def rk4_step(self,x0,FORTRAN=0):
         if not FORTRAN: # RK$ using python
             self.drhodt(x0,gradient=self.k1)
-            self.k1 = self.k1 * (dt/2)
+            self.k1 = self.k1 * (self.dt/2)
 
             self.drhodt(x0+self.k1,gradient=self.k2)
-            self.k2 = self.k2 * (dt/2)
+            self.k2 = self.k2 * (self.dt/2)
 
             self.drhodt(x0+self.k2,gradient=self.k3)
-            self.k3 = self.k3 * (dt)
+            self.k3 = self.k3 * (self.dt)
             
             self.drhodt(x0+self.k3,gradient=self.k4)
-            return x0 + dt/6.*self.k4 + (2./3.)*self.k2 + (self.k3 + self.k1)/3.
+            return x0 + self.dt/6.*self.k4 + (2./3.)*self.k2 + (self.k3 + self.k1)/3.
         else: # Propagation using FORTRAN
             # Format all of the data
             x0fort =np.zeros((self.Imax,self.ns,self.ns),dtype=complex,order='F')
@@ -153,13 +154,13 @@ class Integrator:
             Ktot = self.K + self.N_nonmats
             prop.prop_subroutines.vvstep(x0fort,npF(self.ADO_index),npF(self.I0s)+1,npF(self.gam_ks),
                 npF(self.C_ks),npF(self.H_mat)*1.j/self.hbar,npF(self.s_mat)*1.j/self.hbar,
-                dt,-self.hbar**2*self.lowTcoef,imax=self.Imax,l=self.L,ns=self.ns,ktot=Ktot)
+                self.dt,-self.hbar**2*self.lowTcoef,imax=self.Imax,l=self.L,ns=self.ns,ktot=Ktot)
             # Reformat the density matrix for python
             for I in range(self.Imax):
                 x0[:,:,I] = x0fort[I,:,:]
             return x0
 
-    def generate_input_files(self,x0,dt,nttot):
+    def generate_input_files(self,x0):
         # Format all of the data
         x0fort =np.zeros((self.Imax,self.ns,self.ns),dtype=complex,order='F')
         for I in range(self.Imax):
@@ -173,5 +174,5 @@ class Integrator:
         writeZ('FortH_mat',npF(self.H_mat))
         writeZ('Forts_mat',npF(self.s_mat))
         # Write the parameters to the file
-        writeParams('Fortparams',self,dt,nttot)
+        writeParams('Fortparams',self)
         return

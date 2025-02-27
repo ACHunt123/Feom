@@ -16,6 +16,10 @@ class Harmonic_oscillator:
         self.dx=params.dx
         self.ns=params.ns
         self.nx = int((self.xmax-self.xmin)/self.dx) # number of x points
+        ### Generate the Hamiltonian matrix in the eigenbasis
+        self.H_matrix()
+        ### Generate the position matrix in the eigenbasis
+        self.s_mat = self.pos_matrix()
         return
 
         
@@ -53,7 +57,8 @@ class Harmonic_oscillator:
     # Generates the Hamiltonian matrix in its eigenbasis
     def H_matrix(self):
         psi_ns, E_ns, x_arr = self.eigenstates()
-        return np.diag(E_ns)
+        self.H_mat = np.diag(E_ns)
+        return 
 
     def pos_matrix(self):
         psi_ns, E_ns, x_arr = self.eigenstates()
