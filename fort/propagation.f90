@@ -14,7 +14,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
     complex(8), intent(inout) :: ADOs(Imax,ns,ns)
     ! Arrays for the ADO index and the I0s
     integer(4), intent(in) :: ADO_index(Imax,Ktot) 
-    integer(4), intent(in) :: I0s(0:L+1), lengths(0:L,0:Ktot)
+    integer(4), intent(in) :: I0s(0:L+1), lengths(0:L,Ktot)
     ! Local variables
     complex(8) :: k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns)
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
@@ -52,7 +52,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
             ! Execute the diagonal superoperator terms
             gradI = ( - matmul(iH_mat,rhoI) + matmul(rhoI,iH_mat)) &
                   - sum(n_ks * gam_ks) * rhoI 
-                  
+
             ! Itziki Trucation (if present)
             if (int(abs(lowTcoef*10**6)).ne.0) then
                 gradI = gradI + lowTcoef  &
@@ -91,8 +91,9 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
     integer(4) function I_nk_plusminus(I,ki,pm) !pm is +1 or -1, I is the inital index in the ADOs, k is which nk we are changing
         implicit none
         integer(4), intent(in) :: I,ki,pm
-        integer(4) :: indx(Ktot),tier0,p,sn,ni,tier1,n
+        integer(4) :: indx(Ktot),tier0,p,sn,np,tier1,n
 
+        ! Get values of [n_1,n_2,...,n_Ktot] for the target ADO
         indx = ADO_index(I,:) !deepcopy NOT need to chekc if it is a copy and not a pointer
         tier0 = sum(indx)
         tier1 = tier0 + pm
@@ -104,14 +105,39 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
             return
         end if
 
-        ! Find the index in the ADOs
-        I_nk_plusminus = I0s(tier1) !starting index of the block
-        sn = 0 !running total of the digits 
-        do p = 1,Ktot ! Loop over the digit to focus on [x,.,.,.,.,.] then [.,x,.,.,.,.] etc.
-            ni = indx(p) ! The number of the digit
-            sn = sn + ni ! Add this to the running total
-            do n = 0, tier1-sn-1
-                I_nk_plusminus = I_nk_plusminus + lengths(n,Ktot-p) ! Move to the first instance where the leading digit is x = ni
+        ! Algorithm for finding I without a hashmap          By A. C. Hunt
+        !
+        ! This algorithm if based on the fact that we have stored ADOs in blocks of the same leading digit, with increasing order
+        ! e.g. for Ktot=3, L=2, the ADOs are stored as such:
+        !
+        ! [0,0,0] tier 0
+        !
+        ! [1,0,0]                   The First step uses I0s to find the starting index of the block (denoted by the tier)
+        ! [0,1,0] tier 1
+        ! [0,0,1]                   We then loop over the digits of indx (the index we are trying to find), starting left to right. 
+        !                           This loop is over p =1 to Ktot-1. (no p=Ktot needed as the last digit is fixed by the tier)
+        ! [2,0,0]                   
+        ! [1,1,0]                   For the pth iteration, we calculate the required sum of the remaining digits required to reach the tier
+        ! [1,0,1] tier 2            using the lengths array (pascals triangle) ie
+        ! [0,2,0]                    for [o,x,.,.,.] {where o=correct, x=to make correct in this loop, . = remaining digits}
+        ! [0,1,1]                    we calculate x = (tier - sum_k=1^p n_k), which gives the sum of the remaining digits. 
+        ! [0,0,2]                    we then add the number of combinations of the remaining digits that is less than x (see the loop over n)
+        !                            to I_nk_plusminus, such that the index is in the correct block --> [o,o,.,.,.]
+        !                           
+        !                           The output after the loop above [o,o,.,.,.] is the index of the first ADO in the block that has the leading digits [o,o]
+        !                           We then repead the process for the next digit, [o,o,x,.,.] and so on until we have the correct index
+
+        ! The algorithm is O(Ktot) in the worst case, but is usually much faster
+      
+        I_nk_plusminus = I0s(tier1) ! find starting index of the block
+        sn = 0                      !  initialize running total of the digits 
+
+        do p = 1,Ktot-1 ! Loop over the digit to focus on [x,.,.,.,.,.] then [o,x,.,.,.,.] etc. 
+            np = indx(p) ! The value of the digit that we are looking for: n_p
+            sn = sn + np ! Add this to the running total: sum_k=1^p n_k
+            ! Move to the first instance where the leading digit is x = n_p
+            do n = 0, tier1-sn-1    ! add number of ADOS for the sum of the remaining digits = 0,1 ... tier1-sn-1
+                I_nk_plusminus = I_nk_plusminus + lengths(n,Ktot-p) ! lengths is a pascals triangle array (see main)
             end do
             if (sn==tier1) return ! If the running total of all the digits is equal to the tier, then we have found the correct index
         end do
@@ -201,7 +227,7 @@ program main
     ! allocate the arrays
     allocate(ADOs(Imax,ns,ns), iH_mat(ns,ns), is_mat(ns,ns), C_ks(Ktot), gam_ks(Ktot))
     allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
-    allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,0:Ktot))
+    allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
     ! read the matrices from the files
     call read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,ns)
     ! FLOP REDUCTIONS
@@ -217,14 +243,14 @@ program main
             c_D_RIGHT(ki,nk) = sqrt(nk/abs(C_ks(ki)))*conjg(C_ks(ki))
         end do
     end do
-    ! Calculate the lengths of each block of ado indices
+    ! Calculate the lengths of each block of ado indices (pascals triangle)
     do nk = 0,L 
-        do ki = 0,Ktot
+        do ki = 1,Ktot
             lengths(nk,ki) = int(gamma(real(nk+ki-1 + 1.0D0)) / gamma(real(ki-1 + 1.0D0)) / gamma(real(nk + 1.0D0)))
         end do
     end do 
 
-    ! outfile
+    ! Ready to go
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 1, nttot
@@ -235,7 +261,7 @@ program main
         if (abs(ADOs(1,1,1)).gt.1.d8) stop 'Density matrix has diverged'
     end do
     close(10)
-    deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s)
+    deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT)
      
 end program main
 
