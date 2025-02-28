@@ -1,6 +1,7 @@
 # Compiler and flags
 FC = ifx             # Intel Fortran Compiler (can switch to gfortran if needed)
-F90FLAGS = -g -O2 -heap-arrays
+# F90FLAGS = -g -O2 -heap-arrays
+F90FLAGS = -g -O2 -heap-arrays # may need to add -heap-arrays (depends on how big the arrays are)
 F90DEBUGFLAGS = -g -traceback -check all -warn all -ftrapuv -heap-arrays -debug inline-debug-info -O0
 
 # Directories
@@ -22,6 +23,10 @@ f2py:
 	f2py -c -m propagator propagation.f90  
 	rm propagation.o
 	mv propagator* executables/
+
+profile: 
+	ifx -g -prof -o propagation propagation.f90
+	mv propagation executables/
 
 default: fast f2py
 

@@ -1,5 +1,6 @@
 
 import numpy as np
+import sys
 import matplotlib.pyplot as plt
 #
 #   Hashmap.py generates a hashmap that maps the index of the BCF to the index of the ADO
@@ -123,26 +124,48 @@ def Convert_to_list(I_to_index):
 if __name__ == '__main__':
 
     # INPUTS
-    K = 3   #number of exponential terms in the BCF - either the truncation of the number of beads + 1
+    K = 5   #number of exponential terms in the BCF - either the truncation of the number of beads + 1
     L = 3   #maximum depth of the ADO expansion
     N_nonmats = 1
+    Ktot=N_nonmats+K
 
     # Get hashmaps
     I_to_index, index_to_I = generateHashmap(K,L,N_nonmats)   
     print('\n')
-    ADO_index=Convert_to_list(I_to_index) # this list has dimensions [I, K] (where K is the number of exponential terms in the BCF)
+    ADO_index,I0s=Convert_to_list(I_to_index) # this list has dimensions [I, K] (where K is the number of exponential terms in the BCF)
     print(ADO_index)
-    print('\n')
+    print(I0s)
 
-    tier=2
-    n=2
-    pm=-1
-    I0s = np.array([np.sum([length(n,K+1) for n in range(0,tier)]) for tier in range(0,L+1)],dtype=int)
-    I0 = I0s[tier]
-    I1 = I0s[tier+1]
-    print(I0,I1)
-    print(ADO_index[I0:I1,:])
+    # ADO_tier=ADO_index[I0s[tier]:I0s[tier+1]]
+    # print(ADO_tier)
+
+    ## now to make the algo
+    index = [1,0,0,2,0,0]
+    # starting min and max indices
+    tier= np.sum(index)
+    I0=I0s[tier]
+    sn=0 # Running total of indices that have been found so far (left to right)
+    Lengths = np.zeros((tier+1,Ktot),dtype=int)
+    for n in range(0,tier+1):
+        for k in range(1,Ktot):
+            Lengths[n,k]=length(n,k)
+
+    for p in range(1,Ktot): # Loop over the digit to focus on [x,.,.,.,.,.] then [.,x,.,.,.,.] etc.
+        ni = index[p-1]     # The number of the digit
+        sn+=ni              # Add this to the running total
+        for n in range(0,tier-sn):
+            I0+=Lengths[n,Ktot-p] # Move to the first instance where the leading digit is x = ni
+
+        if sn==tier:        # If the running total of all the digits is equal to the tier, then we have found the correct index
+            break
+    print('\n')
+    print(ADO_index[I0:I0+1],'final')
+
+
+
+
+
     sys.exit()
 
-    print(lst[1,:])  
+
 

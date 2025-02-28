@@ -5,16 +5,16 @@ contains
 
 
 ! rk4 propagation of HEOM for one step
-subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
+subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
     implicit none
     integer, intent(in) :: Imax, Ktot, ns, L
     real(8), intent(in) :: dt, lowTcoef
-    complex(8), intent(in) :: C_ks(Ktot), gam_ks(Ktot)
+    complex(8), intent(in) :: gam_ks(Ktot), c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L)   
     complex(8), intent(in) :: iH_mat(ns,ns), is_mat(ns,ns)
     complex(8), intent(inout) :: ADOs(Imax,ns,ns)
     ! Arrays for the ADO index and the I0s
     integer(4), intent(in) :: ADO_index(Imax,Ktot) 
-    integer(4), intent(in) :: I0s(0:L+1)
+    integer(4), intent(in) :: I0s(0:L+1), lengths(0:L,0:Ktot)
     ! Local variables
     complex(8) :: k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns)
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
@@ -36,10 +36,10 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,dt,lo
     complex(8) function grad(rho)
         dimension grad(Imax,ns,ns)
         complex(8), intent(in) :: rho(Imax,ns,ns) ! fortran is column major so the last index is the fastest changing
-        complex(8) :: is_mat2(ns,ns),Ck,nk
-        complex(8) :: rhoI(ns,ns),gradI(ns,ns) !temporary variables for the ADO and the gradient (speeds up code for large I and ns)
-        integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki
-
+        complex(8) :: is_mat2(ns,ns)!,Ck!,nk
+        complex(8) :: rhoI(ns,ns),gradI(ns,ns), rhoInkp1(ns,ns),rhoInkm1(ns,ns) !temporary variables for the ADO and the gradient (speeds up code for large I and ns)
+        integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki,nk
+ 
         is_mat2(:,:) = matmul(is_mat,is_mat)
 
         ! Loop over the ADOs
@@ -52,6 +52,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,dt,lo
             ! Execute the diagonal superoperator terms
             gradI = ( - matmul(iH_mat,rhoI) + matmul(rhoI,iH_mat)) &
                   - sum(n_ks * gam_ks) * rhoI 
+                  
             ! Itziki Trucation (if present)
             if (int(abs(lowTcoef*10**6)).ne.0) then
                 gradI = gradI + lowTcoef  &
@@ -60,20 +61,24 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,dt,lo
 
             ! Execute the off-diagonal superoperator terms
             do ki = 1, (Ktot)
-                Ck = C_ks(ki)
                 nk = n_ks(ki)
                 ! Calculate the indices of the ADOs with nk+1 and nk-1
                 I_nkp1 = I_nk_plusminus(I,ki,+1)
                 I_nkm1 = I_nk_plusminus(I,ki,-1)
 
+                !NOTE: The commented lines are what the code is really doing (we put in the precalculated values to speed up the code)
                 if (I_nkp1.ne.-1) then
+                    rhoInkp1 = rho(I_nkp1,:,:)
                     gradI = gradI &
-                  +  sqrt((nk+1)*abs(Ck)) * ( - matmul(is_mat,rho(I_nkp1,:,:)) + matmul(rho(I_nkp1,:,:),is_mat))
+                    +  c_U(ki,nk) * ( - matmul(is_mat,rhoInkp1) + matmul(rhoInkp1,is_mat))
+                    !   +  sqrt((nk+1)*abs(Ck)) * ( - matmul(is_mat,rho(I_nkp1,:,:)) + matmul(rho(I_nkp1,:,:),is_mat))
                 end if
 
                 if (I_nkm1.ne.-1) then
+                    rhoInkm1 = rho(I_nkm1,:,:)
                     gradI = gradI &
-                  +  sqrt(nk/abs(Ck)) * (- Ck*matmul(is_mat,rho(I_nkm1,:,:)) + conjg(Ck)*matmul(rho(I_nkm1,:,:),is_mat))
+                !   +  sqrt(nk/abs(Ck)) * (- Ck*matmul(is_mat,rho(I_nkm1,:,:)) + conjg(Ck)*matmul(rho(I_nkm1,:,:),is_mat))
+                  +  c_D_LEFT(ki,nk) * matmul(is_mat,rhoInkm1) + c_D_RIGHT(ki,nk) * matmul(rhoInkm1,is_mat)
                 end if
             end do
             ! Update the gradient array
@@ -86,31 +91,31 @@ subroutine vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,dt,lo
     integer(4) function I_nk_plusminus(I,ki,pm) !pm is +1 or -1, I is the inital index in the ADOs, k is which nk we are changing
         implicit none
         integer(4), intent(in) :: I,ki,pm
-        integer(4) :: indx(Ktot),I0,I1,tier0
+        integer(4) :: indx(Ktot),tier0,p,sn,ni,tier1,n
 
         indx = ADO_index(I,:) !deepcopy NOT need to chekc if it is a copy and not a pointer
         tier0 = sum(indx)
+        tier1 = tier0 + pm
         indx(ki) = indx(ki) + pm
+
         ! Check if the index is valid [new tier within range, no nk less than 0] - if not return -1
-        if ((tier0+pm.gt.L).or.(indx(ki).lt.0)) then
+        if ((tier1.gt.L).or.(indx(ki).lt.0)) then
             I_nk_plusminus = -1
             return
         end if
+
         ! Find the index in the ADOs
-        ! get the block in which the index is - will speed up the search
-        if (pm.eq.1) then
-            I0 = I0s(tier0+1)
-            I1 = I0s(tier0+2)
-        else
-            I0 = I0s(tier0-1)
-            I1 = I0s(tier0)
-        end if
-        ! search for the new index within the block
-        do I_nk_plusminus = I0,I1
-            if (all(indx.eq.ADO_index(I_nk_plusminus,:))) return
+        I_nk_plusminus = I0s(tier1) !starting index of the block
+        sn = 0 !running total of the digits 
+        do p = 1,Ktot ! Loop over the digit to focus on [x,.,.,.,.,.] then [.,x,.,.,.,.] etc.
+            ni = indx(p) ! The number of the digit
+            sn = sn + ni ! Add this to the running total
+            do n = 0, tier1-sn-1
+                I_nk_plusminus = I_nk_plusminus + lengths(n,Ktot-p) ! Move to the first instance where the leading digit is x = ni
+            end do
+            if (sn==tier1) return ! If the running total of all the digits is equal to the tier, then we have found the correct index
         end do
-        ! if we get this far, something is wrong
-        stop 'Error in I_nk_plusminus'
+        return
         end function I_nk_plusminus
 
 end subroutine
@@ -183,11 +188,11 @@ program main
     implicit none
     integer :: Imax, Ktot, ns, L, nttot
     real(8) :: hbar, dt, lowTcoef
-    complex(8), allocatable :: ADOs(:,:,:), iH_mat(:,:), is_mat(:,:), C_ks(:), gam_ks(:)
+    complex(8), allocatable :: ADOs(:,:,:), iH_mat(:,:), is_mat(:,:), C_ks(:), gam_ks(:), c_U(:,:), c_D_LEFT(:,:), c_D_RIGHT(:,:)
     integer(4), allocatable :: ADO_index(:,:)
-    integer(4), allocatable :: I0s(:)
+    integer(4), allocatable :: I0s(:), lengths(:,:)
     ! Local variables
-    integer :: stat,it
+    integer :: stat,it,ki,nk
     ! read the parameters from the input file
     open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
     read(10,'(I10, I10, D22.15, D22.15, I10,  I10, D22.15, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
@@ -195,20 +200,39 @@ program main
     ! print*, Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
     ! allocate the arrays
     allocate(ADOs(Imax,ns,ns), iH_mat(ns,ns), is_mat(ns,ns), C_ks(Ktot), gam_ks(Ktot))
-    allocate(ADO_index(Imax,Ktot), I0s(0:L+1))
+    allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
+    allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,0:Ktot))
     ! read the matrices from the files
     call read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,ns)
-    ! scale the matrices to reduce number of FLOPs
+    ! FLOP REDUCTIONS
+    ! scale the matrices
     iH_mat = iH_mat/hbar
     is_mat = is_mat/hbar
     lowTcoef = -lowTcoef*hbar**2 ! counterracts the scaling of the s matrix (-1 for i^2)
+    ! Pre-calculate the superoperator terms
+    do ki = 1, Ktot
+        do nk = 0, L
+            c_U(ki,nk) = sqrt((nk+1)*abs(C_ks(ki)))
+            c_D_LEFT(ki,nk) = -sqrt(nk/abs(C_ks(ki)))*C_ks(ki)
+            c_D_RIGHT(ki,nk) = sqrt(nk/abs(C_ks(ki)))*conjg(C_ks(ki))
+        end do
+    end do
+    ! Calculate the lengths of each block of ado indices
+    do nk = 0,L 
+        do ki = 0,Ktot
+            lengths(nk,ki) = int(gamma(real(nk+ki-1 + 1.0D0)) / gamma(real(ki-1 + 1.0D0)) / gamma(real(nk + 1.0D0)))
+        end do
+    end do 
+
     ! outfile
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 1, nttot
         if (mod(it,100).eq.0) print*, it,'/',nttot
-        call vvstep(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
-        write(10,*) it*dt, real(ADOs(1,1,1)), real(ADOs(1,2,2))
+        call vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
+        write(10,'(5E25.15)') it*dt, &
+        real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
+        if (abs(ADOs(1,1,1)).gt.1.d8) stop 'Density matrix has diverged'
     end do
     close(10)
     deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s)

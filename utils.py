@@ -69,69 +69,40 @@ def writeParams(filename,params): # Writes small parameters into file
     return
 
 # ### Write functions for the output files  and metadata
-# def out_filename(potkey,params): #no potkey added for the moment
-#     if mode in ['MQCL','QMdensitymat','QMwavefunc_splitop']:
-#         return f'{mode}_Nx{Nx}_dt{dt*fs:.3g}_tmax{tmax*fs:.3g}_m{m:.1g}_xa{xa:2g}_xb{xb:.2g}.txt'.replace(' ','') 
-#     elif mode in ['QMwavefunc_DVR']:
-#         return f'{mode}_Nx{Nx}_Ne{Ne}_dt{dt*fs:.3g}_tmax{tmax*fs:.3g}_m{m:.1g}_xa{xa:2g}_xb{xb:.2g}.txt'.replace(' ','')
-#     else:
-#         print('Invalid mode')
-#         sys.exit()
+def out_filename(params): # Name of the output file - contains all the parameters
+    namestr = ''
+    for key in params.__dict__.keys():
+        if key in ['header','out_name']: continue # dont put the header in the filename
+        #get type of variable for formatting
+        if type(params.__dict__[key]) == float:
+            namestr += f'{key}{params.__dict__[key]:.3g}_'
+        if type(params.__dict__[key]) == int:
+            namestr += f'{key}{params.__dict__[key]}_'
+        if type(params.__dict__[key]) == str:
+            namestr += f'{key}{params.__dict__[key]}_'
+    ### Clean up the string
+    namestr = namestr.replace('bathname','BTH').replace('bathmode','').replace('potname','POT')
+    return f'outfile_{namestr[:-1]}.txt'
 
-# def TM_printparams(potkey,potname,mode,Nx,tmax,m,xa,xb,dt=None,Ne=None):
-#     fname = 'parameters' # make parameters file
-#     # if not int(input('Do you want to save the parameters used in a file? (1/0)')): return
-#     with open(fname,'w') as f:
-#         f.write('Input parameters used\n')
-#         f.write('---------------------\n')
-#         # all parameters
-#         f.write(f'potkey = {potkey}\n')
-#         f.write(f'mode = {mode}\n')
-#         f.write(f'Nx = {Nx}\n')
-#         f.write(f'tmax = {tmax*fs}fs\n')
-#         f.write(f'm = {m}\n')
-#         f.write(f'xa = {xa}\n')
-#         f.write(f'xb = {xb}\n')
-#         f.write(f'dt = {dt*fs}fs\n\n')
-#         # parameters specific to modules
-#         if mode == 'QMwavefunc_DVR':
-#             f.write(f'Ne = {Ne}\n')
-#         # the argparse to generate said parameters
-#         f.write('To generate the same parameters, use the following command in target directory (use -batch for multiple to ensure plotting doesnt happen):\n')
-#         if mode in ['QMwavefunc_DVR']:
-#             f.write(f'wfTLS_DVR.py -Nx {Nx} -Ne {Ne} -xa {xa} -xb {xb} -dt {dt*fs:4g} -tmax {tmax*fs:4g} -m {m} -potname {potname}\n')
-#         if mode in ['QMwavefunc_splitop']:
-#             f.write(f'wfTLS_splitop.py -Nx {Nx} -xa {xa} -xb {xb} -dt {dt*fs:4g} -tmax {tmax*fs:4g} -m {m} -potname {potname}\n')
-#         if mode in ['MQCL','QMdensitymat']:
-#             f.write(f'TruncMoyalTLS.py -Nx {Nx} -xa {xa} -xb {xb} -dt {dt*fs:4g} -tmax {tmax*fs:4g} -m {m} -simulation {mode} -potname {potname}\n')
-#         f.write('Note: The rest of the parameters are hardcoded for now, so you will need to change them manually\n')
-#     ### Make metadata for headers in files
-#     metadata = "Input parameters used\n"
-#     metadata += "------------------------------------------------------------------------------------\n"
-#     metadata += f'potkey = {potkey}\n'
-#     metadata += f'mode = {mode}\n'
-#     metadata += f'Nx = {Nx}\n'
-#     metadata += f'tmax = {tmax * fs} fs\n'
-#     metadata += f'm = {m}\n'
-#     metadata += f'xa = {xa}\n'
-#     metadata += f'xb = {xb}\n'
-#     if dt is not None:
-#         metadata += f'dt = {dt * fs} fs\n\n'
-#     # Parameters specific to the module
-#     if mode == 'QMwavefunc_DVR' and Ne is not None:
-#         metadata += f'Ne = {Ne}\n'
-#     # Command to reproduce the parameters in the target directory
-#     if mode != None: metadata += '\n To generate the same parameters, use the following command in the target directory (use -batch for multiple to ensure plotting does not happen):\n'
-#     # Generate the appropriate command based on the mode
-#     if mode == 'QMwavefunc_DVR':
-#         metadata += f'wfTLS_DVR.py -Nx {Nx} -Ne {Ne} -xa {xa} -xb {xb} -dt {dt * fs:4g} -tmax {tmax * fs:4g} -m {m} -potname {potname}\n'
-#     elif mode == 'QMwavefunc_splitop':
-#         metadata += f'wfTLS_splitop.py -Nx {Nx} -xa {xa} -xb {xb} -dt {dt * fs:4g} -tmax {tmax * fs:4g} -m {m} -potname {potname}\n'
-#     elif mode in ['MQCL', 'QMdensitymat']:
-#         metadata += f'TruncMoyalTLS.py -Nx {Nx} -xa {xa} -xb {xb} -dt {dt * fs:4g} -tmax {tmax * fs:4g} -m {m} -simulation {mode} -potname {potname}\n'
-#     # Add additional note for hardcoded parameters
-#     if mode != None: metadata += '\n Note: The rest of the parameters are hardcoded for now, so you will need to change them manually\n'
-#     metadata += "------------------------------------------------------------------------------------\n"
-#     if mode != None: metadata += 'Data'
+def printparams(params):
+    ### Make metadata for headers in files - again this contains all the parameters
+    runcommand = 'feom.py '
+    metadata = "Input parameters used\n"
+    metadata += "------------------------------------------------------------------------------------\n"
+    for key in params.__dict__.keys():
+        if type(params.__dict__[key]) == float:
+            metadata += f'{key} = {params.__dict__[key]:.3g} \n'
+        if type(params.__dict__[key]) == int:
+            metadata += f'{key} = {params.__dict__[key]} \n'
+        if type(params.__dict__[key]) == str:
+            metadata += f'{key} = {params.__dict__[key]}\n'
+        if key not in ['header','out_name']:
+            runcommand += f'--{key} {params.__dict__[key]} '
+    metadata += 'To run this code use the following command\n'
+    metadata += runcommand + '\n'
+    metadata += "------------------------------------------------------------------------------------\n"
+    metadata += 'Data \n'
+    metadata += 't rho00 rho11 re(rho01) im(rho01)' #NOTE this is hardcoded for now
+    return metadata
 
-#     return metadata
+
