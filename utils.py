@@ -63,8 +63,8 @@ def writeParams(filename,params): # Writes small parameters into file
     if not os.path.exists(f"tmp/"): os.makedirs(f"tmp/")
     with open(f"tmp/{filename}", "w") as f:
         Ktot=params.K+params.N_nonmats
-        f.write("Ktot,L,hbar,lowTcoef,Imax,ns,dt,nttot\n")
-        f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.lowTcoef.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}\n".replace('e','d'))
+        f.write("Ktot,L,hbar,lowTcoef,Imax,ns,dt,nttot,lowTcoef_switch\n")
+        f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.lowTcoef.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}{params.lowTCorr:10d}\n".replace('e','d'))
         f.write("/\n")
     return
 

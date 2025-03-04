@@ -1,6 +1,12 @@
 ! Fortran module to propagate the HEOM code
 module prop_subroutines
 implicit none
+integer(4) :: lowTcoef_switch
+integer(4), allocatable :: active(:)
+complex(8),allocatable :: is_mat2(:,:)
+! Pointers for array slicing
+complex(8), pointer :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:)
+
 contains
 
 
@@ -18,7 +24,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
     ! Local variables
     complex(8) :: k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns)
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
-    
+
     ! Calculate the k values for the Runge-Kutta method
     k1 = grad(ADOs)*dt/2. !need to split the computation here into two lines to avoid a bug
     ktmp = ADOs+k1
@@ -30,22 +36,26 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
 
     ! Update the density matrix
     ADOs = ADOs + (dt/6.d0)*k4 + (2.d0/3.d0)*k2 + (k3 + k1)/3.d0 ! doest work for fourth order method
+    
+    ! Kill off ADOs with small norm
+    call kill_small(ADOs,active,Imax,ns)
+
     contains
 
     ! Function for calculating the gradient of the density, inherits the scope of the vvstep subroutine
     complex(8) function grad(rho)
         dimension grad(Imax,ns,ns)
-        complex(8), intent(in) :: rho(Imax,ns,ns) ! fortran is column major so the last index is the fastest changing
-        complex(8) :: is_mat2(ns,ns)!,Ck!,nk
-        complex(8) :: rhoI(ns,ns),gradI(ns,ns), rhoInkp1(ns,ns),rhoInkm1(ns,ns) !temporary variables for the ADO and the gradient (speeds up code for large I and ns)
+        complex(8), intent(in), target :: rho(Imax,ns,ns) ! fortran is column major so the last index is the fastest changing
+        ! complex(8) :: rhoI(ns,ns),gradI(ns,ns), rhoInkp1(ns,ns),rhoInkm1(ns,ns) !temporary variables for the ADO and the gradient (speeds up code for large I and ns)
+        complex(8) :: gradI(ns,ns) ! temporary variable for the gradient
         integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki,nk
  
-        is_mat2(:,:) = matmul(is_mat,is_mat)
-
         ! Loop over the ADOs
         do I = 1, Imax
+            if (active(I).eq.0) cycle !skip if not active
+
             ! temporary variable for the ADO (same done for the gradient, but needn't be initiallised as is overwritten)
-            rhoI = rho(I,:,:)
+            rhoI => rho(I,:,:)
             ! Get the n values for the ADOs
             n_ks = ADO_index(I,:)
 
@@ -54,7 +64,7 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
                   - sum(n_ks * gam_ks) * rhoI 
 
             ! Itziki Trucation (if present)
-            if (int(abs(lowTcoef*10**6)).ne.0) then
+            if (lowTcoef_switch.eq.1) then
                 gradI = gradI + lowTcoef  &
                 * (- matmul(is_mat2,rhoI) - matmul(rhoI,is_mat2) + 2.d0*matmul(matmul(is_mat,rhoI),is_mat))
             end if
@@ -68,17 +78,19 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
 
                 !NOTE: The commented lines are what the code is really doing (we put in the precalculated values to speed up the code)
                 if (I_nkp1.ne.-1) then
-                    rhoInkp1 = rho(I_nkp1,:,:)
+                    rhoInkp1 => rho(I_nkp1,:,:)
                     gradI = gradI &
                     +  c_U(ki,nk) * ( - matmul(is_mat,rhoInkp1) + matmul(rhoInkp1,is_mat))
                     !   +  sqrt((nk+1)*abs(Ck)) * ( - matmul(is_mat,rho(I_nkp1,:,:)) + matmul(rho(I_nkp1,:,:),is_mat))
+                    active(I_nkp1) = 1
                 end if
 
                 if (I_nkm1.ne.-1) then
-                    rhoInkm1 = rho(I_nkm1,:,:)
+                    rhoInkm1 => rho(I_nkm1,:,:)
                     gradI = gradI &
                 !   +  sqrt(nk/abs(Ck)) * (- Ck*matmul(is_mat,rho(I_nkm1,:,:)) + conjg(Ck)*matmul(rho(I_nkm1,:,:),is_mat))
                   +  c_D_LEFT(ki,nk) * matmul(is_mat,rhoInkm1) + c_D_RIGHT(ki,nk) * matmul(rhoInkm1,is_mat)
+                    active(I_nkm1) = 1
                 end if
             end do
             ! Update the gradient array
@@ -142,7 +154,34 @@ subroutine vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,
             if (sn==tier1) return ! If the running total of all the digits is equal to the tier, then we have found the correct index
         end do
         return
-        end function I_nk_plusminus
+    end function I_nk_plusminus
+
+
+    ! Function for killing off ADOs that have a small norm
+    subroutine kill_small(ADOs,active,Imax,ns)
+        implicit none
+        integer(4), intent(in) :: Imax, ns
+        complex(8), intent(inout) :: ADOs(Imax,ns,ns)
+        integer(4), intent(inout) :: active(Imax)
+        integer(4) :: I, si, sj
+        real(8) :: norm
+        do I = 1, Imax
+            if (active(I).eq.0) cycle !skip if not active 
+            norm = 0.d0
+            do si = 1, ns
+                do sj = 1, ns
+                    norm = norm + abs(ADOs(I,si,sj))**2
+                end do
+            end do
+            if (norm.lt.1.d-20) then
+                active(I) = 0
+                ADOs(I,:,:) = 0.d0
+            end if
+
+        end do
+    
+
+    end subroutine kill_small
 
 end subroutine
 
@@ -221,19 +260,20 @@ program main
     integer :: stat,it,ki,nk
     ! read the parameters from the input file
     open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
-    read(10,'(I10, I10, D22.15, D22.15, I10,  I10, D22.15, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
+    read(10,'(I10, I10, D22.15, D22.15, I10, I10, D22.15, I10, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot, lowTcoef_switch
     close(10)
     ! print*, Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
     ! allocate the arrays
-    allocate(ADOs(Imax,ns,ns), iH_mat(ns,ns), is_mat(ns,ns), C_ks(Ktot), gam_ks(Ktot))
+    allocate(ADOs(Imax,ns,ns), iH_mat(ns,ns), is_mat(ns,ns), is_mat2(ns,ns), C_ks(Ktot), gam_ks(Ktot))
     allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
-    allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
+    allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot), active(Imax))
     ! read the matrices from the files
     call read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,ns)
     ! FLOP REDUCTIONS
-    ! scale the matrices
+    ! scale the matrices and make is2
     iH_mat = iH_mat/hbar
     is_mat = is_mat/hbar
+    is_mat2 = matmul(is_mat,is_mat)
     lowTcoef = -lowTcoef*hbar**2 ! counterracts the scaling of the s matrix (-1 for i^2)
     ! Pre-calculate the superoperator terms
     do ki = 1, Ktot
@@ -249,19 +289,20 @@ program main
             lengths(nk,ki) = int(gamma(real(nk+ki-1 + 1.0D0)) / gamma(real(ki-1 + 1.0D0)) / gamma(real(nk + 1.0D0)))
         end do
     end do 
-
+    active = 0      !set all ADOs to inactive
+    active(1) = 1   !set the first ADO to active
     ! Ready to go
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 1, nttot
-        if (mod(it,100).eq.0) print*, it,'/',nttot
+        if (mod(it,100).eq.0) print*, it,'/',nttot, sum(active),'of',Imax,'ADOs'
         call vvstep(ADOs,ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
         write(10,'(5E25.15)') it*dt, &
         real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
-        if (abs(ADOs(1,1,1)).gt.1.d8) stop 'Density matrix has diverged'
+        if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)
-    deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT)
+    deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, active, is_mat2)
      
 end program main
 

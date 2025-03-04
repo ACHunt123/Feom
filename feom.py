@@ -41,6 +41,6 @@ if(run_here): # run the fortran code in the temporary directory
     fname = header = 'Css.txt'
     data= np.loadtxt('tmp/output')
     np.savetxt(params.out_name,data,header=params.header)
-    # os.system('rm -r tmp/ -f') #clean up the temporary directory
+    os.system('rm -r tmp/ -f') #clean up the temporary directory
 
 

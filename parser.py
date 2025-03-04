@@ -67,6 +67,7 @@ def parse_args():
     parser.add_argument("--bathmode",type=str,default='matsubara',help="Bath mode")
     parser.add_argument("--eta",type=float,default=0.25,help="bath strength")
     parser.add_argument("--gam",type=float,default=1,help="cuttoff frequency")
+    parser.add_argument("--lowTCorr",type=int,default=0,help="add low temp corrections?")
     return parser.parse_args()
 
 ### Get all the parameters

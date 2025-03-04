@@ -39,7 +39,7 @@ def generateHashmap(K,L,N_nonmats,write_to_file = False):
     # L is the maximum depth of the ADO expansion
 
     # generates the set of indicies corresponding to the n'th tier with K elements
-    def generatenumbers(n, k): 
+    def generatenumbersOLD(n, k): 
 
         # output is a list of the strings of the indicies separated by commas
         numbers = np.empty(length(n,k),dtype=object) 
@@ -79,7 +79,31 @@ def generateHashmap(K,L,N_nonmats,write_to_file = False):
         # Reformat the tuples to strings
         for i, tup in enumerate(tups):
             numbers[i] = str(tup).replace('(','').replace(')','').replace(' ','')
+        return numbers
 
+    def generatenumbers(n, k): #faster version
+        numbers = np.empty(length(n,k),dtype=object) 
+        index=np.zeros(k,dtype=int) # temporary array to store the index
+        index[0]=n      # set the first element to n (largest number)
+        numbers[0]= ','.join(map(str, index))
+        if n==0 or k==1:  return numbers # exit if n=0 as [x] is the answer
+        for I in range(1,length(n,k)):
+            nend = index[-1]
+            locs=np.where(index!=0)[0] # find the locations of the non-zero elements
+            index[np.max(locs)]-=1  # decrement the right most non-zero element
+            if np.max(locs)==Ktot-1: #if the right most element is the last element
+
+                # remove the index from the list of indicies
+                locs=np.delete(locs,np.argmax(locs))
+                if locs.size==0: print('ERROR: locs is empty')
+
+                index[Ktot-1]=0
+                index[np.max(locs)]-=1
+                index[np.max(locs)+1]=nend+1
+
+            else: 
+                index[np.max(locs)+1]+=1
+            numbers[I]= ','.join(map(str, index))
         return numbers
 
     # OUTPUTS
@@ -124,13 +148,14 @@ def Convert_to_list(I_to_index):
 if __name__ == '__main__':
 
     # INPUTS
-    K = 5   #number of exponential terms in the BCF - either the truncation of the number of beads + 1
+    K = 3   #number of exponential terms in the BCF - either the truncation of the number of beads + 1
     L = 3   #maximum depth of the ADO expansion
     N_nonmats = 1
     Ktot=N_nonmats+K
 
     # Get hashmaps
-    I_to_index, index_to_I = generateHashmap(K,L,N_nonmats)   
+    I_to_index, index_to_I = generateHashmap(K,L,N_nonmats) 
+    sys.exit()  
     print('\n')
     ADO_index,I0s=Convert_to_list(I_to_index) # this list has dimensions [I, K] (where K is the number of exponential terms in the BCF)
     print(ADO_index)
