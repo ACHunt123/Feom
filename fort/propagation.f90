@@ -1,72 +1,71 @@
 ! Fortran module to propagate the HEOM code
 module prop_subroutines
 implicit none
+! Global parameters
 integer(4) :: lowTcoef_switch
-complex(8),allocatable :: is_mat2(:,:)
-integer(4) :: Nactive                !global variable for the number of active ADOs
-integer(4), allocatable :: active(:) !global variable for the active ADOs
-complex(8), allocatable :: k1(:,:,:), k2(:,:,:), k3(:,:,:), k4(:,:,:), ktmp(:,:,:), ADOs(:,:,:)
-logical, parameter :: prune = .false.  ! if true, the code will trim the ADOs that have a small norm and add missing ones
-
+integer(4) :: Imax, Ktot, ns, L
+real(8) :: dt, lowTcoef
+! Global parameter arrays
+complex(8), allocatable :: C_ks(:), gam_ks(:), c_U(:,:), c_D_LEFT(:,:), c_D_RIGHT(:,:)
+integer(4), allocatable :: I0s(:), lengths(:,:), ADO_index(:,:)
+complex(8),allocatable :: is_mat2(:,:), is_mat(:,:), iH_mat(:,:)
+! Temporary arrays for computation
+complex(8), allocatable :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:),gradI(:,:)
+complex(8), allocatable :: k1(:,:,:), k2(:,:,:), k3(:,:,:), k4(:,:,:), ktmp(:,:,:),ADOs_tmp(:,:,:)
+! Global arrays used for allocation reduction
+integer(4), allocatable :: active(:), active0(:) ! active[0] is to store list of active ADOs [at start of timestep] and their indices
+integer(4) :: Nactive0, Nactive ! Each vvstep, arrays are allocated (Nactive0,ns,ns), with the index of rho(I,:,:) being rho(active0(I),:,:)
+logical, parameter :: prune = .true. ! if true, the code will prune ADOs with small norm
+real(8), parameter :: tolerance = 1.d-20 ! tolerance for killing off ADOs with small norm
 contains
 
 
 ! rk4 propagation of HEOM for one step
-subroutine vvstep(ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
+subroutine vvstep(ADOs)
     implicit none
-    integer, intent(in) :: Imax, Ktot, ns, L
-    real(8), intent(in) :: dt, lowTcoef
-    complex(8), intent(in) :: gam_ks(Ktot), c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L)   
-    complex(8), intent(in) :: iH_mat(ns,ns), is_mat(ns,ns)
-    ! complex(8), intent(inout) :: ADOs(Imax,ns,ns)
-    ! Arrays for the ADO index and the I0s
-    integer(4), intent(in) :: ADO_index(Imax,Ktot) 
-    integer(4), intent(in) :: I0s(0:L+1), lengths(0:L,Ktot)
-    ! Local variables
-    integer(4) :: Nactive0, active0(Imax)
+    complex(8), allocatable, intent(inout) :: ADOs(:,:,:)
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
-    
-    ! reallocate the temporary arrays for RK4  if the number of ADOs has changed
-    if (Nactive/=Nactive0) then
+
+    ! reallovate the temporary arrays if required
+    if (Nactive0.ne.Nactive) then
         deallocate(k1,k2,k3,k4,ktmp)
         allocate(k1(Nactive,ns,ns), k2(Nactive,ns,ns), k3(Nactive,ns,ns), k4(Nactive,ns,ns), ktmp(Nactive,ns,ns))
-        Nactive0 = Nactive  ! store the number of active ADOs now as it may change
     end if
-    active0 = active    ! store the active array now as it may change during each execution of the grad function
+
+    ! initialise nactive0 and active0
+    ! those without 0 will be changed during propagations, those with 0 will not
+    Nactive0 = Nactive
+    active0 = active
 
     ! Calculate the k values for the Runge-Kutta method
-    k1 = grad(ADOs,Nactive0,active0)*dt/2. !need to split the computation here into two lines to avoid a bug
+    k1 = grad(ADOs)*dt/2. !need to split the computation here into two lines to avoid a bug
     ktmp = ADOs+k1
-    k2 = grad(ktmp,Nactive0,active0)*dt/2.
+    k2 = grad(ktmp)*dt/2.
     ktmp = ADOs+k2
-    k3 = grad(ktmp,Nactive0,active0)*dt
+    k3 = grad(ktmp)*dt
     ktmp = ADOs+k3
-    k4 = grad(ktmp,Nactive0,active0)
+    k4 = grad(ktmp)
 
     ! Update the density matrix
     ADOs = ADOs + (dt/6.d0)*k4 + (2.d0/3.d0)*k2 + (k3 + k1)/3.d0 ! doest work for fourth order method
-
-    ! Prune the ADOs
-    if (prune) call changeN(ADOs,active,active0,Imax,ns)
-
-
+    
+    ! Kill off ADOs with small norm
+    if (prune) call changeN(ADOs,active,active0,Nactive,Nactive0)
 
     contains
 
     ! Function for calculating the gradient of the density, inherits the scope of the vvstep subroutine
-    complex(8) function grad(rho,N0,active0)
-        integer(4), intent(in) :: N0, active0(Imax)
-        dimension grad(N0,ns,ns)
-        complex(8), intent(in) :: rho(N0,ns,ns) ! fortran is column major so the last index is the fastest changing
-        complex(8) :: rhoI(ns,ns),gradI(ns,ns), rhoInkp1(ns,ns),rhoInkm1(ns,ns) !temporary variables for the ADO and the gradient (speeds up code for large I and ns)
+    complex(8) function grad(rho)
+        dimension grad(Nactive0,ns,ns)
+        complex(8), allocatable, intent(in) :: rho(:,:,:) ! fortran is column major so the last index is the fastest changing
         integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki,nk
  
         ! Loop over the ADOs
         do I = 1, Imax
             if (active0(I).eq.0) cycle !skip if not active
+
             ! temporary variable for the ADO (same done for the gradient, but needn't be initiallised as is overwritten)
             rhoI = rho(active0(I),:,:)
-
             ! Get the n values for the ADOs
             n_ks = ADO_index(I,:)
 
@@ -81,40 +80,40 @@ subroutine vvstep(ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,iH_ma
             end if
 
             ! Execute the off-diagonal superoperator terms
+            !NOTE: The [commented lines] are what the code is really doing (we put in the precalculated values to speed up the code)
             do ki = 1, (Ktot)
                 nk = n_ks(ki)
                 ! Calculate the indices of the ADOs with nk+1 and nk-1
                 I_nkp1 = I_nk_plusminus(I,ki,+1)
                 I_nkm1 = I_nk_plusminus(I,ki,-1)
 
-                !NOTE: The commented lines are what the code is really doing (we put in the precalculated values to speed up the code)
-                if (I_nkp1.ne.-1) then 
-                    if (active0(I_nkp1).eq.0) then  ! if this ADO is not active in our current iteration
-                        if(active(I_nkp1).eq.0) then
-                            Nactive = Nactive + 1       ! add 1 to number of active ADOs
-                            active(I_nkp1) = Nactive    ! put this index into the active array
+                if (I_nkp1.ne.-1) then !check if the index is valid
+                    if (active0(I_nkp1).eq.0) then      !skip if not active0 (initially active)
+                        if (active(I_nkp1).eq.0) then   ! if not already active, add to the list of active ADOs that will be updated
+                            Nactive = Nactive + 1
+                            active(I_nkp1) = Nactive
                         end if
-                    else                            ! if the ADO is active do propagation as usual
+                    else    ! index is valid and rhos are active so do the operation
                     rhoInkp1 = rho(active0(I_nkp1),:,:)
                     gradI = gradI &
                     +  c_U(ki,nk) * ( - matmul(is_mat,rhoInkp1) + matmul(rhoInkp1,is_mat))
-                    !   +  sqrt((nk+1)*abs(Ck)) * ( - matmul(is_mat,rho(I_nkp1,:,:)) + matmul(rho(I_nkp1,:,:),is_mat))
+                    !   + [sqrt((nk+1)*abs(Ck)) * ( - matmul(is_mat,rho(I_nkp1,:,:)) + matmul(rho(I_nkp1,:,:),is_mat))]
                     endif
-                end if
+                endif
 
                 if (I_nkm1.ne.-1) then
-                    if (active0(I_nkm1).eq.0) then   ! if this ADO is not active
-                        if(active(I_nkm1).eq.0) then
-                            Nactive = Nactive + 1       ! add 1 to number of active ADOs
-                            active(I_nkm1) = Nactive    ! put this index into the active array
+                    if(active0(I_nkm1).eq.0) then
+                        if (active(I_nkm1).eq.0) then
+                            Nactive = Nactive + 1
+                            active(I_nkm1) = Nactive
                         end if
-                    else                            ! if the ADO is active do propagation as usual
+                    else
                     rhoInkm1 = rho(active0(I_nkm1),:,:)
                     gradI = gradI &
-                !   +  sqrt(nk/abs(Ck)) * (- Ck*matmul(is_mat,rho(I_nkm1,:,:)) + conjg(Ck)*matmul(rho(I_nkm1,:,:),is_mat))
-                  +  c_D_LEFT(ki,nk) * matmul(is_mat,rhoInkm1) + c_D_RIGHT(ki,nk) * matmul(rhoInkm1,is_mat)
+                    +  c_D_LEFT(ki,nk) * matmul(is_mat,rhoInkm1) + c_D_RIGHT(ki,nk) * matmul(rhoInkm1,is_mat)
+                    !   +  [sqrt(nk/abs(Ck)) * (- Ck*matmul(is_mat,rho(I_nkm1,:,:)) + conjg(Ck)*matmul(rho(I_nkm1,:,:),is_mat))]
                     endif
-                end if
+                endif
             end do
             ! Update the gradient array
             grad(active0(I),:,:) = gradI
@@ -180,87 +179,67 @@ subroutine vvstep(ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,iH_ma
     end function I_nk_plusminus
 
 
-    ! Function for killing off ADOs that have a small norm/ adding ones that are missing
-    subroutine changeN(ADOs,active,active0,Imax,ns)
+    ! Function for killing off ADOs that have a small norm
+    subroutine changeN(ADOs,active,active0,Nactive,Nactive0)
         implicit none
-        integer(4), intent(in) :: Imax, ns
         complex(8), intent(inout), allocatable :: ADOs(:,:,:)
-        complex(8), allocatable :: ADOs_tmp(:,:,:)
-        ! complex(8), intent(inout) :: ADOs(Imax,ns,ns)
-        ! complex(8) :: ADOs_tmp(Imax,ns,ns)
-        integer(4), intent(inout) :: active(Imax), active0(Imax)
-        integer(4) :: I, si, sj, Iactive
+        integer(4), intent(inout) :: active(Imax), active0(Imax), Nactive, Nactive0
+        integer(4) :: I, si, sj
         real(8) :: norm
+       
+        ! reallocate the temporary array if required
+        if (Nactive0.ne.Nactive) then
+            deallocate(ADOs_tmp)
+            allocate(ADOs_tmp(Nactive,ns,ns))
+            ADOs_tmp = 0.d0
+        end if
 
-        ! calculate the number of active ADOs
-        ! to allocate the temporary array
+        ! reset number of active ADOs (as we are about to kill the small ones)
         Nactive = 0
         do I = 1, Imax
-            if (active(I).ne.0) Nactive = Nactive + 1
-        end do
-        allocate(ADOs_tmp(Nactive,ns,ns))
-
-        Nactive = 0 !reset the number of active ADOs
-        do I = 1, Imax
-            ! skip if rho is not active after propagation
-            if (active(I).eq.0) cycle 
-
-            ! create ADOs that were initially inactive
-            if (active0(I).eq.0) then 
+            ! all ADOS
+            if (active(I).eq.0) cycle !skip if ADO not active at the end of the timestep
+            ! all ADOs that are active at end of timestep
+            if (active0(I).eq.0) then !if the ADO was not active at the start of the timestep, then it is not active now
                 Nactive = Nactive + 1
-                ADOs_tmp(Nactive,:,:) = 0.d0
                 active(I) = Nactive
+                ADOs_tmp(Nactive,:,:) =  0.d0 ! create new ADO in list
                 cycle
-            end if
-                
-            ! kill alive ADOs with small norm
+            endif
+            ! all ados that were active at start and end of timestep (now we kill off some)
             norm = 0.d0
             do si = 1, ns
                 do sj = 1, ns
-                    norm = norm + abs(ADOs(active(I),si,sj))**2
+                    norm = norm + abs(ADOs(active0(I),si,sj))**2
                 end do
             end do
-            if (norm.lt.1.d-20) then ! if norm too small
-                ADOs(active(I),:,:) = 0.d0 ! zero the ADO
-                active(I) = 0              ! remove the ADO from the active list 
+            if (norm.gt.tolerance) then
+                Nactive = Nactive + 1
+                active(I) = Nactive
+                ADOs_tmp(Nactive,:,:) = ADOs(active0(I),:,:)
                 cycle
             end if
-
-            ! if the norm is big enough, keep it
-            Nactive = Nactive + 1           !increment the number of active rhos
-            ADOs_tmp(Nactive,:,:) = ADOs(active(I),:,:)
-            active(I) = Nactive             !store this new index in terms of I
-
+            ! the only left are the ones that are too small
+            active(I) = 0
+            
         end do
 
-        ! reallocate the ADOs to the correct size if needed
-        if (Nactive/=Nactive0) then
+        if (Nactive0.ne.Nactive) then
             deallocate(ADOs)
             allocate(ADOs(Nactive,ns,ns))
         end if
-
-        ! fill the ADOs array with the new values
-        do Iactive = 1, Nactive
-            ADOs(Iactive,:,:) = ADOs_tmp(Iactive,:,:) 
-        enddo
-
-        ! deallocate the temporary array
-        deallocate(ADOs_tmp)
-
+        do I = 1, Nactive
+            ADOs(I,:,:) = ADOs_tmp(I,:,:)
+        end do
+       
     end subroutine changeN
 
 end subroutine
 
 ! Read the matrices from the files
-subroutine read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,ns)
+subroutine read_matrices(ADOs)
         implicit none
-        integer, intent(in) :: Imax, ns, Ktot, L
-        complex(8), intent(inout) :: C_ks(Ktot), gam_ks(Ktot)
-        complex(8), intent(inout) :: iH_mat(ns,ns), is_mat(ns,ns)
         complex(8), intent(inout) :: ADOs(Imax,ns,ns)
-        ! Arrays for the ADO index and the I0s
-        integer(4), intent(inout) :: ADO_index(Imax,Ktot) 
-        integer(4), intent(inout) :: I0s(0:L+1)
         ! Local variables
         real(8) :: z_real, z_imag ! real and imaginary parts of the complex number
         integer :: Ii, Ij, si, sj
@@ -317,26 +296,27 @@ end module prop_subroutines
 program main
     use prop_subroutines
     implicit none
-    integer :: Imax, Ktot, ns, L, nttot
-    real(8) :: hbar, dt, lowTcoef
-    complex(8), allocatable :: iH_mat(:,:), is_mat(:,:), C_ks(:), gam_ks(:), c_U(:,:), c_D_LEFT(:,:), c_D_RIGHT(:,:)
-    integer(4), allocatable :: ADO_index(:,:)
-    integer(4), allocatable :: I0s(:), lengths(:,:)
+    complex(8), allocatable :: ADOs(:,:,:) ! we have not made this global for clarity
     ! Local variables
-    integer :: stat,it,ki,nk
+    real(8) :: hbar
+     integer(4) :: stat,it,ki,nk,nttot,ni
+
+    !!! LOAD PARAMETERS AND MATRICIES !!!
     ! read the parameters from the input file
     open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
     read(10,'(I10, I10, D22.15, D22.15, I10, I10, D22.15, I10, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot, lowTcoef_switch
     close(10)
-    ! print*, Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
     ! allocate the arrays
-    allocate(ADOs(Imax,ns,ns), iH_mat(ns,ns), is_mat(ns,ns), is_mat2(ns,ns), C_ks(Ktot), gam_ks(Ktot))
+    allocate(iH_mat(ns,ns), is_mat(ns,ns), is_mat2(ns,ns), C_ks(Ktot), gam_ks(Ktot))
     allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
-    allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot), active(Imax))
-    allocate(k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns))
+    allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
+    allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns))
+    allocate(ADOs(Imax,ns,ns), k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns))
+    allocate(active(Imax), active0(Imax), ADOs_tmp(Imax,ns,ns))
     ! read the matrices from the files
-    call read_matrices(ADOs,ADO_index,I0s,gam_ks,C_ks,Imax,iH_mat,is_mat,Ktot,L,ns)
-    ! FLOP REDUCTIONS
+    call read_matrices(ADOs)
+
+    !!! FLOP REDUCTIONS !!!
     ! scale the matrices and make is2
     iH_mat = iH_mat/hbar
     is_mat = is_mat/hbar
@@ -356,33 +336,32 @@ program main
             lengths(nk,ki) = int(gamma(real(nk+ki-1 + 1.0D0)) / gamma(real(ki-1 + 1.0D0)) / gamma(real(nk + 1.0D0)))
         end do
     end do 
-    if(prune) then
-        active = 0      !set all ADOs to inactive
-       
-        Nactive = 1
-        active(1) = 1   !set the first ADO to active
-    else
-        do ki = 1,Imax
-            active(ki) = ki !set the ADOs to be active
-        end do
-        Nactive = Imax  !start with all ADOs active (as we read them all in)
-    endif
 
-    ! Ready to go
+    !!! MAKE ALL ADOS INITIALLY ACTIVE !!!
+    ! it has been found that setting just the first to active gives inaccurate results 
+    ! this makes sense; truncation/addition of ados is done each timestep (a discrete process)
+    ! if the number of ADOs explodes at t=0, then the timestep resolution is too low.
+    ! also setting up this way ensures that if prune is off, the code will still work (active(I) = I)
+    do ni = 1,Imax
+        active(ni) = ni
+        Nactive = Nactive + 1
+    end do
+
+    !!! PROPAGATION !!!
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 1, nttot
-        ! if (it==3) stop 'stop'
+        ! if(it==3) stop
         if (mod(it,100).eq.0) print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'
-        call vvstep(ADO_index,I0s,lengths,gam_ks,c_U,C_D_LEFT,c_D_RIGHT,Imax,iH_mat,is_mat,Ktot,L,dt,lowTcoef,ns)
+        call vvstep(ADOs)
         write(10,'(5E25.15)') it*dt, &
         real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)
     deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, active, is_mat2)
-    ! deallocate the temporary arrays
-    deallocate(k1,k2,k3,k4,ktmp)
+    deallocate(rhoI,rhoInkp1,rhoInkm1,gradI,k1,k2,k3,k4,ktmp)
+
 end program main
 
 

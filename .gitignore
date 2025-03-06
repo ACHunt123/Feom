@@ -1,0 +1,8 @@
+# Ignore object files, which are generated when compiling code
+*.o
+*.obj
+
+# Ignore compiled Fortran files
+*.mod
+*.smod
+
