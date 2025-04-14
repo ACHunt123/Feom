@@ -1,0 +1,57 @@
+Amira (ag2514) 2025
+
+this is a little introduction on how to get started with git
+
+First, you need to get a github account which is a pretty straightforward thing to do - just go on the website and follow their steps.
+
+Now, you can either start your ow repository or ask someone to share theirs with you if you are collabrating on a project.
+In the latter case, accept that person's invitation and then create your own branch to not mess everything up.
+
+Now you go to your terminal and set up the repository on your local machine:
+type :
+	git config --global user.name "Your Name"
+	git config --global user.email "your.email@example.com"
+
+double check using:
+	git config --global --list
+
+now type:
+	ssh-keygen -t ed25519 -C "your.email@example.com"
+Just press enter through the prompts to use the default location and skip the passphrase (or set one if you want extra security).
+
+add your ssh key to the agent:
+	eval "$(ssh-agent -s)"
+	ssh-add ~/.ssh/id_ed25519
+
+copy the string that you get after the following to your clipboard:
+	cat ~/.ssh/id_ed25519.pub
+
+add the key to your GitHub at settings -> keys:
+Click "New SSH key", give it a name, paste the key, save.
+
+Test the SSH connection:
+	ssh -T git@github.com
+
+if it says: Warning: Permanently added 'github.com' (ED25519) to the list of known hosts. - Don't worry - GitHub is not a server you can SSH into, it just uses SSH for Git operations
+
+
+great, you can now clone a repo by typing:
+	git clone git@github.com:username/repo-name.git
+or initialise a new project:
+	mkdir my-project
+	cd my-project
+	git init
+	touch README.md
+	git add README.md
+	git commit -m "Initial commit"
+
+
+now check that you're on the right branch:
+	git branch
+
+if it doesn't have a * next to the branch you made for yourself in the beginning, type:
+	git checkout branch-name
+
+check if it worked:
+	git branch
+

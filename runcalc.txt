@@ -1,0 +1,42 @@
+Amira (ag2514) 2025
+
+this is a little inroduction on how to set up your PYHTONPATH and PATH
+
+In general you need to edit your .bashrc script. You can access this when you are in your home directory by typing 
+	vim .bashrc
+
+go to the end of the file and add 
+	export PYTHONPATH=/home/yourname/my_project:$PYTHONPATH
+
+remeber to source your bashrc after:
+	source .bashrc
+
+to check if that worked, type:
+	echo $PYTHONPATH
+
+
+
+to create symbolic links to files (i.e. you can now be in any directory and type for example propagator to execute the file propagator.py) follow this:
+
+create a directory bin
+	mkdir ~/projects/bin
+
+create a symbolic link:
+	ln -s ~/projects/quantum-tools/scripts/propagator.py ~/projects/bin/propagator
+
+change the permissions to executable
+	chmod +x ~/projects/quantum-tools/scripts/propagator.py
+
+add bin to your PATH: (this is just a fast-track of adding it to your bashrc manually)
+
+	echo 'export PATH="$HOME/projects/bin:$PATH"' >> ~/.bashrc
+	source ~/.bashrc
+
+make sure your file (in this case propagator) starts with #!/usr/bin/env python3
+
+
+
+
+woooh it should work now :)
+
+
