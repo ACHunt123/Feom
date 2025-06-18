@@ -1,0 +1,125 @@
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsmath}
+\usepackage{physics}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{mathrsfs}
+\usepackage{siunitx}
+\usepackage[section]{placeins}
+\usepackage{upgreek}
+\usepackage{dsfont}
+\usepackage{amssymb}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{hhline}
+\usepackage{booktabs}
+\usepackage{relsize}
+\usepackage{mathdots}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{accents}
+\usepackage{bbm}
+
+\newcommand{\mathcolorbox}[2]{\mathchoice
+  {\colorbox{#1}{$\displaystyle #2$}}
+  {\colorbox{#1}{$\textstyle #2$}}
+  {\colorbox{#1}{$\scriptstyle #2$}}
+  {\colorbox{#1}{$\scriptscriptstyle #2$}}
+}
+\newcommand{\vc}{\boldsymbol}
+\newcommand{\mt}{\boldsymbol}
+\renewcommand{\d}{{\rm d}}
+\renewcommand{\l}{\left}
+\renewcommand{\r}{\right}
+\newcommand{\ruler}{
+ \begin{center}
+     {\rule{8cm}{0.7pt}}
+ \end{center}}
+\newcommand{\trs}{^\top \!}
+\newcommand{\doubleunderline}[1]{\underline{\underline{#1}}}
+
+
+% Use titlesec to customize section formatting
+\usepackage{titlesec}
+\usepackage{titling}
+
+% Roman numerals for sections
+\renewcommand{\thesection}{\Roman{section}}
+
+% Capital letters for subsections
+\renewcommand{\thesubsection}{\Alph{subsection}}
+
+% Center and bold section titles
+\titleformat{\section}
+  {\bfseries\Large}  % Format: centered, bold, large font add in \centering to make it go in the middle
+  {\thesection.}{1em}{}        % Label format
+
+\titleformat{\subsection}
+  {\bfseries\normalsize}  % Format: centered, bold, normal font
+  {\thesubsection.}{1em}{}          % Label format
+
+% Optional: spacing before/after sections
+\titlespacing*{\section}{0pt}{2em}{1em}
+\titlespacing*{\subsection}{0pt}{1.5em}{0.5em}
+
+\setlength{\droptitle}{-6em}
+\usepackage[a4paper]{geometry}
+
+% \newcommand{\myappendix}{
+%     \newpage              % Start the appendix on a new page
+%     \newpage              % Start the appendix on a new page
+%     \appendix             % Switch to appendix mode
+%     \renewcommand{\thesection}{A\arabic{section}} % Set appendix section format to A1, A2, etc.
+%     \setcounter{section}{0} % Reset section counter to start from A1
+% }
+\newenvironment{myappendix}{
+    \clearpage
+    \appendix
+    % \addcontentsline{toc}{section}{Appendix}
+    \addtocontents{toc}{\protect\noindent\rule{\textwidth}{0.4pt}\par}
+
+    \renewcommand{\thesection}{A\arabic{section}}%
+    \setcounter{section}{0}%
+}{
+    % (optional) code to execute at the end of the appendix environment,
+    % leave empty if nothing needed
+}
+
+% Adjust the \footskip to move the footer lower
+\setlength{\footskip}{35pt} % Ispace between page numbers and lower text
+\geometry{a4paper, top=1in, bottom=1.2in, left=1.2in, right=1.2in} % Set the margins
+
+
+\usepackage[most]{tcolorbox}
+
+% Define a custom aside box environment
+\newtcolorbox{asideenv}[1]{% <-- only 1 argument, the title
+  colback=gray!10,
+  colframe=gray!60,
+  coltitle=black,
+  title={#1},
+  fonttitle=\bfseries,
+  boxrule=0.5pt,
+  arc=3pt,
+  left=6pt,
+  right=6pt,
+  top=6pt,
+  bottom=6pt,
+  enhanced,
+  breakable,
+}
+
+% Define the aside environment wrapper WITHOUT numbering
+\newenvironment{aside}[1]{%
+  \addcontentsline{toc}{subsubsection}{#1}% Add plain title to TOC without numbers
+  \begin{asideenv}{#1}%
+}{%
+  \end{asideenv}%
+}
+
+% for TOC putting a dot before TOC
+\makeatletter
+\renewcommand{\numberline}[1]{#1.\hskip0.5em}
+\makeatother

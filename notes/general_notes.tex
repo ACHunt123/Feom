@@ -1,0 +1,91 @@
+\documentclass{article}
+\input{preamble}
+\title{General Notes on FEOM}
+\author{Cole Hunt}
+\date{June 2025}
+
+\begin{document}
+
+\maketitle
+This PDF contains general notes on the FEOM project, including information about the project structure, coding conventions, and other relevant details.
+\section{Project Structure}
+This project implements HEOM using FORTRAN, and implements basic HEOM with the standard K and L cuttoffs. The equations of motion are derived from
+the Shi/Chen scaled HEOM, for which the equations of motion (without truncation) are given by
+\begin{align}
+    \frac{\d}{\d t}\rho_{\vc{n}}(t) = -\frac{i}{\hbar}H_s^{\cross}\rho_{\vc{n}}(t)  - \sum_k n_k\gamma_k \rho_{\vc{n}}(t) 
+    + \sum_k\l( \sqrt{n_k+1}\mathcal{L}_{k-}\rho_{\vc{n}_k^+}(t) +  \sqrt{n_k}\mathcal{L}_{k+}\rho_{\vc{n}_k^-}(t)\r),
+\end{align}
+where $\rho_{\vc{n}}(t)$ is the full set of ADOs, $\vc{n}$ is the vector of ADO indices $\{n_k\}$, (with $\vc{n}_k^{\pm}$ denoting the same set of indices, but with $n_k\pm1$).
+We use superoperator notation throughout, $H_s$ as the system Hamiltonian, the superoperators $\mathcal{L}_{k-}$ and $\mathcal{L}_{k+}$ are defined as
+the superoperator 
+\begin{align}
+    \mathcal{L}_{k-}\cdot &= -i\sqrt{|C_k|}V^{\cross}, & \mathcal{L}_{k+}\cdot &= \frac{1}{\sqrt{|C_k|}}\l(C_k V^{L} - C_k^* V^{R}\r),
+\end{align}
+where $V$ is the system-bath coupling operator, $C_k$ is the coupling strength for the $k$'th bath mode, and the constants $C_k$ and $\gamma_k$ are obtained from the bath correlation function (BCF) as
+\begin{align}
+    C(t) = \sum_k C_k e^{-\gamma_k t}.
+\end{align}
+
+\section{Bath conventions}
+In this section, we discuss the conventions used for the naming of the baths. We define the spectral density
+\begin{align}
+    J(\omega)&= \frac{\pi}{2}\sum_{\alpha} \frac{c_{\alpha}^2}{m_\alpha\omega_\alpha} \l[\delta(\omega - \omega_\alpha) + \delta(\omega + \omega_\alpha) \r],
+\end{align}
+where $c_\alpha$ is the coupling strength, $m_\alpha$ is the mass, and $\omega_\alpha$ is the frequency of the $\alpha$'th bath mode. It is assumed that $\omega_\alpha \geq 0$, such that $J(\omega)=-J(-\omega)$. 
+With this definition, the equilibrium bath correlation function  (BCF), at inverse temperature $\beta$, is given as
+\begin{align}
+    C(t) &= \frac{\hbar}{2\pi}\int_{-\infty}^\infty d\omega J(\omega)\l(\coth\l(\frac{\beta\hbar\omega}{2}\r) \cos\omega t - i\sin\omega t\r),
+\end{align}
+which is done using residues.
+Now to get onto specific bath distributions.
+
+\subsection{Debye bath}
+The Debye bath is defined by the spectral density
+\begin{align}
+    J(\omega) =\frac{\eta \gamma \omega}{\omega^2+\gamma^2},
+\end{align}
+where $\eta$ is the coupling strength and $\gamma$ is the cutoff frequency.
+The correlation function is of exponential form, paramaterized by frequencies $\{\gamma_k\}$,
+\begin{align}
+    \gamma_0 &= \gamma, & \gamma_k = \omega_{n=k} = \frac{2n\pi}{\beta\hbar},
+\end{align}
+and prefactors $\{C_k\}$, which are given by
+\begin{align}
+    C_0 = \frac{\hbar\eta\gamma}{2}\l(\cot{\frac{\beta\hbar\gamma}{2}}-i\r),&
+     & C_{n=k} &= -\frac{2\eta\gamma}{\beta}\frac{\omega_n}{\gamma^2-\omega_n^2}, & \forall k>0.
+\end{align}
+
+\section{Truncations}
+There are a couple ways to truncate the HEOM, so it's good to write these down. 
+The truncation falls into two categories, which I will call exponential term truncation and heirarchy truncation.
+The exponential term truncation is the approximation of the bath correlation function (BCF) by a finite number of exponentials.
+The heirarchy truncation is the removal of the dependence of the ADOs on those with a larger depth.
+\subsection{Matsubara series truncation}
+This trunctation is a Markovian approximation of the higher order Matsubara terms in the BCF;
+\begin{align}
+    e^{-\gamma_k t} &\approx \frac{1}{\gamma_k}\delta_+(t), & \forall k &> k_c,
+\end{align}
+where $k_c$ is the cutoff in number of exponentials in the BCF\footnote{these are ordered in increasing real part, as then the approximation is more accurate for larger $k$} and $\delta_+(t)$ is a delta function defined for $t \geq 0$.
+This cutoff $k_v=M+1$ for the example of a Debye bath, wherein there is a single exponential term, and $M$ is the number of Matsubara terms retained.
+This approximation is inserted into the influence functional, allowing us to do the inner integral (over the history), 
+giving another term in the dynamics,
+\begin{align}
+    \Xi \rho_{\vc{n}}(t) &= \sum_{k>k_c} \frac{1}{\gamma_k} \mathcal{L}_{k-}\mathcal{L}_{k+} \rho_{\vc{n}}(t).
+\end{align}
+For the example of a Debye bath, we can do the sum formally. Due to all of the $C_k$ for $k>0$ being real, we can write the superoperator as
+\begin{align}
+     \Xi_{\rm debye}  &= -i\sum_{k>k_c} \frac{1}{\gamma_k}C_k \l(V^{\cross}\r)^2= \frac{2i\eta\gamma}{\beta}\sum_{n>k_c} \frac{1}{\gamma^2-\omega_n^2}\l(V^{\cross}\r)^2
+\end{align}
+Then we use the fact that
+\begin{align}
+    \cot z &= \frac{1}{z} + \sum_{n=1}^\infty \frac{2z}{z^2-n^2\pi^2} \nonumber \\[6pt]
+    \therefore \sum_{n=1}^\infty \frac{1}{\gamma^2-\omega_n^2} &= \frac{\beta\hbar}{4\gamma}\l(\cot{\frac{\beta\hbar\gamma}{2}}-\frac{2}{\beta\hbar\gamma}\r),
+\end{align}
+to calculate the sum, giving us
+\begin{align}
+    \Xi_{\rm debye} &= i\eta\l[-\frac{\hbar}{2}\l(\cot{\frac{\beta\hbar\gamma}{2}}-\frac{2}{\beta\hbar\gamma}\r)- \frac{2\gamma}{\beta}\sum_{n=1}^{k_c} \frac{1}{\gamma^2-\omega_n^2}\r]\l(V^{\cross}\r)^2.
+\end{align}
+\end{document}
+
+
+
