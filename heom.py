@@ -58,7 +58,7 @@ integrator = Integrator(bath,pot,params)
 show_plots = 0
 if show_plots:
     fig, (ax1, ax2) = plt.subplots(1,2)
-    s_arr = np.arange(ns)
+    s_arr = np.arange(params.ns)
     plt.ion()
     if(1):# plot the analytical solution for uncoupled harmonic oscillator
         t_arr,Css_analyt_re = pot.analytic_uncoupled(t_arr=params.t_arr)

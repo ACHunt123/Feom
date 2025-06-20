@@ -1,12 +1,13 @@
+% File: TFaySB.m
 %%% Wrapper function for the spin boson model for Tom Fay's code
 % to run in terminal, use:
-% matlab -batch "spin_boson_example_1(###)" 
+% matlab -batch "addpath('~/software/phd/Feom/benchmark'); TFaySB(###)"
 % where ### is the output folder path
 %
 function TFaySB(outfolder)
 
 if nargin < 1
-    outfolder = '.';  % default
+    outfolder = '';  % default
 end
 %%%
 
@@ -19,10 +20,10 @@ addpath(genpath('/home/ach221/software/phd/HEOMLAB/heom-lab/functions'));
 epsilon = 1.0 ;
 Delta = 2.0 ;
 % bath parameters
-beta = 1.0 ; %I think this is actually beta lambdaD
+beta = 1.0 ; 
 % debye bath parameters
-lambda_D = 0.5 ;
-omega_D = 2.0 ;
+lambda_D = 1 ;
+omega_D = 1.0 ;
 
 % dynamics information - parameters for the Short-Iterative Arnoldi
 % Integrator
@@ -31,8 +32,8 @@ n_steps = 1000 ;
 krylov_dim = 8 ;
 krylov_tol = 1e-8 ;
 % parmeters for heirarchy truncation using L/M truncation
-L_max = 1 ; 
-M_max = 0 ;
+L_max = 5 ; 
+M_max = 5 ;
 
 
 % matrices of system observable operators to be returned, sigma_x, sigma_y
@@ -77,7 +78,7 @@ heom_dynamics.heom_truncation.M_max = M_max ;
 heom_dynamics.heom_truncation.L_max = L_max ;
 % heom_dynamics.heom_truncation.truncation_method = "frequency cut-off" ;
 % heom_dynamics.heom_truncation.Gamma_cut = Gamma_cut ;
-heom_dynamics.heom_truncation.heom_termination = "markovian" ;
+heom_dynamics.heom_truncation.heom_termination = "low temp correction" ;
 
 % what system observables should be returned
 heom_dynamics.observables = struct ;
@@ -98,19 +99,21 @@ filename = sprintf('TFaySB_eps%.1f_D%.1f_beta%.1f_lam%.1f_wD%.1f_dt%.0e_L%d_M%d.
 outfile = fullfile(outfolder, filename);
 fileID = fopen(outfile, 'w');
 % write down the parameters used in the simulation
-fprintf(fileID, 'Parameters:\n');
-fprintf(fileID, 'epsilon = %f\n', epsilon);
-fprintf(fileID, 'Delta = %f\n', Delta);
-fprintf(fileID, 'beta = %f\n', beta);
-fprintf(fileID, 'lambda_D = %f\n', lambda_D);
-fprintf(fileID, 'omega_D = %f\n', omega_D);
-fprintf(fileID, 'dt = %f\n', dt);
-fprintf(fileID, 'n_steps = %d\n', n_steps);
-fprintf(fileID, 'krylov_dim = %d\n', krylov_dim);
-fprintf(fileID, 'krylov_tol = %e\n', krylov_tol);
-fprintf(fileID, 'L_max = %d\n', L_max);
-fprintf(fileID, 'M_max = %d\n', M_max);
-fprintf(fileID, '\nResults:\n');
+fprintf(fileID, '## Spin Boson Model Simulation Results using Tom Fays Code\n');
+fprintf(fileID, '### Parameters:\n');
+fprintf(fileID, '# epsilon = %f\n', epsilon);
+fprintf(fileID, '# Delta = %f\n', Delta);
+fprintf(fileID, '# beta = %f\n', beta);
+fprintf(fileID, '# lambda_D = %f\n', lambda_D);
+fprintf(fileID, '# omega_D = %f\n', omega_D);
+fprintf(fileID, '# dt = %f\n', dt);
+fprintf(fileID, '# n_steps = %d\n', n_steps);
+fprintf(fileID, '# krylov_dim = %d\n', krylov_dim);
+fprintf(fileID, '# krylov_tol = %e\n', krylov_tol);
+fprintf(fileID, '# L_max = %d\n', L_max);
+fprintf(fileID, '# M_max = %d\n', M_max);
+fprintf(fileID, '# \n');
+fprintf(fileID, '## Results:\n');
 % Write the header for the results
 header = {'# t','\left<\sigma_x(t)\right>','\left<\sigma_y(t)\right>','\left<\sigma_z(t)\right>'};
 % Write the header to the file

@@ -5,18 +5,22 @@ implicit none
 integer(4) :: lowTcoef_switch
 integer(4) :: Imax, Ktot, ns, L
 real(8) :: dt, lowTcoef
+real(8), parameter :: epsilon = 1.0d-12 ! epsilon for real comparisions
 ! Global parameter arrays
 complex(8), allocatable :: C_ks(:), gam_ks(:), c_U(:,:), c_D_LEFT(:,:), c_D_RIGHT(:,:)
 integer(4), allocatable :: I0s(:), lengths(:,:), ADO_index(:,:)
-complex(8),allocatable :: is_mat2(:,:), is_mat(:,:), iH_mat(:,:)
+complex(8),allocatable :: s_mat2(:,:), is_mat(:,:), iH_mat(:,:)
 ! Temporary arrays for computation
 complex(8), allocatable :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:),gradI(:,:)
 complex(8), allocatable :: k1(:,:,:), k2(:,:,:), k3(:,:,:), k4(:,:,:), ktmp(:,:,:),ADOs_tmp(:,:,:)
 ! Global arrays used for allocation reduction
 integer(4), allocatable :: active(:), active0(:) ! active[0] is to store list of active ADOs [at start of timestep] and their indices
 integer(4) :: Nactive0, Nactive ! Each vvstep, arrays are allocated (Nactive0,ns,ns), with the index of rho(I,:,:) being rho(active0(I),:,:)
-logical, parameter :: prune = .true. ! if true, the code will prune ADOs with small norm
-real(8), parameter :: tolerance = 1.d-20 ! tolerance for killing off ADOs with small norm
+logical, parameter :: prune = .false. ! if true, the code will prune ADOs with small norm
+real(8), parameter :: tolerance = 1.d-20! tolerance for killing off ADOs with small norm
+! Parameter for ADO printouts
+logical, parameter :: print_ADOs = .false. ! if true, the code will print out the ADOs at each step
+integer(4) :: nprint_ADOs = 100 ! how often to print the ADOs (every nprint_ADOs steps)
 contains
 
 
@@ -76,7 +80,7 @@ subroutine vvstep(ADOs)
             ! Itziki Trucation (if present)
             if (lowTcoef_switch.eq.1) then
                 gradI = gradI + lowTcoef  &
-                * (- matmul(is_mat2,rhoI) - matmul(rhoI,is_mat2) + 2.d0*matmul(matmul(is_mat,rhoI),is_mat))
+                * ( matmul(s_mat2,rhoI) + matmul(rhoI,s_mat2) + 2.d0*matmul(matmul(is_mat,rhoI),is_mat)) !note the + on last term is as (is)Rho(is) = - 2 s Rho s
             end if
 
             ! Execute the off-diagonal superoperator terms
@@ -291,6 +295,31 @@ subroutine read_matrices(ADOs)
         close(30);close(40);close(50);close(60);close(70);close(80);close(90) !close the files
     end subroutine
 
+subroutine ADOs_print(ADOs,Imax,ns,it)
+    implicit none
+    integer(4), intent(in) :: it,ns,Imax
+    complex(8), intent(in) :: ADOs(Imax,ns,ns)
+    real(8) :: outstr(Imax+1)
+    integer(4) :: I,si
+    character(len=100) :: fmt ! format string for the output
+    write(fmt, '(A,I0,A)') '(E25.15,', Imax, 'E25.15)' 
+
+    ! Open the file for writing
+    open(20, file='ADOs.out', status='unknown', action='write', position='append')
+
+    ! Write the ADOs to the file
+    outstr(:) = 0.d0 ! initialize the output array
+    outstr(1)=real(it)
+    ! print *, 'Writing ADOs to file at timestep', it
+    do I = 1, Imax
+        ! do si = 1,ns
+        !     outstr(I+1) = outstr(I+1) + real(ADOs(I,si,si)) ! trace calculation
+        ! end do  
+        outstr(I+1) = sum(abs(ADOs(I,:,:))) ! sum over all elements of the ADO
+    end do
+    write(20,fmt) outstr(1), outstr(2:Imax+1) ! write the ADOs to the file
+    close(20)
+end subroutine ADOs_print
 end module prop_subroutines
 
 program main
@@ -307,7 +336,7 @@ program main
     read(10,'(I10, I10, D22.15, D22.15, I10, I10, D22.15, I10, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot, lowTcoef_switch
     close(10)
     ! allocate the arrays
-    allocate(iH_mat(ns,ns), is_mat(ns,ns), is_mat2(ns,ns), C_ks(Ktot), gam_ks(Ktot))
+    allocate(iH_mat(ns,ns), is_mat(ns,ns), s_mat2(ns,ns), C_ks(Ktot), gam_ks(Ktot))
     allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
     allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
     allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns))
@@ -320,14 +349,19 @@ program main
     ! scale the matrices and make is2
     iH_mat = iH_mat/hbar
     is_mat = is_mat/hbar
-    is_mat2 = matmul(is_mat,is_mat)
-    lowTcoef = -lowTcoef*hbar**2 ! counterracts the scaling of the s matrix (-1 for i^2)
+    s_mat2 = - matmul(is_mat,is_mat) ! s_mat2 = -(i*s_mat)^2
     ! Pre-calculate the superoperator terms
     do ki = 1, Ktot
         do nk = 0, L
             c_U(ki,nk) = sqrt((nk+1)*abs(C_ks(ki)))
-            c_D_LEFT(ki,nk) = -sqrt(nk/abs(C_ks(ki)))*C_ks(ki)
-            c_D_RIGHT(ki,nk) = sqrt(nk/abs(C_ks(ki)))*conjg(C_ks(ki))
+            if (abs(C_ks(ki))<epsilon) then! if C_ks is zero, then the superoperator term is zero (avoids 0/0 divisions)
+                c_D_LEFT(ki,nk) = 0.d0 
+                c_D_RIGHT(ki,nk) = 0.d0
+                print *, 'Warning: C_ks(',ki,') is zero, setting superoperator terms to zero'
+            else 
+                c_D_LEFT(ki,nk) = -sqrt(nk/abs(C_ks(ki)))*C_ks(ki)
+                c_D_RIGHT(ki,nk) = sqrt(nk/abs(C_ks(ki)))*conjg(C_ks(ki))
+            end if
         end do
     end do
     ! Calculate the lengths of each block of ado indices (pascals triangle)
@@ -336,6 +370,15 @@ program main
             lengths(nk,ki) = int(gamma(real(nk+ki-1 + 1.0D0)) / gamma(real(ki-1 + 1.0D0)) / gamma(real(nk + 1.0D0)))
         end do
     end do 
+    ! Print out the hashmap for the ADO printout
+    if (print_ADOs) then
+        if (prune) stop 'ADO printout is not implemented for pruning'
+        open(20, file='ADO_index.out', status='unknown', action='write')
+        do ni = 1,Imax
+            write(20,'(I10, 5I10)') ni, ADO_index(ni,:)
+        end do
+        close(20)
+    end if
 
     !!! MAKE ALL ADOS INITIALLY ACTIVE !!!
     ! it has been found that setting just the first to active gives inaccurate results 
@@ -352,14 +395,15 @@ program main
     ! Propagate the system
     do it = 1, nttot
         ! if(it==3) stop
-        if (mod(it,100).eq.0) print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'
+        if (mod(it,100).eq.0) print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'            ! Update the screen output
+        if( mod(it,nprint_ADOs).eq.0 .and. print_ADOs) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
         call vvstep(ADOs)
         write(10,'(5E25.15)') it*dt, &
         real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)
-    deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, active, is_mat2)
+    deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, active, s_mat2)
     deallocate(rhoI,rhoInkp1,rhoInkm1,gradI,k1,k2,k3,k4,ktmp)
 
 end program main

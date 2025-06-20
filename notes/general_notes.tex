@@ -13,13 +13,13 @@ This project implements HEOM using FORTRAN, and implements basic HEOM with the s
 the Shi/Chen scaled HEOM, for which the equations of motion (without truncation) are given by
 \begin{align}
     \frac{\d}{\d t}\rho_{\vc{n}}(t) = -\frac{i}{\hbar}H_s^{\cross}\rho_{\vc{n}}(t)  - \sum_k n_k\gamma_k \rho_{\vc{n}}(t) 
-    + \sum_k\l( \sqrt{n_k+1}\mathcal{L}_{k-}\rho_{\vc{n}_k^+}(t) +  \sqrt{n_k}\mathcal{L}_{k+}\rho_{\vc{n}_k^-}(t)\r),
+    -\frac{i}{\hbar} \sum_k\l( \sqrt{n_k+1}\mathcal{L}_{k-}\rho_{\vc{n}_k^+}(t) +  \sqrt{n_k}\mathcal{L}_{k+}\rho_{\vc{n}_k^-}(t)\r),
 \end{align}
 where $\rho_{\vc{n}}(t)$ is the full set of ADOs, $\vc{n}$ is the vector of ADO indices $\{n_k\}$, (with $\vc{n}_k^{\pm}$ denoting the same set of indices, but with $n_k\pm1$).
 We use superoperator notation throughout, $H_s$ as the system Hamiltonian, the superoperators $\mathcal{L}_{k-}$ and $\mathcal{L}_{k+}$ are defined as
 the superoperator 
 \begin{align}
-    \mathcal{L}_{k-}\cdot &= -i\sqrt{|C_k|}V^{\cross}, & \mathcal{L}_{k+}\cdot &= \frac{1}{\sqrt{|C_k|}}\l(C_k V^{L} - C_k^* V^{R}\r),
+    \mathcal{L}_{k-}\cdot &= \sqrt{|C_k|}V^{\cross}, & \mathcal{L}_{k+}\cdot &= \frac{1}{\sqrt{|C_k|}}\l(C_k V^{L} - C_k^* V^{R}\r),
 \end{align}
 where $V$ is the system-bath coupling operator, $C_k$ is the coupling strength for the $k$'th bath mode, and the constants $C_k$ and $\gamma_k$ are obtained from the bath correlation function (BCF) as
 \begin{align}
@@ -61,7 +61,8 @@ The truncation falls into two categories, which I will call exponential term tru
 The exponential term truncation is the approximation of the bath correlation function (BCF) by a finite number of exponentials.
 The heirarchy truncation is the removal of the dependence of the ADOs on those with a larger depth.
 \subsection{Matsubara series truncation}
-This trunctation is a Markovian approximation of the higher order Matsubara terms in the BCF;
+This truncation was created by Ishizaki and Tanimura in Ref.\cite{ishizakiQuantumDynamicsSystem2005a},and is switched on by the variable ``\textit{lowTcoef\_switch}''.
+It is a Markovian approximation of the higher order Matsubara terms in the BCF;
 \begin{align}
     e^{-\gamma_k t} &\approx \frac{1}{\gamma_k}\delta_+(t), & \forall k &> k_c,
 \end{align}
@@ -74,17 +75,20 @@ giving another term in the dynamics,
 \end{align}
 For the example of a Debye bath, we can do the sum formally. Due to all of the $C_k$ for $k>0$ being real, we can write the superoperator as
 \begin{align}
-     \Xi_{\rm debye}  &= -i\sum_{k>k_c} \frac{1}{\gamma_k}C_k \l(V^{\cross}\r)^2= \frac{2i\eta\gamma}{\beta}\sum_{n>k_c} \frac{1}{\gamma^2-\omega_n^2}\l(V^{\cross}\r)^2
+     \Xi_{\rm debye}  &= -\frac{1}{\hbar^2}\sum_{k>k_c} \frac{1}{\gamma_k}C_k \l(V^{\cross}\r)^2= \frac{2\eta\gamma}{\beta\hbar^2}\sum_{n>k_c} \frac{1}{\gamma^2-\omega_n^2}\l(V^{\cross}\r)^2
 \end{align}
 Then we use the fact that
 \begin{align}
     \cot z &= \frac{1}{z} + \sum_{n=1}^\infty \frac{2z}{z^2-n^2\pi^2} \nonumber \\[6pt]
     \therefore \sum_{n=1}^\infty \frac{1}{\gamma^2-\omega_n^2} &= \frac{\beta\hbar}{4\gamma}\l(\cot{\frac{\beta\hbar\gamma}{2}}-\frac{2}{\beta\hbar\gamma}\r),
 \end{align}
-to calculate the sum, giving us
+to calculate the sum, giving us 
 \begin{align}
-    \Xi_{\rm debye} &= i\eta\l[-\frac{\hbar}{2}\l(\cot{\frac{\beta\hbar\gamma}{2}}-\frac{2}{\beta\hbar\gamma}\r)- \frac{2\gamma}{\beta}\sum_{n=1}^{k_c} \frac{1}{\gamma^2-\omega_n^2}\r]\l(V^{\cross}\r)^2.
+    \Xi_{\rm debye} &=  \underbrace{\eta\l[\frac{1}{2\hbar}\l(\cot{\frac{\beta\hbar\gamma}{2}}-\frac{2}{\beta\hbar\gamma}\r)- \frac{2\gamma}{\beta\hbar^2}\sum_{n=1}^{k_c} \frac{1}{\gamma^2-\omega_n^2}\r]}_{\textit{lowTcoef}}\l(V^{\cross}\r)^2.
 \end{align}
+\bibliographystyle{plain}
+\bibliography{refs}
+
 \end{document}
 
 

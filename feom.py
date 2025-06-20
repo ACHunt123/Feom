@@ -40,7 +40,21 @@ if(run_here): # run the fortran code in the temporary directory
     os.system('cd tmp/; ./propagation')
     fname = header = 'Css.txt'
     data= np.loadtxt('tmp/output')
-    np.savetxt(params.out_name,data,header=params.header)
+    if(1): # format the data to match tom fay's
+      rho00= data[:,1]
+      rho11= data[:,2]        
+      rho01= data[:,3] + 1.j*data[:,4] # rho01 is complex
+      rho10= np.conj(rho01)  # rho10 is the complex conjugate of rho01
+      t = data[:,0]
+      data = np.zeros((len(t),4),dtype=complex)
+      data[:,0] = t
+      for it in range(len(t)):
+          data[it,1] = rho10[it] + rho01[it]  # <s_x>
+          data[it,2] = 1.j*(rho10[it] - rho01[it])  # <s_y>
+          data[it,3] = rho11[it] - rho00[it]  # <s_z>
+        
+    np.savetxt(params.out_name,data.real,header=params.header)
+    os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
     os.system('rm -r tmp/ -f') #clean up the temporary directory
 
 

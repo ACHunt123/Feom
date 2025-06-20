@@ -6,3 +6,12 @@
 *.mod
 *.smod
 
+# Igonre latex logs etc
+*.log
+*.out
+*.fls 
+*.fdb_latexmk
+*.aux
+*.gz
+*.bbl
+*.blg

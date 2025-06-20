@@ -1,7 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 # A class for the Debye bath
+''' A class to represent the Debye bath for the FEOM code.
+
+eta : Coupling strength
+gam : Cuttoff frequency
+
+The spectral density is given by:
+J(w) = \frac{\eta\gamma\omega}{\omega^2 + \gamma^2}
+using the discretized definition, giving coefficients:
+J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(w - w_\alpha)
+'''
 
 # We need to add in pade approximants, but otherwiseshould be mostly complete
 
@@ -58,10 +69,19 @@ class Debye_bath():
         gam_ks[1:] = ws[1:]
 
         # Calculate the low temperature coefficient for LowT correction
-        self.lowTcoef = self.eta/(self.beta*self.hbar**2) - (1/self.hbar**2)*np.sum(np.real(C_ks)/gam_ks) if self.bathmode == 'matsubara' else 0
+        # self.lowTcoef = self.eta/(self.beta*self.hbar**2) - (1/self.hbar**2)*np.sum(np.real(C_ks)/gam_ks) if self.bathmode == 'matsubara' else 0 #OLD ONE
+        
+        # Calculate the low temperature coefficient for LowT correction ### NEW ONE
+        self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
+        self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))  if self.mode == 'matsubara' else 0 ### remove the Matsubara terms that have been explicitly included
 
         self.C_ks = C_ks
         self.gam_ks = gam_ks
+        if(0):
+            print(f'LowTcoef: {self.lowTcoef}')
+            print(f'C_ks: {C_ks}')
+            print(f'gam_ks: {gam_ks}')
+            sys.exit(0) #exit the program after printing the coefficients
         return 
         # return C_ks,gam_ks
 

@@ -1,0 +1,20 @@
+#!/bin/bash
+# This script runs the benchmark for the DebyeSB model
+
+echo "Starting benchmark for DebyeSB model..."
+# command to run the matlab script
+matlab -batch "addpath('$HOME/software/phd/Feom/benchmark/DebyeSB'); TFaySB" > /dev/null & 
+# command to run the feom.py script
+ ~/software/phd/Feom/feom.py --L 5 --K 5 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --lowTCorr 1   &
+wait
+echo "Benchmark for DebyeSB model completed, plotting with gnuplot..."
+# command to plot the results (will plot everything with a .txt) using gnuplot
+gnuplot -persist <<EOF
+plot \
+$(for f in *.txt; do echo -n "'$f' using 1:2 with lines title '$f', "; done | sed 's/, $//')
+set title "DebyeSB Benchmark Results"
+set xlabel "Time"
+set ylabel "Expectation Value"
+set grid
+EOF
+echo "Plotting completed. Results are saved in the current directory."
