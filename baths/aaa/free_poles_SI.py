@@ -44,10 +44,12 @@ n = data[:K, 0].astype(int)  # Pole number
 eta = data[:K, 1] + 1.j* data[:K,2]               # Coefficient residue
 xi = data[:K, 3] + 1.j* data[:K,4]             # Pole frequency
 
-# define S(omega)
+# define S(omega) and the functions S_plus and S_minus
 def S(omega):
     one = np.ones_like(eta)
     return np.sum(eta / (omega*one - xi)) + np.sum(eta.conj() / (omega*one - xi.conj()))
+def S_plus(omega): return S(omega) + S(-omega)
+def S_minus(omega): return S(omega) - S(-omega)
 
 if(0): #plot the poles and the function S(ω)
     # Frequency range
@@ -98,13 +100,9 @@ if(0): #plot the poles and the function S(ω)
     plt.savefig("FreePoles_Sw_fromFig1.pdf", format="pdf")  # saved in the current working directory
     plt.show()
 
-# Calculate fac*J(ω) from S(ω) 
-def J(omega):
-    return S(omega) - S(-omega)
-# note that there are extra factors here = 4\pi\hbar,  but who cares as we just want to find the zeros of J(ω)
-
 # Output J(ω) for a range of frequencies and save for a MATLAB reading
 if(0):
+    def J(omega): return S(omega) - S(-omega) # note that there are extra factors here = 4\pi\hbar,  but who cares as we just want to find the zeros of J(ω)
     w = np.linspace(-300, 300, 1000000)  # Frequency range
     J_values = np.array([J(omega) for omega in w])  # Calculate J(ω) for each frequency
     # Plot J(ω)
@@ -154,13 +152,6 @@ if(0):
 
     # Frequency range
     plt.show()
-
-# Calculate the coeficients for the Polynomials that correspond to the  simple pole functions
-# Calculate the polynomial coefficients
-pols=np.concatenate([xi.copy(), xi.conj().copy()])       # Include complex conjugates
-reds=np.concatenate([eta.copy(), eta.conj().copy()])    # Include complex conjugates
-pols = np.array(pols, dtype=complex)  # Ensure poles are complex
-reds = np.array(reds, dtype=complex)  # Ensure residues are complex
 
 def fac_prods_old(z):
     ''' Calculates the coefficients of w for the polynomial
@@ -218,7 +209,6 @@ def fac_prods(z):
     where n is the number of elements in z
     '''
     coeffs = np.zeros(len(z)+1, dtype=np.dtype(z[0]))  # Coefficients for the polynomial
-    print(f"Calculating coefficients for {len(z)} poles")
     coeffs[0] = 1  # start with 1 + 0x + 0x^2 + ... + 0x^n    
     for z_i in z: 
         term = np.zeros_like(coeffs)
@@ -227,28 +217,13 @@ def fac_prods(z):
         coeffs = product_of(coeffs, term, len_out=len(coeffs))  # Multiply the current coefficients with the new term
     return coeffs
 
-
-# if(0):  # Test the fac_prods function
-#     z= np.array([1,266+2.j,1])
-#     def fx(x): return np.prod(x + z)
-#     cs = fac_prods(z)
-#     Fx_expanded = np.poly1d(cs[::-1])  # Reverse the coefficients for np.poly1d
-#     # plot the polynomial
-#     x = np.linspace(-3, 3, 1000)
-#     y = Fx_expanded(x)
-#     plt.figure(figsize=(6.5, 3.2))  # width, height
-#     plt.plot(x,  Fx_expanded(x), label='Polynomial from expansion', color='blue')
-#     plt.plot(x,  [fx(xi) for xi in x], label='Polynomial ', color='red', linestyle='--')
-#     plt.xlabel('x')
-#     plt.ylabel('P(x)')
-#     plt.title('Polynomial from Free Poles')
-#     plt.show()
-#     sys.exit()
-
 def S_coefs(poles, residues):
     ''' Calculate the coefficients of the numerator and denominator of S(w) from the poles and residues
-    F(x) =  sum_{all i=1}^n eta_i prod_{all i'!=i}^{n} (x - /x_i')
-    where eta_i are the poles and xi_i are the residues, and the sum over `all i' means sum over conjugates also.
+    F(x) =  sum_{i=1}^n eta_i/(x - xi_i) + c.c
+    = sum_{i=1}^n eta_i prod_{i'!=i}^{n} (x - /x_i') / prod_{i=1}^n (x - xi_i) + c.c.
+    = P(x)/Q(x) + P*(x)/Q*(x)
+    = [P(x)Q*(x) + P*(x)Q(x)] / [Q(x)Q*(x)]
+    where eta_i are the poles and xi_i are the residues.
 
     Input only one of the conjugation of the poles and residues, we will calculate in steps:
 
@@ -271,11 +246,7 @@ def S_coefs(poles, residues):
     P_coeffs = np.zeros(len(poles) + 1, dtype=np.dtype(poles[0]))  # Coefficients for P(x)
     Q_coeffs = np.zeros(len(poles) + 1, dtype=np.dtype(poles[0]))  # Coefficients for Q(x)
     for i,eta_i in enumerate(residues):
-        print(i/len(residues), end='\r')  # Print progress
         xi_i_prime = np.delete(poles.copy(), i)  # Remove the i-th pole
-        print(eta_i)
-        print(xi_i_prime)
-        print(fac_prods(-xi_i_prime))
         P_coeffs[:-1] += eta_i * fac_prods(-xi_i_prime)
         if i==0:    #save the expansion of the first bracket for the next step
             Q_coeffs_no_xi0 = P_coeffs/eta_i # Coefficients of the denominator without the first pole
@@ -291,7 +262,9 @@ def S_coefs(poles, residues):
     # Return the coefficients of the numerator and denominator
     return Sw_numerator_coeffs, Sw_denominator_coeffs
 
-if(1): #test the S_coefs function
+def eval_S(Numerator_coeffs_list, Denominator_coeffs_list, x): return np.polyval(Numerator_coeffs_list[::-1], x) / np.polyval(Denominator_coeffs_list[::-1], x)
+
+if(0): #test the S_coefs function
     # test poles
     pols = np.array([1+2.j, 266 + 2.j, 1+3j,2.j])  # Example poles
     reds = np.array([1, 1, 1,4.j])  # Example residues
@@ -316,16 +289,46 @@ if(1): #test the S_coefs function
     plt.plot(x, np.imag(y_poly), label='Polynomial from Free Poles', color='orange', linestyle='--')
     plt.show()
     sys.exit()
+
+### Calculate S^+ and S^- from the poles and residues
+Sw_Numerator_coeffs_list, Sw_Denominator_coeffs_list = S_coefs(xi, eta)
+# Calculate S^+ and S^- from the poles and residues
+xi_plus = np.concatenate((xi, -xi))  # poles and residues for S^+
+eta_plus = np.concatenate((eta, -eta))  
+Sw_plus_Numerator_coeffs_list, Sw_plus_Denominator_coeffs_list = S_coefs(xi_plus, eta_plus)
+xi_minus = np.concatenate((xi, -xi))  # poles and residues for S^-
+eta_minus = np.concatenate((eta, eta))  
+Sw_minus_Numerator_coeffs_list, Sw_minus_Denominator_coeffs_list = S_coefs(xi_minus, eta_minus)
+
+### Plot the results
+fig, (Sw_ax, Sw_plus_ax, Sw_minus_ax) = plt.subplots(1, 3, figsize=(18, 6))  # width, height
+# Set font size to match LaTeX \normalsize (about 10pt)
+plt.rcParams.update({'font.size': 10})
+# Frequency range   
+w = np.linspace(-300, 300, 1000)  # Frequency range
+# Calculate S(ω) for each frequency
+Sw_values = np.array([S(omega) for omega in w])  # Calculate S(ω) for each frequency
+Sw_plus_values = np.array([S_plus(omega) for omega in w])  # Calculate S^+(ω) for each frequency
+Sw_minus_values = np.array([S_minus(omega) for omega in w])  # Calculate S^-(ω) for each frequency
+# Plot S(ω) and the derived functions
+Sw_ax.plot(w, eval_S(Sw_Numerator_coeffs_list, Sw_Denominator_coeffs_list,w), label=r'$S(\omega)$ from polynomial', color='blue', linestyle='-')
+Sw_ax.plot(w, Sw_values.real, label=r'$S(\omega)$ original', color='red', linestyle='--')
+Sw_plus_ax.plot(w, eval_S(Sw_plus_Numerator_coeffs_list, Sw_plus_Denominator_coeffs_list,w), label=r'$S^{+}(\omega)$ from polynomial', color='blue', linestyle='-')
+Sw_plus_ax.plot(w, Sw_plus_values.real, label=r'$S^{+}(\omega)$ original', color='red', linestyle='--')
+Sw_minus_ax.plot(w, eval_S(Sw_minus_Numerator_coeffs_list, Sw_minus_Denominator_coeffs_list,w), label=r'$S^{-}(\omega)$ from polynomial', color='blue', linestyle='-')
+Sw_minus_ax.plot(w, Sw_minus_values.real, label=r'$S^{-}(\omega)$ original', color='red', linestyle='--')
+
+
 # plot the polynomial
-x = np.linspace(-300, 300, 1000)
-y = np.polyval(Numerator_coeffs_list, x)/np.polyval(Denominator_coeffs_list, x)
-plt.figure(figsize=(6.5, 3.2))  # width, height
-plt.plot(x, np.real(y), label='Polynomial from Free Poles', color='blue')
-plt.plot(x, np.imag(y), label='Polynomial from Free Poles', color='green')
-plt.plot(x,np.real([(Swtemp(pols,reds,x_i))for x_i in x]), label='S(ω) from Free Poles', color='red', linestyle='--')
-plt.ylim(-10, 10)  # Set y-limits for better visibility
-plt.figure(figsize=(6.5, 3.2))  # width, height
-plt.plot(np.real(pols), np.imag(pols), 'o', label='Poles', color='blue')
+# x = np.linspace(-300, 300, 1000)
+# y = np.polyval(Numerator_coeffs_list, x)/np.polyval(Denominator_coeffs_list, x)
+# plt.figure(figsize=(6.5, 3.2))  # width, height
+# plt.plot(x, np.real(y), label='Polynomial from Free Poles', color='blue')
+# plt.plot(x, np.imag(y), label='Polynomial from Free Poles', color='green')
+# plt.plot(x,np.real([(Swtemp(xi,eta,x_i))for x_i in x]), label='S(ω) from Free Poles', color='red', linestyle='--')
+# plt.ylim(-10, 10)  # Set y-limits for better visibility
+# plt.figure(figsize=(6.5, 3.2))  # width, height
+# plt.plot(np.real(xi), np.imag(xi), 'o', label='Poles', color='blue')
 plt.show()
 
 
