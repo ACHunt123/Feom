@@ -39,7 +39,7 @@ data=[[1,-0.007050248,0.002482056,188.7752364,-164.9169644],
 data = np.array(data)
 # Extract columns
 K = data.shape[0]  # Number of poles
-K = 30  # Number of poles
+K = 32 # Number of poles
 n = data[:K, 0].astype(int)  # Pole number
 eta = data[:K, 1] + 1.j* data[:K,2]               # Coefficient residue
 xi = data[:K, 3] + 1.j* data[:K,4]             # Pole frequency
@@ -194,10 +194,14 @@ def product_of(coeffs_1, coeffs_2, len_out=None):
     '''
     n = len(coeffs_1) + len(coeffs_2) - 1  if len_out == None else len_out# Degree of the product polynomial
     product_coeffs = np.zeros(n, dtype=np.dtype(coeffs_1[0]))  # Initialize product coefficients
+    max=0
     for i in range(len(coeffs_1)):
         for j in range(len(coeffs_2)):
             if i+j==n: break
             product_coeffs[i + j] += coeffs_1[i] * coeffs_2[j]
+            # if abs(product_coeffs[i + j]) > max: max = abs(product_coeffs[i + j]); print(f"Max coefficient: {max} at index {i+j}")
+            if abs(product_coeffs[i + j]) > 1e308: # Avoid overflow
+                raise OverflowError("Product coefficients overflowed")
     return product_coeffs
 
 def fac_prods(z):
@@ -238,11 +242,10 @@ def S_coefs(poles, residues):
     = P(x)Q*(x) + P*(x)Q(x)
 
     3. Calculate the denominator coefficients for S(w) 
-    = Q(x)Q*(x) 
+    = Q(x)Q*(x)  = 1/2 * (Q(x)Q*(x) + Q*(x)Q(x)) [this is to avoid numerical issues with large polynomials]
     '''
     # 1.
     assert poles.size == residues.size, "\nPoles and residues must have the same size"
-    assert len(poles) > 3, "\nPoles array must be longer than 3 for the slicing processes to work"
     P_coeffs = np.zeros(len(poles) + 1, dtype=np.dtype(poles[0]))  # Coefficients for P(x)
     Q_coeffs = np.zeros(len(poles) + 1, dtype=np.dtype(poles[0]))  # Coefficients for Q(x)
     for i,eta_i in enumerate(residues):
@@ -257,12 +260,24 @@ def S_coefs(poles, residues):
     # 2.
     Sw_numerator_coeffs = product_of(P_coeffs, Q_coeffs.conj()) + product_of(P_coeffs.conj(), Q_coeffs)  # Coefficients for the numerator of S(w)
     # 3.
-    Sw_denominator_coeffs = product_of(Q_coeffs, Q_coeffs.conj())  # Outer product for P(x)Q*(x) 
+    Sw_denominator_coeffs = 1/2 * (product_of(Q_coeffs, Q_coeffs.conj()) + product_of(Q_coeffs.conj(), Q_coeffs))  
+    # Sw_denominator_coeffs = product_of(Q_coeffs.conj(),Q_coeffs)  # Does not work, as we hit the precision limit for large polynomials
+    # print(Sw_denominator_coeffs)
 
     # Return the coefficients of the numerator and denominator
     return Sw_numerator_coeffs, Sw_denominator_coeffs
 
-def eval_S(Numerator_coeffs_list, Denominator_coeffs_list, x): return np.polyval(Numerator_coeffs_list[::-1], x) / np.polyval(Denominator_coeffs_list[::-1], x)
+def eval_S(Numerator_coeffs_list, Denominator_coeffs_list, x): 
+    re_numerator = np.polyval(np.real(Numerator_coeffs_list[::-1]), x)  # Evaluate the numerator polynomial
+    im_numerator = np.polyval(np.imag(Numerator_coeffs_list[::-1]), x)  # Evaluate the conjugate of the numerator polynomial
+    re_denominator = np.polyval(np.real(Denominator_coeffs_list[::-1]), x)  # Evaluate the denominator polynomial
+    im_denominator = np.polyval(np.imag(Denominator_coeffs_list[::-1]), x)  # Evaluate the conjugate of the denominator polynomial
+    print('imaginary parts of the numerator and denominator:')
+    print(im_numerator)
+    print(im_denominator)
+    # return (re_numerator + 1.j*im_numerator) / (re_denominator + 1.j*im_denominator)  # Return the evaluated S(ω    )
+    return (re_numerator ) / (re_denominator )  # Return the evaluated S(ω    )
+# def eval_S(Numerator_coeffs_list, Denominator_coeffs_list, x): return np.polyval((Denominator_coeffs_list[::-1]), x)
 
 if(0): #test the S_coefs function
     # test poles
@@ -276,11 +291,11 @@ if(0): #test the S_coefs function
         return np.sum(eta / (omega - xi)) + np.sum(eta.conj() / (omega - xi.conj()))
     # Calculate the coefficients of the numerator and denominator
     Numerator_coeffs_list, Denominator_coeffs_list = S_coefs(pols, reds)
-    
     x = np.linspace(-300, 300, 1000)
     # Calculate the polynomial from the coefficients
     y_exact = [Sw_exact(pols, reds, xi) for xi in x]  # Calculate S(ω) for each frequency
-    y_poly = np.polyval(Numerator_coeffs_list[::-1], x) / np.polyval(Denominator_coeffs_list[::-1], x)
+    y_poly = eval_S(Numerator_coeffs_list, Denominator_coeffs_list, x)  # Calculate S(ω) from the coefficients
+
     # Plot the results
     plt.figure(figsize=(6.5, 3.2))  # width, height
     plt.plot(x, np.real(y_exact), label='Exact S(ω)', color='red')
@@ -290,45 +305,58 @@ if(0): #test the S_coefs function
     plt.show()
     sys.exit()
 
-### Calculate S^+ and S^- from the poles and residues
+### Calculate S, S^+ and S^- from the poles and residues
 Sw_Numerator_coeffs_list, Sw_Denominator_coeffs_list = S_coefs(xi, eta)
-# Calculate S^+ and S^- from the poles and residues
-xi_plus = np.concatenate((xi, -xi))  # poles and residues for S^+
-eta_plus = np.concatenate((eta, -eta))  
+xi_plus = np.concatenate((xi, -xi));eta_plus = np.concatenate((eta, -eta))  # poles and residues for S^+
 Sw_plus_Numerator_coeffs_list, Sw_plus_Denominator_coeffs_list = S_coefs(xi_plus, eta_plus)
-xi_minus = np.concatenate((xi, -xi))  # poles and residues for S^-
-eta_minus = np.concatenate((eta, eta))  
+xi_minus = np.concatenate((xi, -xi));eta_minus = np.concatenate((eta, eta))    # poles and residues for S^-
 Sw_minus_Numerator_coeffs_list, Sw_minus_Denominator_coeffs_list = S_coefs(xi_minus, eta_minus)
 
-### Plot the results
-fig, (Sw_ax, Sw_plus_ax, Sw_minus_ax) = plt.subplots(1, 3, figsize=(18, 6))  # width, height
-# Set font size to match LaTeX \normalsize (about 10pt)
-plt.rcParams.update({'font.size': 10})
-# Frequency range   
-w = np.linspace(-300, 300, 1000)  # Frequency range
-# Calculate S(ω) for each frequency
-Sw_values = np.array([S(omega) for omega in w])  # Calculate S(ω) for each frequency
-Sw_plus_values = np.array([S_plus(omega) for omega in w])  # Calculate S^+(ω) for each frequency
-Sw_minus_values = np.array([S_minus(omega) for omega in w])  # Calculate S^-(ω) for each frequency
-# Plot S(ω) and the derived functions
-Sw_ax.plot(w, eval_S(Sw_Numerator_coeffs_list, Sw_Denominator_coeffs_list,w), label=r'$S(\omega)$ from polynomial', color='blue', linestyle='-')
-Sw_ax.plot(w, Sw_values.real, label=r'$S(\omega)$ original', color='red', linestyle='--')
-Sw_plus_ax.plot(w, eval_S(Sw_plus_Numerator_coeffs_list, Sw_plus_Denominator_coeffs_list,w), label=r'$S^{+}(\omega)$ from polynomial', color='blue', linestyle='-')
-Sw_plus_ax.plot(w, Sw_plus_values.real, label=r'$S^{+}(\omega)$ original', color='red', linestyle='--')
-Sw_minus_ax.plot(w, eval_S(Sw_minus_Numerator_coeffs_list, Sw_minus_Denominator_coeffs_list,w), label=r'$S^{-}(\omega)$ from polynomial', color='blue', linestyle='-')
-Sw_minus_ax.plot(w, Sw_minus_values.real, label=r'$S^{-}(\omega)$ original', color='red', linestyle='--')
+if(0): # Plot S(ω), S^+(ω) and S^-(ω) from the coefficients vs the original functions
+    fig, (Sw_ax, Sw_plus_ax, Sw_minus_ax, Aw_ax) = plt.subplots(1, 4, figsize=(18, 6))  # width, height
+    # Set font size to match LaTeX \normalsize (about 10pt)
+    plt.rcParams.update({'font.size': 10})
+    # Frequency range   
+    w = np.linspace(-1000, 1000, 1000)+0.j  # Frequency range
+    # Calculate S(ω) for each frequency
+    Sw_values = np.array([S(omega) for omega in w])  # Calculate S(ω) for each frequency
+    Sw_plus_values = np.array([S_plus(omega) for omega in w])  # Calculate S^+(ω) for each frequency
+    Sw_minus_values = np.array([S_minus(omega) for omega in w])  # Calculate S^-(ω) for each frequency
+    # Plot S(ω) and the derived functions
+    Sw_ax.plot(w.real, eval_S(Sw_Numerator_coeffs_list, Sw_Denominator_coeffs_list,w).real, label=r'$S(\omega)$ from polynomial', color='blue', linestyle='-')
+    Sw_ax.plot(w, eval_S(Sw_Numerator_coeffs_list, Sw_Denominator_coeffs_list,w).imag, label=r'$S(\omega)$ from polynomial', color='green', linestyle='-')
+    Sw_ax.plot(w, Sw_values.real, label=r'$S(\omega)$ original', color='red', linestyle='--')
+    Sw_plus_ax.plot(w, eval_S(Sw_plus_Numerator_coeffs_list, Sw_plus_Denominator_coeffs_list,w).real, label=r'$S^{+}(\omega)$ from polynomial', color='blue', linestyle='-')
+    Sw_plus_ax.plot(w, eval_S(Sw_plus_Numerator_coeffs_list, Sw_plus_Denominator_coeffs_list,w).imag, label=r'$S^{+}(\omega)$ from polynomial', color='green', linestyle='-')
+    Sw_plus_ax.plot(w, Sw_plus_values.real, label=r'$S^{+}(\omega)$ original', color='red', linestyle='--')
+    Sw_minus_ax.plot(w, eval_S(Sw_minus_Numerator_coeffs_list, Sw_minus_Denominator_coeffs_list,w).real, label=r'$S^{-}(\omega)$ from polynomial', color='blue', linestyle='-')
+    Sw_minus_ax.plot(w, eval_S(Sw_minus_Numerator_coeffs_list, Sw_minus_Denominator_coeffs_list,w).imag, label=r'$S^{-}(\omega)$ from polynomial', color='green', linestyle='-')
+    Sw_minus_ax.plot(w, Sw_minus_values.real, label=r'$S^{-}(\omega)$ original', color='red', linestyle='--')
+    
+    Aw_ax.plot(w, eval_S(Sw_plus_Numerator_coeffs_list, Sw_minus_Numerator_coeffs_list,w).real, label=r'$A(\omega) = \frac{S^{+}(\omega)}{S^{-}(\omega)}$ from polynomial', color='blue', linestyle='-')
+    Aw_ax.plot(w, eval_S(Sw_plus_Numerator_coeffs_list, Sw_minus_Denominator_coeffs_list,w).imag, label=r'$A(\omega)$ from polynomial', color='green', linestyle='-')
+    Aw_ax.plot(w, (Sw_plus_values.real / Sw_minus_values.real), label=r'$A(\omega) = \frac{S^{+}(\omega)}{S^{-}(\omega)}$ original', color='red', linestyle='--')
+    plt.show()
 
-
-# plot the polynomial
-# x = np.linspace(-300, 300, 1000)
-# y = np.polyval(Numerator_coeffs_list, x)/np.polyval(Denominator_coeffs_list, x)
-# plt.figure(figsize=(6.5, 3.2))  # width, height
-# plt.plot(x, np.real(y), label='Polynomial from Free Poles', color='blue')
-# plt.plot(x, np.imag(y), label='Polynomial from Free Poles', color='green')
-# plt.plot(x,np.real([(Swtemp(xi,eta,x_i))for x_i in x]), label='S(ω) from Free Poles', color='red', linestyle='--')
-# plt.ylim(-10, 10)  # Set y-limits for better visibility
-# plt.figure(figsize=(6.5, 3.2))  # width, height
-# plt.plot(np.real(xi), np.imag(xi), 'o', label='Poles', color='blue')
-plt.show()
-
-
+### Send the coefficients to a file that can be read by MATLAB
+Sw_coeffs = np.column_stack((Sw_Numerator_coeffs_list, Sw_Denominator_coeffs_list))
+Sw_plus_coeffs = np.column_stack((Sw_plus_Numerator_coeffs_list, Sw_plus_Denominator_coeffs_list))
+Sw_minus_coeffs = np.column_stack((Sw_minus_Numerator_coeffs_list, Sw_minus_Denominator_coeffs_list))
+# print(Sw_minus_coeffs)
+# Save the coefficients to a file
+folder = '.coefficients'  # Folder to save the coefficients
+# if the coefficients have any complex parts do a warning
+if np.any(np.imag(Sw_coeffs)) or np.any(np.imag(Sw_plus_coeffs)) or np.any(np.imag(Sw_minus_coeffs)):
+    print("Warning: Coefficients have complex parts, saving only the real parts.")
+np.savetxt(f"{folder}/FreePoles_Sw_coeffs.txt", Sw_coeffs.real, header="Sw_Numerator_coeffs Sw_Denominator_coeffs", delimiter='\t')
+np.savetxt(f"{folder}/FreePoles_Sw_plus_coeffs.txt", Sw_plus_coeffs.real, header="Sw_plus_Numerator_coeffs Sw_plus_Denominator_coeffs", delimiter='\t')
+np.savetxt(f"{folder}/FreePoles_Sw_minus_coeffs.txt", Sw_minus_coeffs.real, header="Sw_minus_Numerator_coeffs Sw_minus_Denominator_coeffs", delimiter='\t')
+# save the poles and residues used
+n2=np.zeros_like(xi, dtype=int)  # Pole numbers
+data = np.column_stack((eta.real, eta.imag, xi.real, xi.imag))
+np.savetxt(f"{folder}/FreePoles_Sw_poles.txt", data, header="Pole_number Residue_real Residue_imag Pole_real Pole_imag", delimiter='\t')
+data_plus = np.column_stack((eta_plus.real, eta_plus.imag, xi_plus.real, xi_plus.imag))
+np.savetxt(f"{folder}/FreePoles_Sw_plus_poles.txt", data_plus, header="Pole_number Residue_real Residue_imag Pole_real Pole_imag", delimiter='\t')
+data_minus = np.column_stack((eta_minus.real, eta_minus.imag, xi_minus.real, xi_minus.imag))
+np.savetxt(f"{folder}/FreePoles_Sw_minus_poles.txt", data_minus, header="Pole_number Residue_real Residue_imag Pole_real Pole_imag", delimiter='\t')
+print("Saved coefficients to FreePoles_Sw_coeffs.txt, FreePoles_Sw_plus_coeffs.txt and FreePoles_Sw_minus_coeffs.txt")

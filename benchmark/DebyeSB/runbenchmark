@@ -5,7 +5,7 @@ echo "Starting benchmark for DebyeSB model..."
 # command to run the matlab script
 matlab -batch "addpath('$HOME/software/phd/Feom/benchmark/DebyeSB'); TFaySB" > /dev/null & 
 # command to run the feom.py script
- ~/software/phd/Feom/feom.py --L 5 --K 5 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --lowTCorr 1   &
+ ~/software/phd/Feom/feom.py --L 5 --K 5 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --lowTCorr 1  > /dev/null &
 wait
 echo "Benchmark for DebyeSB model completed, plotting with gnuplot..."
 # command to plot the results (will plot everything with a .txt) using gnuplot
@@ -18,3 +18,6 @@ set ylabel "Expectation Value"
 set grid
 EOF
 echo "Plotting completed. Results are saved in the current directory."
+# remove the .txt files
+rm *.txt
+echo "Results removed."

@@ -15,3 +15,7 @@
 *.gz
 *.bbl
 *.blg
+# ignore hidden folders
+.*
+# ignore the forstuart folder
+forstuart/

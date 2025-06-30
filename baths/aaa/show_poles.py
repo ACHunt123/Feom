@@ -46,26 +46,32 @@ N= 25 #ODD number of beads
 mu = (N-1)/2 # Number of pairs of modes
 ks = np.arange(1,  mu+1) # modes indices
 wks = 2*N/(beta*hbar) *np.sin(ks * np.pi / (N))
+wns = 2*np.pi*ks / (beta*hbar) # Matsubara frequencies
 pole_ax.plot(np.zeros_like(wks), wks, 'x', label=f'RP, N={N-1}', color='orange')
 pole_ax.plot(np.zeros_like(wks), -wks, 'x', color='orange')
+pole_ax.plot(np.zeros_like(wns), wns,'o', label=f'Mats, N={N-1}',color='green')
+pole_ax.plot(np.zeros_like(wns), -wns,'o', color='green')
 
 def S_rp(omega, wks):
     summ = 0+0j
     for wk in wks:
         summ += (2/(m*beta))*  1/(omega**2*(1+0j) + wk**2)
     return summ
+S_mats_values = np.array([S_rp(omega, wns) for omega in w])
 S_rp_values = np.array([S_rp(omega, wks) for omega in w])
 
 # Plot the results
 func_ax.plot(w, S_aaa_values.real, label='Re[S_aaa(ω)]', color='red')
-func_ax.plot(w, S_aaa_values.imag, label='Im[S_aaa(ω)]', color='green')
+# func_ax.plot(w, S_aaa_values.imag, label='Im[S_aaa(ω)]', color='green')
 func_ax.plot(w, S_rp_values.real, label='Re[S_rp(ω)]', color='orange', linestyle='--')
-func_ax.plot(w, S_rp_values.imag, label='Im[S_rp(ω)]', color='purple', linestyle='--')
+# func_ax.plot(w, S_rp_values.imag, label='Im[S_rp(ω)]', color='purple', linestyle='--')
+func_ax.plot(w, S_mats_values.real, label='Re[S_mats(ω)]', color='brown', linestyle='-.')
+# func_ax.plot(w, S_mats_values.imag, label='Im[S_mats(ω)]', color='pink', linestyle='-.')
 # Plot the exact S(ω) for comparison
 
 func_ax.plot(w, S_exact_values, label='Exact S(ω)', color='black', linestyle='--')
 #plot the difference between the exact and the poles
-func_ax.plot(w, S_aaa_values.real - S_exact_values, label='Re[S(ω)] - Exact', color='blue', linestyle=':')
+# func_ax.plot(w, S_aaa_values.real - S_exact_values, label='Re[S(ω)] - Exact', color='blue', linestyle=':')
 func_ax.set_xlabel('Frequency (ω)')     
 func_ax.set_ylabel('S(ω)')
 func_ax.set_title('Bath Correlation Function S(ω)')

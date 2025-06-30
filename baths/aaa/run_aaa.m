@@ -1,3 +1,8 @@
+%  Runs the AAA algorithm on a specific function and saves results
+%  to text files for further analysis.
+
+% the function is defined in the file Sbeta.m
+
 
 Z = linspace(-100, 100, 1000)';        % Sample points (column vector)
 F = Sbeta(Z);                       % Function values at those points

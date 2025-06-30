@@ -9,8 +9,16 @@
 \maketitle
 This PDF contains general notes on the FEOM project, including information about the project structure, coding conventions, and other relevant details.
 \section{Project Structure}
-This project implements HEOM using FORTRAN, and implements basic HEOM with the standard K and L cuttoffs. The equations of motion are derived from
-the Shi/Chen scaled HEOM, for which the equations of motion (without truncation) are given by
+This project implements HEOM using FORTRAN, and implements basic HEOM with the standard K and L cuttoffs. 
+In the notation used by FORTRAN propagation, we have
+\begin{align}
+    \frac{\d}{\d t}\rho_{\vc{n}}(t) &= -\frac{i}{\hbar}H_s^{\cross}\rho_{\vc{n}}(t)  - \sum_k n_k\gamma_k \rho_{\vc{n}}(t)  - \frac{i}{\hbar}\sum_k \l(c_{\rm U}(k,n_k) V^{\cross}\rho_{\vc{n}_k^+}(t)\r)\nonumber \\[6pt]
+    & + \frac{i}{\hbar}\sum_k \l(c_{\rm D_{LEFT}}(k,n_k) V^{L}\rho_{\vc{n}_k^-}(t) + c_{\rm D_{RIGHT}}(k,n_k) V^{R}\rho_{\vc{n}_k^-}(t)\r),
+\end{align}
+where $\rho_{\vc{n}}(t)$ is the full set of ADOs, $\vc{n}$ is the vector of ADO indices $\{n_k\}$, (with $\vc{n}_k^{\pm}$ denoting the same set of indices, but with $n_k\pm1$).
+We use superoperator notation throughout, and define our coefficients $\{\gamma_k, c_{\rm U}, c_{\rm D}\}$ differently for each version of the HEOM used.
+\subsection{Shi/Chen scaled HEOM}
+For Shi/Chen scaled HEOM, the equations of motion are given by
 \begin{align}
     \frac{\d}{\d t}\rho_{\vc{n}}(t) = -\frac{i}{\hbar}H_s^{\cross}\rho_{\vc{n}}(t)  - \sum_k n_k\gamma_k \rho_{\vc{n}}(t) 
     -\frac{i}{\hbar} \sum_k\l( \sqrt{n_k+1}\mathcal{L}_{k-}\rho_{\vc{n}_k^+}(t) +  \sqrt{n_k}\mathcal{L}_{k+}\rho_{\vc{n}_k^-}(t)\r),
@@ -23,9 +31,44 @@ the superoperator
 \end{align}
 where $V$ is the system-bath coupling operator, $C_k$ is the coupling strength for the $k$'th bath mode, and the constants $C_k$ and $\gamma_k$ are obtained from the bath correlation function (BCF) as
 \begin{align}
-    C(t) = \sum_k C_k e^{-\gamma_k t}.
+    C(t) = \sum_k C_k e^{-\gamma_k t},
 \end{align}
-
+which results in the coefficients,
+\begin{align}
+    c_{\rm U}(k,n_k) &= \sqrt{n_k+1}\l|C_k\r|, & c_{\rm D_{LEFT}}(k,n_k) &= -\sqrt{\frac{n_k}{{|C_k|}}}C_k, & c_{\rm D_{RIGHT}}(k,n_k) &= \sqrt{\frac{n_k}{{|C_k|}}}C_k^*,
+\end{align}
+and $\gamma_k$ being the decay rate of the $k$'th bath mode, and $K$ modes chosen to represent the BCF. In what follows, any sums over $k$ are assumed to go from $1$ to $K$, unless otherwise specified.
+\subsection{Free-Pole HEOM}
+For Free-Pole HEOM, the bath correlation function is represented in terms of a sum of dampoed exponentials,
+\begin{align}
+    C_k = \sum_{k=1}^K d_k e^{-z_k t},
+\end{align}
+with $d_k\,,\, z_k \in \mathbbm{C}$.
+the equations of motion are given by
+\begin{align}
+    &\frac{\d}{\d t}\rho_{\vc{m},\vc{l}}(t) = -\frac{i}{\hbar}H_s^{\cross}\rho_{\vc{m},\vc{l}}(t)  - \l(\sum_k m_k z_k + l_kz_k^*\r)\rho_{\vc{m},\vc{l}}(t) -\frac{i}{\hbar}\sum_k \sqrt{(m_k+1)d_k}V^{\cross}\rho_{\vc{m}_k^+,\vc{l}}(t)\nonumber \\[6pt]
+&-\frac{i}{\hbar}\sum_k \sqrt{(l_k+1)d_k^*}V^{\cross}\rho_{\vc{m},\vc{l}_k^+}(t) - \frac{i}{\hbar}\sum_k \sqrt{m_k d_k}V^{L}\rho_{\vc{m}_k^-,\vc{l}}(t) + \frac{i}{\hbar}\sum_k \sqrt{l_k d_k^*}V^{R}\rho_{\vc{m},\vc{l}_k^-}(t).
+\end{align}
+We can combine the two ADO intices (there are two of them due to the forward and back paths being separated out in the influence functional) into a single vector $\vc{n} = \{\vc{m}, \vc{l}\}$, such that the EOM
+are now in the same form as the Shi/Chen scaled HEOM, with the coefficients defined as
+\begin{align}
+    c_{\rm U}(k,n_k) &= \begin{cases}
+    \sqrt{(n_k+1)d_k}, & k \leq K, \\[6pt]
+     \sqrt{(n_k+1)d_{k-K}^*}, & k > K
+    \end{cases}, 
+    & c_{\rm D_{LEFT}}(k,n_k) &= \begin{cases}
+    -\sqrt{n_kd_k}, & k \leq K, \\[6pt]
+     0, & k > K
+    \end{cases}
+     \\[8pt]
+       c_{\rm D_{RIGHT}}(k,n_k)  &= \begin{cases}
+       0, & k \leq K, \\[6pt]
+         \sqrt{n_kd_{k-K}^*}, & k > K
+    \end{cases}, & \gamma_k &= \begin{cases}
+    z_k, & k \leq K, \\[6pt]
+    z_{k-K}^*, & k > K
+    \end{cases}.
+\end{align} 
 \section{Bath conventions}
 In this section, we discuss the conventions used for the naming of the baths. We define the spectral density
 \begin{align}
