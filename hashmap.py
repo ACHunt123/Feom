@@ -2,86 +2,36 @@
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-#
-#   Hashmap.py generates a hashmap that maps the index of the BCF to the index of the ADO
-#
+'''    +---------------------------------------+
+       |   Hashmap: Generates the hashmaps     |  
+       |   for the ADOs in the FEOM            |
+       |           By A. C. Hunt 2025          |
+       +---------------------------------------+
+'''
 
-# INPUTS
-# K       #number of exponential terms in the BCF - either the truncation of the number of beads + 1
-# L   #maximum depth of the ADO expansion
 
-# OUTPUTS
-# I_to_index #hash map from the index of the ADO to the index of the BCF
-# index_to_I #hash map from the index of the BCF to the index of the ADO
-
-# The formatting of the Hashmaps are as follows:
-# I2ind[I] : int I -> list of ints corresponding to the BCF indecies
-# ind2I[ind] :tuple of ints -> int I
-# This is done because lists are not hashable, and tuples are
-
-# number of ADOs in the n'th tier with k elements
-def length(n,k):
+def length(n,k): # number of ADOs in the n'th tier with k elements
     return np.math.factorial(n+k-1) // np.math.factorial(k-1) // np.math.factorial(n) # = [ (n+k-1) C (k-1)]
-    # return np.math.factorial(n) // (np.math.factorial(k_)* np.math.factorial(n-k_))
 
-# total number of ADOs for a given K and L
-def total_length(K,L,N_nonmats):
+def total_length(K,L,N_nonmats): # total number of ADOs for a given K and L
     Ktot=K+N_nonmats
     return sum([length(n,Ktot) for n in range(0,L+1)])
     
-
-
 def generateHashmap(K,L,N_nonmats,write_to_file = False):
+    ''' Generate the hashmaps for the ADOs in the FEOM
+    INPUTS
+    K           Number of Matsubara exponentials in the BCF
+    N_nonmats   Number of non-matsubara terms in the BCF
+    Ktot        Total number of exponential terms in the BCF (Ktot = K + N_nonmats)
+    L           Maximum depth of the ADO expansion
+
+    OUTPUTS
+    I2ind       List of ADO indices, where each index is a list of integers corresponding to the BCF indices
+    I0s         List of indices of the first ADO in each tier
+    '''
     Ktot=K+N_nonmats
-    # K here is the number of matsubara exponentials in the BCF
-    # N_nonmats is the number of non-matsubara terms in the BCF
-    # Ktot is the total number of exponential terms in the BCF (Ktot = K + N_nonmats)
-    # L is the maximum depth of the ADO expansion
 
-    # generates the set of indicies corresponding to the n'th tier with K elements
-    def generatenumbersOLD(n, k): 
-
-        # output is a list of the strings of the indicies separated by commas
-        numbers = np.empty(length(n,k),dtype=object) 
-        # numbers = ['xxx' for i in range(length(n,k))]
-
-        if k==1: #if there is only one element in the set
-            return [f'{n}']
-
-        def generate_tuples_of_numbers(n, k):
-            max_element = n
-            allowed = range(max_element, -1, -1) #the allowed elements in the set
-
-            #recursive function to generate the set of indicies. tuple t of length k whose elements sum to n
-            def helper(n, k, t): 
-
-                # k: # of elements left to choose
-                # n: sum of these elements left to choose
-                # t: tuple of the elements so far
-
-                # if there are no elements left to choose and the sum of the elements is n (ie the sum of elements left to choose = 0), return the tuple
-                if k == 0:
-                    if n == 0: 
-                        yield t 
-
-                # if there is one element left to choose and the sum of the elements left to choose is n, return the tuple with the last element added
-                elif k == 1:
-                    if n in allowed:
-                        yield t + (n,) 
-
-                elif k>1 : #if there are more than one elements left to choose
-                    for v in allowed: # select first digit v from the allowed digits
-                        yield from helper(n - v, k - 1, t + (v,)) #recursively call the function with the sum reduced by v, the number of elements reduced by 1 and the tuple with the new element added
-
-            return helper(n, k, ()) #call with the empty tuple ()
-        tups = generate_tuples_of_numbers(n, k) #generate the tuples of indicies
-
-        # Reformat the tuples to strings
-        for i, tup in enumerate(tups):
-            numbers[i] = str(tup).replace('(','').replace(')','').replace(' ','')
-        return numbers
-
-    def generatenumbers(n, k): #faster version
+    def generatenumbers(n, k):  # Generate all of the numbers in the n-th tier with k elements
         numbers = np.empty(length(n,k),dtype=object) 
         index=np.zeros(k,dtype=int) # temporary array to store the index
         index[0]=n      # set the first element to n (largest number)
@@ -106,21 +56,19 @@ def generateHashmap(K,L,N_nonmats,write_to_file = False):
             numbers[I]= ','.join(map(str, index))
         return numbers
 
-    # OUTPUTS
-    # I is a natural number that gives the position of the ADO in the  density
-    # index are the indicies of the ADO
-
-    # Collect all of the indices
-    allnums = np.array([])
+    # Collect all of the indices, going through each tier
+    allnums = np.array([])      # this will hold all of the indices of the ADOs
+    I0s =[0]                    # this will hold the index of the first ADO in the newest tier
     for i in range(0,L+1):
-        allnums= np.concatenate((allnums,generatenumbers(i,Ktot))) #concatenate the set of indicies to the list of all indicies
+        allnums= np.concatenate((allnums,generatenumbers(i,Ktot))) # concatenate the set of indicies to the list of all indicies
+        I0s.append(len(allnums))
+    I0s = np.array(I0s) # convert to numpy array for easier indexing
 
-    def tup2list(tup):
+    def tup2list(tup): # Re-format the tuple of ints into a list of ints
         return [int(i) for i in tup.split(',')]
 
     # Create the hashmaps and format them as described above
-    I_to_index = {I:tup2list(index) for I,index in enumerate(allnums) } #hash map from the index of the ADO to the index of the BCF
-    index_to_I = {index:I for I,index in enumerate(allnums) } #hash map from the index of the BCF to the index of the ADO
+    I2ind = np.array([tup2list(index) for index in allnums])         # List of each ADO index
 
     if write_to_file:
         with open('hashmap.txt','w') as f:
@@ -128,22 +76,7 @@ def generateHashmap(K,L,N_nonmats,write_to_file = False):
             f.write('\n')
             f.write(str(index_to_I))
 
-    return I_to_index, index_to_I
-
-### Convert the hashmaps to a list - FOR FORTRAN
-# also find the first indices of each tier for faster indexing
-def Convert_to_list(I_to_index):
-    I_to_index_list = np.array([I_to_index[i] for i in range(len(I_to_index))])         # List of each ADO index
-    tiers = np.array([np.sum(I_to_index_list[i]) for i in range(len(I_to_index_list))]) # Tier of each ADO index
-    I0s =[0]
-    tiernow = 0
-    for index, tier in enumerate(tiers):
-        if tier != tiernow:
-            tiernow = tier
-            I0s.append(index)
-    I0s.append(len(I_to_index_list))
-    I0s = np.array(I0s)
-    return I_to_index_list, I0s
+    return I2ind, I0s
 
 if __name__ == '__main__':
 

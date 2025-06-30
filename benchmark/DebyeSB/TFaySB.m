@@ -32,8 +32,8 @@ n_steps = 1000 ;
 krylov_dim = 8 ;
 krylov_tol = 1e-8 ;
 % parmeters for heirarchy truncation using L/M truncation
-L_max = 5 ; 
-M_max = 5 ;
+L_max = 4 ; 
+M_max = 4 ;
 
 
 % matrices of system observable operators to be returned, sigma_x, sigma_y

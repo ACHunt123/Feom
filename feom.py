@@ -8,7 +8,7 @@
 '''
 from hashmap import  total_length
 from utils import print_progress,printparams
-from integrator import Integrator
+from setup import Setup
 import Feom.baths as baths
 import Feom.potentials as potentials
 from Feom.parser import   params
@@ -30,9 +30,9 @@ params.Imax = total_length(params.K,params.L,bath.N_nonmats)     # the total num
 rho = np.zeros((params.ns,params.ns,params.Imax),dtype=complex)  # holds all of the ADOs. rho[s,s',0] is the system density matrix
 rho[:,:,0] = rho_s0                                              # put in the initial density matrix into the ADOS
 
-### Load all the parameters into the integrator object and generate input files
-integrator = Integrator(bath,pot,params)
-integrator.generate_input_files(rho) # writes the inputfiles and fortran code to tmp/ directory
+### Load all the parameters into the setup object and generate input files
+setup = Setup(bath,pot,params)
+setup.generate_input_files(rho) # writes the inputfiles and fortran code to tmp/ directory
 
 ### Go
 run_here = 1
