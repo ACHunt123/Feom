@@ -15,6 +15,9 @@ class Setup:
         ### Add the bath parameters that are needed
         self.gam_ks = bath.gam_ks
         self.C_ks = bath.C_ks
+        self.c_U = bath.c_U
+        self.c_D_LEFT = bath.c_D_LEFT
+        self.c_D_RIGHT = bath.c_D_RIGHT
         self.lowTcoef = bath.lowTcoef
         self.N_nonmats = bath.N_nonmats
         ### Arguments for the integrator
@@ -28,8 +31,7 @@ class Setup:
         # This is done because lists are not hashable, and tuples are   
         self.ADO_index, self.I0s = generateHashmap(self.K,self.L,self.N_nonmats) #hash map from the index of the ADO to the index of the BCF
         # self.ADO_index, self.I0s = Convert_to_list(self.I2ind) # new indexing for FORTRAN
-
-       
+ 
 
     def generate_input_files(self,x0):
         # Format all of the data
@@ -42,6 +44,9 @@ class Setup:
         writeI('FortI0s',npF(self.I0s)+1) # +1 because fortran is 1 indexed (not 0 indexed like in python)
         writeZ('Fortgam_ks',npF(self.gam_ks))
         writeZ('FortC_ks',npF(self.C_ks))
+        writeZ('Fortc_U',npF(self.c_U))
+        writeZ('Fortc_D_LEFT',npF(self.c_D_LEFT))
+        writeZ('Fortc_D_RIGHT',npF(self.c_D_RIGHT))
         writeZ('FortH_mat',npF(self.H_mat))
         writeZ('Forts_mat',npF(self.s_mat))
         # Write the parameters to the file

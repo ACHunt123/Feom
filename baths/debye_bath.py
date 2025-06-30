@@ -20,6 +20,7 @@ class Debye_bath():
     def __init__(self,params):
         # Bathmode and settings
         self.bathmode = params.bathmode
+        self.L = params.L                      # max tier of the ADOs
         # General parameters
         self.eta = params.eta
         self.gam = params.gam
@@ -35,6 +36,8 @@ class Debye_bath():
         self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
         ### Calculate the C_ks and gam_ks for the bath and add to the class
         self.get_coeffs()
+        ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
+        self.get_C_UDs()
 
     def J(self,w,plotme=False,ax=plt):
         w = np.linspace(0,2,1000)
@@ -126,7 +129,22 @@ class Debye_bath():
             raise ValueError('Invalid mode')
         return
 
-
+    def get_C_UDs(self):
+        # Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
+        self.c_U = np.zeros((self.N_exp,self.L+1),dtype=complex)
+        self.c_D_LEFT = np.zeros((self.N_exp,self.L+1),dtype=complex)
+        self.c_D_RIGHT = np.zeros((self.N_exp,self.L+1),dtype=complex)
+        for ki in range(self.N_exp):
+            for nk in range(self.L+1):
+                self.c_U[ki,nk] = np.sqrt((nk+1)*abs(self.C_ks[ki]))
+                if abs(self.C_ks[ki]) < 1e-10:
+                    self.c_D_LEFT[ki,nk] = 0.0
+                    self.c_D_RIGHT[ki,nk] = 0.0
+                    print(f'Warning: C_ks({ki}) is zero, setting superoperator terms to zero')
+                else:
+                    self.c_D_LEFT[ki,nk] = -np.sqrt(nk/abs(self.C_ks[ki]))*self.C_ks[ki]
+                    self.c_D_RIGHT[ki,nk] = np.sqrt(nk/abs(self.C_ks[ki]))*np.conj(self.C_ks[ki])
+        return 
 
 
 

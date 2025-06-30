@@ -14,7 +14,7 @@ program main
     read(10,'(I10, I10, D22.15, D22.15, I10, I10, D22.15, I10, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot, lowTcoef_switch
     close(10)
     ! allocate the arrays
-    allocate(iH_mat(ns,ns), is_mat(ns,ns), s_mat2(ns,ns), C_ks(Ktot), gam_ks(Ktot))
+    allocate(iH_mat(ns,ns), is_mat(ns,ns), s_mat2(ns,ns), gam_ks(Ktot))
     allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
     allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
     allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns))
@@ -28,20 +28,6 @@ program main
     iH_mat = iH_mat/hbar
     is_mat = is_mat/hbar
     s_mat2 = - matmul(is_mat,is_mat) ! s_mat2 = -(i*s_mat)^2
-    ! Pre-calculate the superoperator terms
-    do ki = 1, Ktot
-        do nk = 0, L
-            c_U(ki,nk) = sqrt((nk+1)*abs(C_ks(ki)))
-            if (abs(C_ks(ki))<epsilon) then! if C_ks is zero, then the superoperator term is zero (avoids 0/0 divisions)
-                c_D_LEFT(ki,nk) = 0.d0 
-                c_D_RIGHT(ki,nk) = 0.d0
-                print *, 'Warning: C_ks(',ki,') is zero, setting superoperator terms to zero'
-            else 
-                c_D_LEFT(ki,nk) = -sqrt(nk/abs(C_ks(ki)))*C_ks(ki)
-                c_D_RIGHT(ki,nk) = sqrt(nk/abs(C_ks(ki)))*conjg(C_ks(ki))
-            end if
-        end do
-    end do
     ! Calculate the lengths of each block of ado indices (pascals triangle)
     do nk = 0,L 
         do ki = 1,Ktot
@@ -81,7 +67,7 @@ program main
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)
-    deallocate(ADOs, iH_mat, is_mat, C_ks, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, active, s_mat2)
+    deallocate(ADOs, iH_mat, is_mat, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, active, s_mat2)
     deallocate(rhoI,rhoInkp1,rhoInkm1,gradI,k1,k2,k3,k4,ktmp)
 
 end program main

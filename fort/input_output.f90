@@ -13,7 +13,9 @@ subroutine read_matrices(ADOs)
 
         ! Open the files, skipping first line
         ! small matrices
-        open(30, file='FortC_ks', status='old', action='read');read(30,*)
+        open(11, file='Fortc_U', status='old', action='read');read(11,*)
+        open(21, file='Fortc_D_LEFT', status='old', action='read');read(21,*)
+        open(31, file='Fortc_D_RIGHT', status='old', action='read');read(31,*)
         open(40, file='Fortgam_ks', status='old', action='read');read(40,*)
         open(50, file='FortI0s', status='old', action='read');read(50,*)
         ! large matrices
@@ -44,9 +46,6 @@ subroutine read_matrices(ADOs)
 
         ! read the small matrices
         do Ii = 1,Ktot
-            read(30,'(D22.15)') z_real
-            read(30,'(D22.15)') z_imag
-            C_ks(Ii) = dcmplx(z_real, z_imag)
             read(40,'(D22.15)') z_real
             read(40,'(D22.15)') z_imag
             gam_ks(Ii) = dcmplx(z_real, z_imag)
@@ -55,7 +54,23 @@ subroutine read_matrices(ADOs)
             read(50,'(I10)') I0s(Ii)
         end do
 
-        close(30);close(40);close(50);close(60);close(70);close(80);close(90) !close the files
+        !read the superoperator terms
+        do Ii = 1,Ktot
+            do Ij = 0,L
+                read(11,'(D22.15)') z_real
+                read(11,'(D22.15)') z_imag
+                c_U(Ii,Ij) = dcmplx(z_real, z_imag)
+                read(21,'(D22.15)') z_real
+                read(21,'(D22.15)') z_imag
+                c_D_LEFT(Ii,Ij) = dcmplx(z_real, z_imag)
+                read(31,'(D22.15)') z_real
+                read(31,'(D22.15)') z_imag
+                c_D_RIGHT(Ii,Ij) = dcmplx(z_real, z_imag)
+                print*,' c_U(',Ii,',',Ij,') = ', c_U(Ii,Ij)
+            end do
+        end do
+        close(11);close(21) !close the small files
+        close(31);close(40);close(50);close(60);close(70);close(80);close(90) !close the files
     end subroutine
 
 subroutine ADOs_print(ADOs,Imax,ns,it)
