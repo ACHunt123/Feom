@@ -1,0 +1,86 @@
+module input_output
+    use shared_data
+    implicit none
+    contains
+
+! Read the matrices from the files
+subroutine read_matrices(ADOs)
+        implicit none
+        complex(8), intent(inout) :: ADOs(Imax,ns,ns)
+        ! Local variables
+        real(8) :: z_real, z_imag ! real and imaginary parts of the complex number
+        integer :: Ii, Ij, si, sj
+
+        ! Open the files, skipping first line
+        ! small matrices
+        open(30, file='FortC_ks', status='old', action='read');read(30,*)
+        open(40, file='Fortgam_ks', status='old', action='read');read(40,*)
+        open(50, file='FortI0s', status='old', action='read');read(50,*)
+        ! large matrices
+        open(60, file='FortH_mat', status='old', action='read');read(60,*)
+        open(70, file='Fortrho', status='old', action='read');read(70,*)
+        open(80, file='Forts_mat', status='old', action='read');read(80,*)
+        open(90, file='FortADO_index', status='old', action='read');read(90,*)
+
+        ! read the large matrices
+        do Ii = 1, Imax
+            do Ij = 1, Ktot
+                read(90,'(I10)') ADO_index(Ii,Ij)
+            end do
+        do si = 1, ns
+        do sj = 1, ns
+            read(70,'(D22.15)') z_real
+            read(70,'(D22.15)') z_imag
+            ADOs(Ii,si,sj) = dcmplx(z_real, z_imag)
+            if (Ii==1) then
+                read(60,'(D22.15)') z_real
+                read(60,'(D22.15)') z_imag
+                iH_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives H)
+                read(80,'(D22.15)') z_real
+                read(80,'(D22.15)') z_imag
+                is_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives s)
+            end if
+        end do; end do; end do
+
+        ! read the small matrices
+        do Ii = 1,Ktot
+            read(30,'(D22.15)') z_real
+            read(30,'(D22.15)') z_imag
+            C_ks(Ii) = dcmplx(z_real, z_imag)
+            read(40,'(D22.15)') z_real
+            read(40,'(D22.15)') z_imag
+            gam_ks(Ii) = dcmplx(z_real, z_imag)
+        end do
+        do Ii = 0,L+1
+            read(50,'(I10)') I0s(Ii)
+        end do
+
+        close(30);close(40);close(50);close(60);close(70);close(80);close(90) !close the files
+    end subroutine
+
+subroutine ADOs_print(ADOs,Imax,ns,it)
+    implicit none
+    integer(4), intent(in) :: it,ns,Imax
+    complex(8), intent(in) :: ADOs(Imax,ns,ns)
+    real(8) :: outstr(Imax+1)
+    integer(4) :: I,si
+    character(len=100) :: fmt ! format string for the output
+    write(fmt, '(A,I0,A)') '(E25.15,', Imax, 'E25.15)' 
+
+    ! Open the file for writing
+    open(20, file='ADOs.out', status='unknown', action='write', position='append')
+
+    ! Write the ADOs to the file
+    outstr(:) = 0.d0 ! initialize the output array
+    outstr(1)=real(it)
+    ! print *, 'Writing ADOs to file at timestep', it
+    do I = 1, Imax
+        ! do si = 1,ns
+        !     outstr(I+1) = outstr(I+1) + real(ADOs(I,si,si)) ! trace calculation
+        ! end do  
+        outstr(I+1) = sum(abs(ADOs(I,:,:))) ! sum over all elements of the ADO
+    end do
+    write(20,fmt) outstr(1), outstr(2:Imax+1) ! write the ADOs to the file
+    close(20)
+end subroutine ADOs_print
+end module input_output
