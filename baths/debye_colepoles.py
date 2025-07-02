@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
+import sys, os 
+# Get the directory of the current script file
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # A class for the Debye bath
 ''' A class to represent the Debye bath for the FEOM code, with AAA decomposition of A(w)/W
@@ -35,7 +37,7 @@ class Debye_colepoles():
         self.mode= params.bathmode
         self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
         ### Calculate the C_ks and gam_ks for the bath and add to the class
-        self.get_coeffs()
+        self.calc_poles()
         ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
         self.get_C_UDs()
 
@@ -49,17 +51,28 @@ class Debye_colepoles():
     def P(self,w): # Pole function for the coth, that we are gonna approximate
         return (1/w)*(1/np.tanh(self.beta*self.hbar*w/2) - 2/(self.beta*self.hbar*w))  
     
-    def calc_coefs(self):
+    def P_aaa(self,w): # Pole function for the coth, calculated using the poles and residues from the AAA decomposition
+        result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
+        for k in range(self.N_exp):
+            result += self.res[k] / (w - self.poles[k])
+        return result
+    
+    def P_aaa_realcoeffs(self,w): # Pole function for the coth, calculated using the poles and residues from the AAA decomposition, with real coefficients
+        result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
+        for k in range(len(self.gam_i)):
+            result += self.gam_i[k] / (w**2 + self.w_i[k]**2)
+        return result
+         
+    
+    def calc_poles(self): # Reclusters the poles and residues from coth(x)
         support = np.linspace(-1000,1000,10000,dtype=np.complex128) # support for the AAA decomposition
-        values = self.S(support)                 # values of the spectral density at the support points
-        # Use the AAA decomposition to get the coefficients
-        # save the support and values to be read by matlab
-        folder = f'{script_dir}/aaa/.files'  # folder to save the data to
+        values = self.P(support)                 # values of the pole function at the support points
+        ### Use the AAA decomposition to get the coefficients
+        folder = f'{script_dir}/aaa/.files'  
         data = np.column_stack((support.real, values.real, values.imag))  
-        np.savetxt(f'{folder}/aaa_data.txt', data, header='Support Re[Values] Im[Values]', comments='')
+        np.savetxt(f'{folder}/aaa_data.txt', data, header='Support Re[Values] Im[Values]', comments='')         # save the support and values to be read by matlab
         print('Running AAA decomposition in MATLAB...')
-        # run using os
-        # os.system(f"matlab -batch 'cd {script_dir}/aaa;run_aaa_fromfile({self.N_exp//2})' > /dev/null 2>&1") # run the matlab script to get the AAA coefficients
+        # os.system(f"matlab -batch 'cd {script_dir}/aaa;run_aaa_fromfile({self.N_exp//2})' > /dev/null 2>&1")    # run the matlab script to get the AAA coefficients
         print('AAA decomposition complete, loading results...')
         ### Load the aaa results
         repoles = np.loadtxt(f'{folder}/pol_real.txt')
@@ -68,9 +81,52 @@ class Debye_colepoles():
         reres = np.loadtxt(f'{folder}/res_real.txt')
         imres = np.loadtxt(f'{folder}/res_imag.txt')
         self.res = reres + 1.j * imres
+        ### Clean up the poles and residues
+        tol = 1e-6
+        self.res = self.res[np.abs(self.res)>tol]      # remove any tiny residues
+        self.poles = self.poles[np.abs(self.res)>tol]  # remove the corresponding poles
+        self.res = np.imag(self.res)*1.j               # remove the real parts
+        self.poles = np.imag(self.poles)*1.j
+        ### symmetrize them and calulae the real coefficients
+        upper_poles= []; upper_res = []
+        for k in range(len(self.poles)):
+            if np.imag(self.poles[k]) > 0:
+                upper_poles.append(self.poles[k])
+                upper_res.append(self.res[k])
+        upper_poles = np.array(upper_poles,dtype=np.complex128)
+        upper_res = np.array(upper_res,dtype=np.complex128)
+        self.w_i = np.imag(upper_poles)                             # these are the new prequencies
+        self.gam_i = -2*np.imag(upper_poles)*np.imag(upper_res)     # these are the new gammas
+
         if self.N_exp != len(self.poles):
-            print(f'Number of poles {len(self.poles)} does not match number of residues {len(self.res)}, changing now')
-        self.N_exp = len(self.poles)  # update the number of exponentials
+            print(f'Total of frequencies {len(self.w_i)+self.N_nonmats} does not match number of exponentials proposed ({self.N_exp}), changing now.')
+            print(f'With this new set, K={len(self.w_i)}.')
+        self.N_exp = len(self.w_i+self.N_nonmats)  # update the number of exponentials
+        # print(f'Using {self.N_exp} exponentials in the BCF for the bath {self.bathmode}')
+        if(0): # Plot the approximated function
+            plt.figure(figsize=(10,5))
+            plt.plot(support, values.real, label='Original Function', color='blue')
+            k = self.P_aaa(support[0])-values[0].real
+            plt.plot(support, self.P_aaa(support).real-k, label='AAA Approximation', color='red')
+            plt.plot(support, self.P_aaa_realcoeffs(support).real-k, label='AAA Real Coeffs Approximation', color='green')
+            plt.xlabel('Support')
+            plt.ylabel('Function Value')
+            plt.title('AAA Approximation of the Pole Function')
+            plt.legend()
+            plt.grid()
+            plt.show()
+        if(0): #plot the poles
+            plt.figure(figsize=(12, 6))
+            pole_ax = plt.subplot(121)
+            pole_ax.set_title('Poles')
+            pole_ax.set_xlabel('Real Part')
+            pole_ax.set_ylabel('Imaginary Part')
+            pole_ax.grid(True)
+            pole_ax.plot(repoles, impoles, 'o', label=f'AAA, N={len(repoles)}', color='blue')
+            pole_ax.legend()
+            pole_ax.set_xlim(-1500, 1500)
+            plt.show()
+
 
     # Calculate the C_ks and gam_ks for a given set of ws
     def calc_coefs_old(self,ws):
