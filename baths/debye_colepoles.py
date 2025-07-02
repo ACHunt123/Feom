@@ -37,7 +37,9 @@ class Debye_colepoles():
         self.mode= params.bathmode
         self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
         ### Calculate the C_ks and gam_ks for the bath and add to the class
-        self.calc_poles()
+        self.get_coefs()
+        self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
+        sys.exit(0) #exit the program after printing the coefficients
         ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
         self.get_C_UDs()
 
@@ -49,12 +51,12 @@ class Debye_colepoles():
         return Jw,w
     
     def P(self,w): # Pole function for the coth, that we are gonna approximate
-        return (1/w)*(1/np.tanh(self.beta*self.hbar*w/2) - 2/(self.beta*self.hbar*w))  
+        return (self.beta*self.hbar/4)*(1/w)*(1/np.tanh(self.beta*self.hbar*w/2) - 2/(self.beta*self.hbar*w))  
     
-    def P_aaa(self,w): # Pole function for the coth, calculated using the poles and residues from the AAA decomposition
+    def P_aaa(self,w): # Pole function for the coth, calculated using the original poles and residues from the AAA decomposition
         result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
-        for k in range(self.N_exp):
-            result += self.res[k] / (w - self.poles[k])
+        for k in range(len(self.res_original)):
+            result += self.res_original[k] / (w - self.poles_original[k])
         return result
     
     def P_aaa_realcoeffs(self,w): # Pole function for the coth, calculated using the poles and residues from the AAA decomposition, with real coefficients
@@ -65,14 +67,14 @@ class Debye_colepoles():
          
     
     def calc_poles(self): # Reclusters the poles and residues from coth(x)
-        support = np.linspace(-1000,1000,10000,dtype=np.complex128) # support for the AAA decomposition
+        support = np.linspace(-1000,1000,100000,dtype=np.complex128) # support for the AAA decomposition
         values = self.P(support)                 # values of the pole function at the support points
         ### Use the AAA decomposition to get the coefficients
         folder = f'{script_dir}/aaa/.files'  
         data = np.column_stack((support.real, values.real, values.imag))  
         np.savetxt(f'{folder}/aaa_data.txt', data, header='Support Re[Values] Im[Values]', comments='')         # save the support and values to be read by matlab
         print('Running AAA decomposition in MATLAB...')
-        # os.system(f"matlab -batch 'cd {script_dir}/aaa;run_aaa_fromfile({self.N_exp//2})' > /dev/null 2>&1")    # run the matlab script to get the AAA coefficients
+        os.system(f"matlab -batch 'cd {script_dir}/aaa;run_aaa_fromfile({self.N_exp//2})' > /dev/null 2>&1")    # run the matlab script to get the AAA coefficients
         print('AAA decomposition complete, loading results...')
         ### Load the aaa results
         repoles = np.loadtxt(f'{folder}/pol_real.txt')
@@ -81,34 +83,39 @@ class Debye_colepoles():
         reres = np.loadtxt(f'{folder}/res_real.txt')
         imres = np.loadtxt(f'{folder}/res_imag.txt')
         self.res = reres + 1.j * imres
+        # if(0): # repplace the poles and residues with the Matsubara frequencies and gammas
+        #     wns = np.array([2*np.pi*k/(self.beta*self.hbar) for k in range(1,len(self.w_i)+1)])  # Matsubara frequencies, including the 0th term
+        #     self.w_i = wns  
+        #     self.gam_i = np.ones_like(self.gam_i)
+        self.res_original = self.res.copy()  # save the original residues for later use
+        self.poles_original = self.poles.copy()  # save the original poles for later use
         ### Clean up the poles and residues
         tol = 1e-6
-        self.res = self.res[np.abs(self.res)>tol]      # remove any tiny residues
-        self.poles = self.poles[np.abs(self.res)>tol]  # remove the corresponding poles
+        mask= np.abs(self.res)>tol
+        self.res = self.res[mask]      # remove any tiny residues
+        self.poles = self.poles[mask]  # remove the corresponding poles
         self.res = np.imag(self.res)*1.j               # remove the real parts
         self.poles = np.imag(self.poles)*1.j
-        ### symmetrize them and calulae the real coefficients
+        ### symmetrize them and calulate the real coefficients
         upper_poles= []; upper_res = []
         for k in range(len(self.poles)):
             if np.imag(self.poles[k]) > 0:
                 upper_poles.append(self.poles[k])
                 upper_res.append(self.res[k])
-        upper_poles = np.array(upper_poles,dtype=np.complex128)
-        upper_res = np.array(upper_res,dtype=np.complex128)
+        upper_poles = np.array(upper_poles,dtype=np.complex128) ; upper_res = np.array(upper_res,dtype=np.complex128)
         self.w_i = np.imag(upper_poles)                             # these are the new prequencies
         self.gam_i = -2*np.imag(upper_poles)*np.imag(upper_res)     # these are the new gammas
 
         if self.N_exp != len(self.poles):
             print(f'Total of frequencies {len(self.w_i)+self.N_nonmats} does not match number of exponentials proposed ({self.N_exp}), changing now.')
             print(f'With this new set, K={len(self.w_i)}.')
-        self.N_exp = len(self.w_i+self.N_nonmats)  # update the number of exponentials
-        # print(f'Using {self.N_exp} exponentials in the BCF for the bath {self.bathmode}')
+        self.N_exp = len(self.w_i)+self.N_nonmats  # update the number of exponentials
         if(0): # Plot the approximated function
             plt.figure(figsize=(10,5))
             plt.plot(support, values.real, label='Original Function', color='blue')
             k = self.P_aaa(support[0])-values[0].real
+            plt.plot(support, self.P_aaa_realcoeffs(support).real-k, label='AAA Approximation, imaginary poles/residues', color='green')
             plt.plot(support, self.P_aaa(support).real-k, label='AAA Approximation', color='red')
-            plt.plot(support, self.P_aaa_realcoeffs(support).real-k, label='AAA Real Coeffs Approximation', color='green')
             plt.xlabel('Support')
             plt.ylabel('Function Value')
             plt.title('AAA Approximation of the Pole Function')
@@ -128,19 +135,17 @@ class Debye_colepoles():
             plt.show()
 
 
-    # Calculate the C_ks and gam_ks for a given set of ws
-    def calc_coefs_old(self,ws):
+    # Calculate the C_ks and gam_ks
+    def get_coefs(self):
+        self.calc_poles()  # Calculate the poles and residues from the coth function, and set the w_i and gam_i attributes
+
         d = np.zeros(self.N_exp)
-        ### Calculate the 0th (non-matsubara) term
-        if self.mode == 'nbead':
-            d0sum = np.sum(1/(self.gam**2 - ws**2))
-            d[0] = self.eta/self.beta + (2*self.eta*self.gam**2/self.beta) * d0sum 
-        elif self.mode == 'matsubara': #give the infinite mode prefactor
-            d[0] = (self.hbar*self.eta*self.gam/2) /np.tan(self.beta*self.hbar*self.gam/2)
-        else:
-            raise ValueError('Invalid mode')
+        ### Calculate the 0th term
+        d0sum = np.sum(self.gam_i/(self.gam**2 - self.w_i**2))
+        d[0] = self.eta/self.beta + (2*self.eta*self.gam**2/self.beta) * d0sum 
+
         ### Calculate the rest of the terms (matsubara terms)
-        d[1:] = -(2*self.eta*self.gam/self.beta) * ws[1:]/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2)
+        d[1:] = -(2*self.eta*self.gam/self.beta) * self.w_i[:]*self.gam_i[:]/(self.gam**2*np.ones_like(self.w_i) - self.w_i[:]**2)
         dI = -self.hbar*self.eta*self.gam/2
 
         # Calculate the C_ks
@@ -148,68 +153,57 @@ class Debye_colepoles():
         C_ks[0] = (d[0] + dI*1.j)
         C_ks[1:] = d[1:]
 
-        #Calculate the gam_ks
+        #Calculate the gam_ks 
         gam_ks = np.zeros(self.N_exp,dtype=complex)
         gam_ks[0] = self.gam
-        gam_ks[1:] = ws[1:]
+        gam_ks[1:] = self.w_i[:]
 
-        # Calculate the low temperature coefficient for LowT correction
-        # self.lowTcoef = self.eta/(self.beta*self.hbar**2) - (1/self.hbar**2)*np.sum(np.real(C_ks)/gam_ks) if self.bathmode == 'matsubara' else 0 #OLD ONE
-        
-        # Calculate the low temperature coefficient for LowT correction ### NEW ONE
-        self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
-        self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))  if self.mode == 'matsubara' else 0 ### remove the Matsubara terms that have been explicitly included
-
+       
         self.C_ks = C_ks
         self.gam_ks = gam_ks
-        if(0):
-            print(f'LowTcoef: {self.lowTcoef}')
-            print(f'C_ks: {C_ks}')
-            print(f'gam_ks: {gam_ks}')
-            sys.exit(0) #exit the program after printing the coefficients
+        self.lowTcoef=None
+        self.C0hot=None
         return 
-        # return C_ks,gam_ks
 
     # output TCF for a given set of C_ks and gam_ks
     def TCF(self,plotme=False,ax=plt,mode=None):
         if mode is None: mode = self.mode #allowing override of the mode from the __init__
-
-        C_ks,gam_ks = self.get_coeffs(mode=mode)
-
-        t = np.linspace(0,100,1000)
+        def C_analytic(t):
+            C_0 = (self.hbar*self.eta*self.gam/2)*(1/np.tan(self.beta*self.hbar*self.gam/2) - 1.j) 
+            mu =1000
+            M = 2*mu+1
+            betaN = self.beta/M
+            wN=1/(betaN*self.hbar)
+            wns = np.array([2*wN*np.pi*k/M for k in range(0,mu+1)])
+            C_n = -(2*self.eta*self.gam/self.beta)* wns/(self.gam**2*np.ones_like(wns) - wns**2) 
+            C_k= np.zeros_like(wns,dtype=complex)
+            C_k[0] = C_0
+            C_k[1:] = C_n[1:]
+            gam_k = np.zeros_like(C_k,dtype=complex)
+            gam_k[0] = self.gam
+            gam_k[1:] = wns[1:]
+            C = np.zeros_like(t,dtype=complex)
+            for k in range(0,self.N_exp):
+                C += C_k[k]*np.exp(-gam_k[k]*t)
+            return C
+        t = np.linspace(0,10,1000)
         C = np.zeros_like(t,dtype=complex)
-        C += C_ks[0]*np.exp(-gam_ks[0]*t)
-        for k in range(1,self.N_exp):
-            C += C_ks[k]*np.exp(-gam_ks[k]*t)
+        for k in range(0,self.N_exp):
+            C += self.C_ks[k]*np.exp(-self.gam_ks[k]*t)
         if plotme:
-            ax.plot(t,C.real)
+            ax.plot(t,C.real,label='AAA tcf real')
+            ax.plot(t,C.imag,label='AAA tcf imag')
+            C_analytic_t = C_analytic(t)
+            ax.plot(t,C_analytic_t.real,'--',label='Analytic TCF real')
+            ax.plot(t,C_analytic_t.imag,'--',label='Analytic TCF Imaginary')
+            ax.xlabel('Time')
+            ax.ylabel('TCF')
+            ax.title(f'TCF for {self.bathmode} bath')
+            ax.legend()
+            ax.grid(True)
             print(mode)
+            plt.show()
         return t,C
-
-    # Calculate the C_ks and gam_ks for a bath, mode is the bath decomposition mode
-    def get_coeffs(self,mode=None):
-        if mode is None: mode = self.mode #allowing override of the mode from the __init__
-
-        if mode == 'highT':
-            return np.array([self.C0hot]),np.array([self.gam]) #the high temperature limit - no matsubara terms
-
-        if mode == 'matsubara':
-            betaN = self.beta/self.N_mds
-            wN=1/(betaN*self.hbar)
-            wns = np.array([2*wN*np.pi*k/self.N_mds for k in range(0,self.mu+1)])
-            # print(wns)
-            return self.calc_coefs(wns)
-
-        if mode == 'nbead':
-            betaN =  self.beta/self.N_mds
-            wN=1/(betaN*self.hbar)
-            wks = np.array([2*wN*np.sin(np.pi*k/self.N_mds) for k in range(0,self.mu+1)])
-            # print(wks)
-
-            return self.calc_coefs(wks)
-        else:
-            raise ValueError('Invalid mode')
-        return
 
     def get_C_UDs(self):
         # Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
