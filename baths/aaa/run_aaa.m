@@ -4,7 +4,7 @@
 % the function is defined in the file Sbeta.m
 
 
-Z = linspace(-100, 100, 1000)';        % Sample points (column vector)
+Z = linspace(-1000, 1000, 10000)';        % Sample points (column vector)
 F = Sbeta(Z);                       % Function values at those points
 
 [r, pol, res, zer, z, f, w, errvec] = aaa_algo(F, Z);
@@ -25,6 +25,18 @@ for j = 1:length(res)
     r_from_res = r_from_res + res(j) ./ (xx - pol(j));
 end
 plot(xx, real(r_from_res), 'b-.', 'LineWidth', 1.5)      % From residues
+
+% Calculate for just the imaginary parts
+r_from_res = zeros(size(xx));  % Initialize the result vector
+for j = 1:length(res)
+    r_from_res = r_from_res + 1i*imag(res(j)) ./ (xx - 1i*imag(pol(j)));
+end
+plot(xx, real(r_from_res), 'g-.', 'LineWidth', 1.5)      % From residues with just the imaginary part
+
+% r_from_mats = zeros(size(xx));  % Initialize the result vector
+
+
+legend('Original', 'AAA Rational Approximant', 'From Residues','Just imaginary part residues')
 
 % Save all results as text files with tab delimiter for easy np.loadtxt reading
 writematrix(real(pol), '.files/pol_real.txt', 'Delimiter', 'tab');

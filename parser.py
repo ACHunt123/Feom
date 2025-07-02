@@ -11,7 +11,7 @@ fs = 0.02418884254 #au
 '''
 Switches:
 potname=['harmonic','spinboson'][1]
-bathname = ['debye'][0]
+bathname = ['debye','debyeAAA'][0]
 bathmode = ['nbead','matsubara'][1]
 
 Spin boson:
@@ -27,9 +27,9 @@ m
 
 General: 
 hbar=1
-L = 3           # the depth of the ADO expansion
-K = 3           #  the number of elements in the BCFs
-ns = 2         # number of states to be propagated
+L = 3           The depth of the ADO expansion
+K = 3           The number of Matsubara terms in the BCF/ Total number of modes for AAA expansion (must be even)
+ns = 2          Number of states to be propagated
 
 Bath:
 Delta=1

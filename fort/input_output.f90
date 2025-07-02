@@ -66,7 +66,6 @@ subroutine read_matrices(ADOs)
                 read(31,'(D22.15)') z_real
                 read(31,'(D22.15)') z_imag
                 c_D_RIGHT(Ii,Ij) = dcmplx(z_real, z_imag)
-                print*,' c_U(',Ii,',',Ij,') = ', c_U(Ii,Ij)
             end do
         end do
         close(11);close(21) !close the small files
