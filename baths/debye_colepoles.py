@@ -21,6 +21,10 @@ J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(
 class Debye_colepoles():
     def __init__(self,params):
         # Bathmode and settings
+        self.aaa_tol = 1e-10        # tolerance for the AAA decomposition
+        self.Jw_min_tol = 1e-2      # tolerance for the maximum frequency of the grid for the AAA decomposition
+        self.minres_tol = 1e-6      # tolerance for the minimum abs value of a residue in the AAA decomposition
+
         self.bathmode = params.bathmode
         self.L = params.L                      # max tier of the ADOs
         # General parameters
@@ -39,16 +43,16 @@ class Debye_colepoles():
         ### Calculate the C_ks and gam_ks for the bath and add to the class
         self.get_coefs()
         self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
-        sys.exit(0) #exit the program after printing the coefficients
+        params.K = len(self.w_i) # Update the number of exponentials in the params object to match the number of poles found
+        params.lowTCorr=True
         ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
         self.get_C_UDs()
 
     def J(self,w,plotme=False,ax=plt):
-        w = np.linspace(0,2,1000)
         Jw = self.eta*self.gam*w/(w**2+self.gam**2)
         if plotme : 
             ax.plot(w,Jw)
-        return Jw,w
+        return Jw
     
     def P(self,w): # Pole function for the coth, that we are gonna approximate
         return (self.beta*self.hbar/4)*(1/w)*(1/np.tanh(self.beta*self.hbar*w/2) - 2/(self.beta*self.hbar*w))  
@@ -67,36 +71,53 @@ class Debye_colepoles():
          
     
     def calc_poles(self): # Reclusters the poles and residues from coth(x)
-        support = np.linspace(-1000,1000,100000,dtype=np.complex128) # support for the AAA decomposition
-        values = self.P(support)                 # values of the pole function at the support points
+        ### Calculate the proposed extent of the support such that J(w) has decayed to 0
+        w_max=self.gam # start with the cuttoff frequency
+        while self.J(w_max) > self.Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
+        print(f'Maximum frequency for the AAA decomposition: {w_max} (tolerance {self.Jw_min_tol})')
+        # support = np.linspace(-w_max,w_max,int(200*w_max),dtype=np.complex128) # support for the AAA decomposition
+        support = np.linspace(-250,250,20000,dtype=np.complex128) # support for the AAA decomposition
+        values = self.P(support)                     # values of the pole function at the support points
         ### Use the AAA decomposition to get the coefficients
-        folder = f'{script_dir}/aaa/.files'  
+        folder = f'aaa_K{self.mu}'                   # folder to save the aaa files
+        if not os.path.exists(folder): os.makedirs(folder)
         data = np.column_stack((support.real, values.real, values.imag))  
+        print(f'Saving support and values to {folder}/aaa_data.txt')
         np.savetxt(f'{folder}/aaa_data.txt', data, header='Support Re[Values] Im[Values]', comments='')         # save the support and values to be read by matlab
-        print('Running AAA decomposition in MATLAB...')
-        os.system(f"matlab -batch 'cd {script_dir}/aaa;run_aaa_fromfile({self.N_exp//2})' > /dev/null 2>&1")    # run the matlab script to get the AAA coefficients
-        print('AAA decomposition complete, loading results...')
+        ### Run the AAA decomposition in MATLAB
+        if(0):                                      # run the MATLAB script using the system command
+            print('Running AAA decomposition in MATLAB...')
+            os.system(f"matlab -batch 'cd {script_dir}/aaa;run_aaa_fromfile({self.mu},{os.getcwd()}/{folder})' > /dev/null 2>&1")    # run the matlab script to get the AAA coefficients
+            print('AAA decomposition complete, loading results...')
+        else:                                       # print out the command to run the MATLAB script if it has not already been run
+            if not os.path.exists(f'{folder}/pol_real.txt'):
+                print('run the following command in MATLAB to get the AAA coefficients:')
+                print(f"\nrun_aaa_fromfile({self.mu},'{os.getcwd()}/{folder}')")
+                ### append the command to a file for later use
+                with open(f'{script_dir}/aaa/commands_to_run.m', 'a') as f:
+                    if self.mu>0: f.write(f"run_aaa_fromfile({self.mu},'{os.getcwd()}/{folder}')\n")
+                print(f"\n")
+                sys.exit()
+            else:
+                print('AAA decomposition already done, loading results from files...')
+
         ### Load the aaa results
         repoles = np.loadtxt(f'{folder}/pol_real.txt')
         impoles = np.loadtxt(f'{folder}/pol_imag.txt')
         self.poles = repoles + 1.j * impoles
         reres = np.loadtxt(f'{folder}/res_real.txt')
         imres = np.loadtxt(f'{folder}/res_imag.txt')
+        self.k = np.loadtxt(f'{folder}/k.txt')  # load the constant shift k
         self.res = reres + 1.j * imres
-        # if(0): # repplace the poles and residues with the Matsubara frequencies and gammas
-        #     wns = np.array([2*np.pi*k/(self.beta*self.hbar) for k in range(1,len(self.w_i)+1)])  # Matsubara frequencies, including the 0th term
-        #     self.w_i = wns  
-        #     self.gam_i = np.ones_like(self.gam_i)
-        self.res_original = self.res.copy()  # save the original residues for later use
-        self.poles_original = self.poles.copy()  # save the original poles for later use
+        self.res_original = self.res.copy()         # save the original residues for later use
+        self.poles_original = self.poles.copy()     # save the original poles for later use
         ### Clean up the poles and residues
-        tol = 1e-6
-        mask= np.abs(self.res)>tol
+        mask= np.abs(self.res)> self.minres_tol
         self.res = self.res[mask]      # remove any tiny residues
         self.poles = self.poles[mask]  # remove the corresponding poles
-        self.res = np.imag(self.res)*1.j               # remove the real parts
+        self.res = np.imag(self.res)*1.j            # remove the real parts, as by symmetry they should be zero
         self.poles = np.imag(self.poles)*1.j
-        ### symmetrize them and calulate the real coefficients
+        ### Calulate the real coefficients w_i and gamma_i from conjugate pairs of poles and residues
         upper_poles= []; upper_res = []
         for k in range(len(self.poles)):
             if np.imag(self.poles[k]) > 0:
@@ -105,17 +126,17 @@ class Debye_colepoles():
         upper_poles = np.array(upper_poles,dtype=np.complex128) ; upper_res = np.array(upper_res,dtype=np.complex128)
         self.w_i = np.imag(upper_poles)                             # these are the new prequencies
         self.gam_i = -2*np.imag(upper_poles)*np.imag(upper_res)     # these are the new gammas
-
+        ### Recalculate the number of exponentials (as the AAA algorithm might have changed the number of poles)
         if self.N_exp != len(self.poles):
             print(f'Total of frequencies {len(self.w_i)+self.N_nonmats} does not match number of exponentials proposed ({self.N_exp}), changing now.')
             print(f'With this new set, K={len(self.w_i)}.')
         self.N_exp = len(self.w_i)+self.N_nonmats  # update the number of exponentials
-        if(0): # Plot the approximated function
+        if(1): # Plot the approximated function and J(w)
             plt.figure(figsize=(10,5))
             plt.plot(support, values.real, label='Original Function', color='blue')
-            k = self.P_aaa(support[0])-values[0].real
-            plt.plot(support, self.P_aaa_realcoeffs(support).real-k, label='AAA Approximation, imaginary poles/residues', color='green')
-            plt.plot(support, self.P_aaa(support).real-k, label='AAA Approximation', color='red')
+            plt.plot(support, self.P_aaa_realcoeffs(support).real+self.k, label='AAA Approximation, imaginary poles/residues', color='green')
+            # plt.plot(support, self.P_aaa(support).real, label='AAA Approximation', color='red')
+            plt.plot(support, self.J(support), label='J(w)', color='orange')
             plt.xlabel('Support')
             plt.ylabel('Function Value')
             plt.title('AAA Approximation of the Pole Function')
@@ -142,7 +163,7 @@ class Debye_colepoles():
         d = np.zeros(self.N_exp)
         ### Calculate the 0th term
         d0sum = np.sum(self.gam_i/(self.gam**2 - self.w_i**2))
-        d[0] = self.eta/self.beta + (2*self.eta*self.gam**2/self.beta) * d0sum 
+        d[0] = self.eta/self.beta + (2*self.eta*self.gam**2/self.beta)*d0sum - 2*self.eta*self.gam**2*self.k/self.beta
 
         ### Calculate the rest of the terms (matsubara terms)
         d[1:] = -(2*self.eta*self.gam/self.beta) * self.w_i[:]*self.gam_i[:]/(self.gam**2*np.ones_like(self.w_i) - self.w_i[:]**2)
@@ -161,8 +182,10 @@ class Debye_colepoles():
        
         self.C_ks = C_ks
         self.gam_ks = gam_ks
-        self.lowTcoef=None
+
+        self.lowTcoef=-2*self.eta*self.gam*self.k/(self.beta*self.hbar**2) 
         self.C0hot=None
+
         return 
 
     # output TCF for a given set of C_ks and gam_ks
@@ -186,9 +209,9 @@ class Debye_colepoles():
             for k in range(0,self.N_exp):
                 C += C_k[k]*np.exp(-gam_k[k]*t)
             return C
-        t = np.linspace(0,10,1000)
+        t = np.linspace(0,5,5000)
         C = np.zeros_like(t,dtype=complex)
-        for k in range(0,self.N_exp):
+        for k in range(0,len(self.C_ks)):
             C += self.C_ks[k]*np.exp(-self.gam_ks[k]*t)
         if plotme:
             ax.plot(t,C.real,label='AAA tcf real')
@@ -198,7 +221,7 @@ class Debye_colepoles():
             ax.plot(t,C_analytic_t.imag,'--',label='Analytic TCF Imaginary')
             ax.xlabel('Time')
             ax.ylabel('TCF')
-            ax.title(f'TCF for {self.bathmode} bath')
+            ax.title(f'TCF for {self.bathmode} bath with {self.N_exp} exponentials')
             ax.legend()
             ax.grid(True)
             print(mode)

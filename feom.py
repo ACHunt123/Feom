@@ -49,7 +49,9 @@ if(run_here): # run the fortran code in the temporary directory
       data = np.zeros((len(t),4),dtype=complex)
       data[:,0] = t
       for it in range(len(t)):
-          data[it,1] = rho10[it] + rho01[it]  # <s_x>
+          # data[it,1] = rho10[it] + rho01[it]  # <s_x>
+          data[it,1] = (1+(rho11[it] - rho00[it]))/2  # <s_z>
+
           data[it,2] = 1.j*(rho10[it] - rho01[it])  # <s_y>
           data[it,3] = rho11[it] - rho00[it]  # <s_z>
         

@@ -12,7 +12,7 @@ function [r,pol,res,zer,z,f,w,errvec] = aaa_algo(F,Z,tol,mmax)
 % z,f,w = vectors of support pts, function values, weights
 % errvec = vector of errors at each step
 M = length(Z); % number of sample points
-if nargin<3, tol = 1e-20; end % default relative tol 1e-13
+if nargin<3, tol = 1e-13; end % default relative tol 1e-13
 if nargin<4, mmax = 100; end % default max type (99,99)
 if ~isfloat(F), F = F(Z); end % convert function handle to vector
 Z = Z(:); F = F(:); % work with column vectors

@@ -6,7 +6,7 @@ program main
     complex(8), allocatable :: ADOs(:,:,:) ! we have not made this global for clarity
     ! Local variables
     real(8) :: hbar
-    integer(4) :: stat,it,ki,nk,nttot,ni
+    integer(4) :: stat,it,ki,nk,nttot,ni,ntout
 
     !!! LOAD PARAMETERS AND MATRICIES !!!
     ! read the parameters from the input file
@@ -55,15 +55,19 @@ program main
     end do
 
     !!! PROPAGATION !!!
+    ntout = nttot / 1000 ! how often to print the output
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
-    do it = 1, nttot
+    do it = 0, nttot
         ! if(it==3) stop
-        if (mod(it,100).eq.0) print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'            ! Update the screen output
+        if (mod(it,ntout).eq.0)  then
+            print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'            ! Update the screen output
+            write(10,'(5E25.15)') it*dt, &
+            real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
+        endif
+
         if( mod(it,nprint_ADOs).eq.0 .and. print_ADOs) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
         call vvstep(ADOs)
-        write(10,'(5E25.15)') it*dt, &
-        real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)
