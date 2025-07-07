@@ -82,7 +82,7 @@ def out_filename(params): # Name of the output file - contains all the parameter
             namestr += f'{key}{params.__dict__[key]}_'
     ### Clean up the string
     namestr = namestr.replace('bathname','BTH').replace('bathmode','').replace('potname','POT')
-    return f'outfile_{namestr[:-1]}.txt'
+    return f'outfile_{namestr[:-1]}.out'
 
 def printparams(params):
     ### Make metadata for headers in files - again this contains all the parameters
@@ -102,7 +102,6 @@ def printparams(params):
     metadata += runcommand + '\n'
     metadata += "------------------------------------------------------------------------------------\n"
     metadata += 'Data \n'
-    metadata += 't rho00 rho11 re(rho01) im(rho01)' #NOTE this is hardcoded for now
     return metadata
 
 

@@ -22,7 +22,7 @@ function run_aaa_fromfile(K, location,filename,extension)
 
     % Try increasing tolerance until we get K poles with significant imaginary part
     while true
-        [r, pol, res, zer, z, f, w, errvec] = aaa_algo(F, Z, tol);
+        [r, pol, res, zer, ~, ~, ~, errvec] = aaa_algo(F, Z, tol);
 
         % Remove near-real poles, keep only positive imaginary poles
         pol_clean = pol(imag(pol) > 1e-10);

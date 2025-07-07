@@ -55,14 +55,13 @@ program main
     end do
 
     !!! PROPAGATION !!!
-    ntout = nttot / 1000 ! how often to print the output
+    ntout = int(max(nttot / 1000,1)) ! how often to print the output
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 0, nttot
-        ! if(it==3) stop
         if (mod(it,ntout).eq.0)  then
             print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'            ! Update the screen output
-            write(10,'(5E25.15)') it*dt, &
+            write(10,'(5E25.15)') it*dt, &                             ! Print output to file
             real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
         endif
 

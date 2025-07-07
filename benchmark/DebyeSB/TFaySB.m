@@ -32,13 +32,13 @@ n_steps = 1000 ;
 krylov_dim = 8 ;
 krylov_tol = 1e-8 ;
 % parmeters for heirarchy truncation using L/M truncation
-L_max = 4 ; 
-M_max = 4 ;
+L_max = 3 ; 
+M_max = 3 ;
 
 
-% matrices of system observable operators to be returned, sigma_x, sigma_y
-% sigma_z, and 1
-O_sys = {[[0,1];[1,0]],[[0,-1.0i];[1.0i,0]],[[1,0];[0,-1]],eye(2)} ;
+% matrices of system observable operators to be returned, 
+% sigma_z, sigma_x, sigma_y, and 1
+O_sys = {[[1,0];[0,-1]],[[0,1];[1,0]],[[0,-1.0i];[1.0i,0]],eye(2)} ;
 
 % initial state of the system
 rho_0_sys = [[1,0];[0,0]] ;

@@ -20,8 +20,10 @@ J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(
 
 class Debye_cothpoles():
     def __init__(self,params):
-
+        self.save_debug_data = True
+        self.plot_debug_data = False
         self.bathmode = params.bathmode
+        self.cleanbathmode = self.bathmode.replace(' ','_').replace('/','_') # clean the bath mode name for saving files
         self.L = params.L                      # max tier of the ADOs
         # General parameters
         self.eta = params.eta
@@ -86,7 +88,7 @@ class Debye_cothpoles():
         if(1): # Plot the approximated function and J(w)
             w = np.linspace(-250,250,20000,dtype=np.complex128) 
             values = self.P(w)                     # values of the pole function at the w points
-            plt.figure(figsize=(10,5))
+            plt.figure(figsize=(5,5))
             plt.plot(w.real, values.real, label='Original Function', color='blue')
             plt.plot(w.real, self.P_aaa_realcoeffs(w).real+self.k, label=f'{self.bathmode} Approximation, imaginary poles/residues', color='green')
             # plt.plot(w, self.P_aaa(w).real, label='AAA Approximation', color='red')
@@ -96,19 +98,26 @@ class Debye_cothpoles():
             plt.title(f'{self.mu} mode approximation of {self.bathmode} Approximation of the Pole Function')
             plt.legend()
             plt.grid()
-            plt.show()
+            plt.show() if self.plot_debug_data else None
+            filename = f'{self.cleanbathmode}_Cothapproximation.txt'
+            data = np.column_stack((w.real, values.real, self.P_aaa_realcoeffs(w).real+self.k, self.J(w).real))
+            np.savetxt(filename, data, header='w Re[P_aaa(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
+            print(f'Saved the approximation plot to {filename}')
             # sys.exit(0) # exit the program after plotting the approximation
-        if(0): #plot the poles
-            plt.figure(figsize=(12, 6))
-            pole_ax = plt.subplot(121)
-            pole_ax.set_title('Poles')
-            pole_ax.set_xlabel('Real Part')
-            pole_ax.set_ylabel('Imaginary Part')
+        if(1): #plot the poles and the Matsubara terms if they were to be used
+            wmax= np.max(np.abs(self.w_i)) 
+
+            fig, pole_ax = plt.subplots(figsize=(5,5))
+            pole_ax.set_title(r'Poles and residues: $\sum_i \frac{\gamma_i}{\omega^2+\omega_i^2}$', fontsize=16)
+            pole_ax.set_xlabel(r'$\gamma_i$', fontsize=14)
+            pole_ax.set_ylabel(r'$\omega_i$', fontsize=14, rotation=0, labelpad=10)
             pole_ax.grid(True)
-            pole_ax.plot(repoles, impoles, 'o', label=f'AAA, N={len(repoles)}', color='blue')
+            pole_ax.plot(self.gam_i, self.w_i, 'x', label=f'AAA, N={len(self.w_i)}', color='blue')
             pole_ax.legend()
-            pole_ax.set_xlim(-1500, 1500)
-            plt.show()
+            
+            data = np.column_stack((self.gam_i.real, self.w_i.real))
+            np.savetxt(f'{self.cleanbathmode}_poles_and_residues.txt', data, header=f'gamma_i w_i N={len(self.w_i)}', comments='') if self.save_debug_data else None
+            plt.show() if self.plot_debug_data else None
 
 
     # Calculate the C_ks and gam_ks

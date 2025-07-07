@@ -1,7 +1,7 @@
 import numpy as np
 import os
-from hashmap import generateHashmap#,Convert_to_list
-from utils import writeZ,writeI,writeParams
+from Feom.hashmap import generateHashmap#,Convert_to_list
+from Feom.utils import writeZ,writeI,writeParams
 
 npF = np.asfortranarray # Aliasing to make the code more legible
 
