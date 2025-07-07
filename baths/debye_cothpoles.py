@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import sys, os 
-# Get the directory of the current script file
-script_dir = os.path.dirname(os.path.abspath(__file__))
+import sys, os
+import Feom.baths.cothPade as cothPade 
+import Feom.baths.cothAAA as cothAAA
 
 # A class for the Debye bath
-''' A class to represent the Debye bath for the FEOM code, with AAA decomposition of A(w)/W
+''' A class to represent the Debye bath for the FEOM code, with AAA/Pade decomposition of A(w)/w
 
 eta : Coupling strength
 gam : Cuttoff frequency
@@ -18,12 +18,8 @@ J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(
 
 # We need to add in pade approximants, but otherwiseshould be mostly complete
 
-class Debye_colepoles():
+class Debye_cothpoles():
     def __init__(self,params):
-        # Bathmode and settings
-        self.aaa_tol = 1e-10        # tolerance for the AAA decomposition
-        self.Jw_min_tol = 1e-2      # tolerance for the maximum frequency of the grid for the AAA decomposition
-        self.minres_tol = 1e-6      # tolerance for the minimum abs value of a residue in the AAA decomposition
 
         self.bathmode = params.bathmode
         self.L = params.L                      # max tier of the ADOs
@@ -42,9 +38,9 @@ class Debye_colepoles():
         self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
         ### Calculate the C_ks and gam_ks for the bath and add to the class
         self.get_coefs()
-        self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
+        # self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
         params.K = len(self.w_i) # Update the number of exponentials in the params object to match the number of poles found
-        params.lowTCorr=True
+        params.lowTCorr=True if self.k != 0 else False
         ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
         self.get_C_UDs()
 
@@ -71,78 +67,37 @@ class Debye_colepoles():
          
     
     def calc_poles(self): # Reclusters the poles and residues from coth(x)
-        ### Calculate the proposed extent of the support such that J(w) has decayed to 0
-        w_max=self.gam # start with the cuttoff frequency
-        while self.J(w_max) > self.Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
-        print(f'Maximum frequency for the AAA decomposition: {w_max} (tolerance {self.Jw_min_tol})')
-        # support = np.linspace(-w_max,w_max,int(200*w_max),dtype=np.complex128) # support for the AAA decomposition
-        support = np.linspace(-250,250,20000,dtype=np.complex128) # support for the AAA decomposition
-        values = self.P(support)                     # values of the pole function at the support points
-        ### Use the AAA decomposition to get the coefficients
-        folder = f'aaa_K{self.mu}'                   # folder to save the aaa files
-        if not os.path.exists(folder): os.makedirs(folder)
-        data = np.column_stack((support.real, values.real, values.imag))  
-        print(f'Saving support and values to {folder}/aaa_data.txt')
-        np.savetxt(f'{folder}/aaa_data.txt', data, header='Support Re[Values] Im[Values]', comments='')         # save the support and values to be read by matlab
-        ### Run the AAA decomposition in MATLAB
-        if(0):                                      # run the MATLAB script using the system command
-            print('Running AAA decomposition in MATLAB...')
-            os.system(f"matlab -batch 'cd {script_dir}/aaa;run_aaa_fromfile({self.mu},{os.getcwd()}/{folder})' > /dev/null 2>&1")    # run the matlab script to get the AAA coefficients
-            print('AAA decomposition complete, loading results...')
-        else:                                       # print out the command to run the MATLAB script if it has not already been run
-            if not os.path.exists(f'{folder}/pol_real.txt'):
-                print('run the following command in MATLAB to get the AAA coefficients:')
-                print(f"\nrun_aaa_fromfile({self.mu},'{os.getcwd()}/{folder}')")
-                ### append the command to a file for later use
-                with open(f'{script_dir}/aaa/commands_to_run.m', 'a') as f:
-                    if self.mu>0: f.write(f"run_aaa_fromfile({self.mu},'{os.getcwd()}/{folder}')\n")
-                print(f"\n")
-                sys.exit()
-            else:
-                print('AAA decomposition already done, loading results from files...')
+        
+        if self.bathmode=='AAA':
+            print(f'Using AAA decomposition for the bath.')
+            self.gam_i, self.w_i, self.k = cothAAA.get_coeffs(self) ### we calculate the support internally
+             ### Recalculate the number of exponentials (as the AAA algorithm might have changed the number of poles)
+            if self.N_exp != len(self.w_i)+self.N_nonmats:
+                print(f'Total of frequencies {len(self.w_i)+self.N_nonmats} does not match number of exponentials proposed ({self.N_exp}), changing now.')
+                print(f'With this new set, K={len(self.w_i)}.')
+            self.N_exp = len(self.w_i)+self.N_nonmats  # update the number of exponentials
 
-        ### Load the aaa results
-        repoles = np.loadtxt(f'{folder}/pol_real.txt')
-        impoles = np.loadtxt(f'{folder}/pol_imag.txt')
-        self.poles = repoles + 1.j * impoles
-        reres = np.loadtxt(f'{folder}/res_real.txt')
-        imres = np.loadtxt(f'{folder}/res_imag.txt')
-        self.k = np.loadtxt(f'{folder}/k.txt')  # load the constant shift k
-        self.res = reres + 1.j * imres
-        self.res_original = self.res.copy()         # save the original residues for later use
-        self.poles_original = self.poles.copy()     # save the original poles for later use
-        ### Clean up the poles and residues
-        mask= np.abs(self.res)> self.minres_tol
-        self.res = self.res[mask]      # remove any tiny residues
-        self.poles = self.poles[mask]  # remove the corresponding poles
-        self.res = np.imag(self.res)*1.j            # remove the real parts, as by symmetry they should be zero
-        self.poles = np.imag(self.poles)*1.j
-        ### Calulate the real coefficients w_i and gamma_i from conjugate pairs of poles and residues
-        upper_poles= []; upper_res = []
-        for k in range(len(self.poles)):
-            if np.imag(self.poles[k]) > 0:
-                upper_poles.append(self.poles[k])
-                upper_res.append(self.res[k])
-        upper_poles = np.array(upper_poles,dtype=np.complex128) ; upper_res = np.array(upper_res,dtype=np.complex128)
-        self.w_i = np.imag(upper_poles)                             # these are the new prequencies
-        self.gam_i = -2*np.imag(upper_poles)*np.imag(upper_res)     # these are the new gammas
-        ### Recalculate the number of exponentials (as the AAA algorithm might have changed the number of poles)
-        if self.N_exp != len(self.poles):
-            print(f'Total of frequencies {len(self.w_i)+self.N_nonmats} does not match number of exponentials proposed ({self.N_exp}), changing now.')
-            print(f'With this new set, K={len(self.w_i)}.')
-        self.N_exp = len(self.w_i)+self.N_nonmats  # update the number of exponentials
+        if self.bathmode[0:4]=='Pade':
+            Padetype = self.bathmode[4:] # get the type of Pade decomposition
+            print(f'Using Pade decomposition of type {Padetype} for the bath.')
+            self.gam_i, self.w_i, self.k = cothPade.get_coeffs(Padetype,self.mu) # get the coefficients from the pade module
+
+
         if(1): # Plot the approximated function and J(w)
+            w = np.linspace(-250,250,20000,dtype=np.complex128) 
+            values = self.P(w)                     # values of the pole function at the w points
             plt.figure(figsize=(10,5))
-            plt.plot(support, values.real, label='Original Function', color='blue')
-            plt.plot(support, self.P_aaa_realcoeffs(support).real+self.k, label='AAA Approximation, imaginary poles/residues', color='green')
-            # plt.plot(support, self.P_aaa(support).real, label='AAA Approximation', color='red')
-            plt.plot(support, self.J(support), label='J(w)', color='orange')
-            plt.xlabel('Support')
+            plt.plot(w.real, values.real, label='Original Function', color='blue')
+            plt.plot(w.real, self.P_aaa_realcoeffs(w).real+self.k, label=f'{self.bathmode} Approximation, imaginary poles/residues', color='green')
+            # plt.plot(w, self.P_aaa(w).real, label='AAA Approximation', color='red')
+            plt.plot(w.real, self.J(w).real, label='J(w)', color='orange')
+            plt.xlabel('w')
             plt.ylabel('Function Value')
-            plt.title('AAA Approximation of the Pole Function')
+            plt.title(f'{self.mu} mode approximation of {self.bathmode} Approximation of the Pole Function')
             plt.legend()
             plt.grid()
             plt.show()
+            # sys.exit(0) # exit the program after plotting the approximation
         if(0): #plot the poles
             plt.figure(figsize=(12, 6))
             pole_ax = plt.subplot(121)
@@ -224,7 +179,6 @@ class Debye_colepoles():
             ax.title(f'TCF for {self.bathmode} bath with {self.N_exp} exponentials')
             ax.legend()
             ax.grid(True)
-            print(mode)
             plt.show()
         return t,C
 

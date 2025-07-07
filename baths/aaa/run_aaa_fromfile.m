@@ -1,4 +1,4 @@
-function run_aaa_fromfile(K, location)
+function run_aaa_fromfile(K, location,filename,extension)
     if nargin < 1
         K = 2;  % Default number of poles to find
     end
@@ -9,7 +9,6 @@ function run_aaa_fromfile(K, location)
     tol = 1e-20;            % Initial AAA tolerance
     stepfactor = 25;        % Tolerance multiplier
     max_tol = 1e1;         % Stop if tolerance exceeds this
-    filename = fullfile(location, 'aaa_data.txt');
 
     % Load data: x Re(f) Im(f)
     data = readmatrix(filename, 'FileType', 'text', 'Delimiter', ' ');
@@ -78,14 +77,14 @@ function run_aaa_fromfile(K, location)
     % Save output
     k = r(1000000);  % Evaluate approximant far out
     fprintf('Saving results to folder: %s\n', location);
-    writematrix(real(pol), fullfile(location, 'pol_real.txt'), 'Delimiter', 'tab');
-    writematrix(imag(pol), fullfile(location, 'pol_imag.txt'), 'Delimiter', 'tab');
-    writematrix(real(res), fullfile(location, 'res_real.txt'), 'Delimiter', 'tab');
-    writematrix(imag(res), fullfile(location, 'res_imag.txt'), 'Delimiter', 'tab');
-    writematrix(real(zer), fullfile(location, 'zer_real.txt'), 'Delimiter', 'tab');
-    writematrix(imag(zer), fullfile(location, 'zer_imag.txt'), 'Delimiter', 'tab');
-    writematrix(errvec, fullfile(location, 'errvec.txt'), 'Delimiter', 'tab');
-    writematrix(k, fullfile(location, 'k.txt'), 'Delimiter', 'tab');
+    writematrix(real(pol), fullfile(location, ['pol_real', extension]), 'Delimiter', 'tab');
+    writematrix(imag(pol), fullfile(location, ['pol_imag', extension]), 'Delimiter', 'tab');
+    writematrix(real(res), fullfile(location, ['res_real', extension]), 'Delimiter', 'tab');
+    writematrix(imag(res), fullfile(location, ['res_imag', extension]), 'Delimiter', 'tab');
+    writematrix(real(zer), fullfile(location, ['zer_real', extension]), 'Delimiter', 'tab');
+    writematrix(imag(zer), fullfile(location, ['zer_imag', extension]), 'Delimiter', 'tab');
+    writematrix(errvec, fullfile(location, ['errvec', extension]), 'Delimiter', 'tab');
+    writematrix(k, fullfile(location, ['k', extension]), 'Delimiter', 'tab');
 
     fprintf('Files saved successfully.\n');
 end

@@ -14,7 +14,6 @@ using the discretized definition, giving coefficients:
 J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(w - w_\alpha)
 '''
 
-# We need to add in pade approximants, but otherwiseshould be mostly complete
 
 class Debye_bath():
     def __init__(self,params):

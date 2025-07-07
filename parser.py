@@ -11,8 +11,12 @@ fs = 0.02418884254 #au
 '''
 Switches:
 potname=['harmonic','spinboson'][1]
-bathname = ['debye','debyeAAA'][0]
-bathmode = ['nbead','matsubara'][1]
+bathname = ['debye','debye'][0]
+
+bathmode = ['nbead','matsubara'] IF bathname == 'debye'
+bathmode = ['Pade[N,N]','Pade[N-1,N]','AAA'] IF bathname == 'debyeCothpoles'
+
+lowTCorr = 0 # 1 to add low temperature corrections, 0 to not add them [overridden for pade and AAA modes]
 
 Spin boson:
 Delta

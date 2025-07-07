@@ -32,6 +32,8 @@ rho[:,:,0] = rho_s0                                              # put in the in
 
 ### Load all the parameters into the setup object and generate input files
 setup = Setup(bath,pot,params)
+print(setup.lowTCorr)
+sys.exit()
 setup.generate_input_files(rho) # writes the inputfiles and fortran code to tmp/ directory
 
 ### Go
