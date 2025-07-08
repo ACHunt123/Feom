@@ -5,7 +5,7 @@ program main
     implicit none
     complex(8), allocatable :: ADOs(:,:,:) ! we have not made this global for clarity
     ! Local variables
-    real(8) :: hbar
+    real(8) :: hbar,time
     integer(4) :: stat,it,ki,nk,nttot,ni,ntout
 
     !!! LOAD PARAMETERS AND MATRICIES !!!
@@ -60,8 +60,9 @@ program main
     ! Propagate the system
     do it = 0, nttot
         if (mod(it,ntout).eq.0)  then
+            time = it * dt
             print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'            ! Update the screen output
-            write(10,'(5E25.15)') it*dt, &                             ! Print output to file
+            write(10,'(5E25.15)') time, &                             ! Print output to file
             real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
         endif
 

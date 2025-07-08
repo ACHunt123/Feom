@@ -82,8 +82,11 @@ class Debye_cothpoles():
         if self.bathmode[0:4]=='Pade':
             Padetype = self.bathmode[4:] # get the type of Pade decomposition
             print(f'Using Pade decomposition of type {Padetype} for the bath.')
-            self.gam_i, self.w_i, self.k = cothPade.get_coeffs(Padetype,self.mu) # get the coefficients from the pade module
-
+            eta, xi, R_N =cothPade.get_coeffs(Padetype,self.mu) # get the poles and residues from the pade module
+            ### convert to the same format as the AAA decomposition
+            self.gam_i = eta
+            self.w_i = xi/(self.beta *self.hbar)
+            self.k = R_N*(self.beta*self.hbar)**2/2.
 
         if(1): # Plot the approximated function and J(w)
             w = np.linspace(-250,250,20000,dtype=np.complex128) 
@@ -99,7 +102,7 @@ class Debye_cothpoles():
             plt.legend()
             plt.grid()
             plt.show() if self.plot_debug_data else None
-            filename = f'{self.cleanbathmode}_Cothapproximation.txt'
+            filename = f'{self.cleanbathmode}_Cothapproximation.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
             data = np.column_stack((w.real, values.real, self.P_aaa_realcoeffs(w).real+self.k, self.J(w).real))
             np.savetxt(filename, data, header='w Re[P_aaa(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
             print(f'Saved the approximation plot to {filename}')
@@ -116,7 +119,8 @@ class Debye_cothpoles():
             pole_ax.legend()
             
             data = np.column_stack((self.gam_i.real, self.w_i.real))
-            np.savetxt(f'{self.cleanbathmode}_poles_and_residues.txt', data, header=f'gamma_i w_i N={len(self.w_i)}', comments='') if self.save_debug_data else None
+            filename= f'{self.cleanbathmode}_poles_and_residues.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
+            np.savetxt(filename, data, header=f'gamma_i w_i N={len(self.w_i)}', comments='') if self.save_debug_data else None
             plt.show() if self.plot_debug_data else None
 
 

@@ -81,7 +81,7 @@ def out_filename(params): # Name of the output file - contains all the parameter
         if type(params.__dict__[key]) == str:
             namestr += f'{key}{params.__dict__[key]}_'
     ### Clean up the string
-    namestr = namestr.replace('bathname','BTH').replace('bathmode','').replace('potname','POT')
+    namestr = namestr.replace('bathname','BTH').replace('bathmode','').replace('potname','POT').replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
     return f'outfile_{namestr[:-1]}.out'
 
 def printparams(params):
