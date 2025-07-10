@@ -1,5 +1,8 @@
 module input_output
-    use shared_data
+    use shared_data, only: Imax, ns, Ktot, L
+    use shared_data, only: iH_mat, is_mat, gam_ks
+    use shared_data, only: c_U, c_D_LEFT, c_D_RIGHT
+    use shared_data, only: ADO_index, I0s
     implicit none
     contains
 
@@ -77,7 +80,7 @@ subroutine ADOs_print(ADOs,Imax,ns,it)
     integer(4), intent(in) :: it,ns,Imax
     complex(8), intent(in) :: ADOs(Imax,ns,ns)
     real(8) :: outstr(Imax+1)
-    integer(4) :: I,si
+    integer(4) :: I!,si
     character(len=100) :: fmt ! format string for the output
     write(fmt, '(A,I0,A)') '(E25.15,', Imax, 'E25.15)' 
 

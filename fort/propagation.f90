@@ -72,7 +72,7 @@ program main
     end do
     close(10)
     deallocate(ADOs, iH_mat, is_mat, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, active, s_mat2)
-    deallocate(rhoI,rhoInkp1,rhoInkm1,gradI,k1,k2,k3,k4,ktmp)
+    deallocate(rhoI,rhoInkp1,rhoInkm1,gradI,k1,k2,k3,k4,ktmp,ADOs_tmp,active0)
 
 end program main
 

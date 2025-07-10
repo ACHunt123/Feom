@@ -10,6 +10,9 @@ module shared_data
     ! Parameter for ADO printouts
     logical, parameter :: print_ADOs = .false. ! if true, the code will print out the ADOs at each step
     integer(4) :: nprint_ADOs = 100 ! how often to print the ADOs (every nprint_ADOs steps)
+    ! Global arrays used for allocation reduction
+    integer(4), allocatable :: active(:), active0(:) ! active[0] is to store list of active ADOs [at start of timestep] and their indices
+    integer(4) :: Nactive0, Nactive ! Each vvstep, arrays are allocated (Nactive0,ns,ns), with the index of rho(I,:,:) being rho(active0(I),:,:)
 
     ! Global parameter arrays
     complex(8), allocatable :: gam_ks(:), c_U(:,:), c_D_LEFT(:,:), c_D_RIGHT(:,:)
