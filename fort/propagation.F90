@@ -18,7 +18,8 @@ program main
     allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
     allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
     allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns))
-    allocate(ADOs(Imax,ns,ns), k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns))
+    allocate(ADOs(Imax,ns,ns), k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns), &
+              temp_grad(Imax,ns,ns))
     allocate(active(Imax), active0(Imax), ADOs_tmp(Imax,ns,ns))
     ! read the matrices from the files
     call read_matrices(ADOs)
@@ -35,14 +36,16 @@ program main
         end do
     end do 
     ! Print out the hashmap for the ADO printout
-    if (print_ADOs) then
-        if (prune) stop 'ADO printout is not implemented for pruning'
+    #ifdef Print_ADOs
+        #ifdef Prune
+         stop 'ADO printout is not implemented for pruning'
+        #endif
         open(20, file='ADO_index.out', status='unknown', action='write')
         do ni = 1,Imax
             write(20,'(I10, 5I10)') ni, ADO_index(ni,:)
         end do
         close(20)
-    end if
+    #endif
 
     !!! MAKE ALL ADOS INITIALLY ACTIVE !!!
     ! it has been found that setting just the first to active gives inaccurate results 
@@ -65,8 +68,10 @@ program main
             write(10,'(5E25.15)') time, &                             ! Print output to file
             real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
         endif
-
-        if( mod(it,nprint_ADOs).eq.0 .and. print_ADOs) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
+        #ifdef Print_ADOs
+        if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
+        #endif
+        !verlet step
         call vvstep(ADOs)
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do

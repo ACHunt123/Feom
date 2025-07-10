@@ -6,32 +6,42 @@ use shared_data, only: s_mat2, is_mat, iH_mat, Ktot, L
 implicit none  
 ! Temporary arrays for computation
 complex(8), allocatable :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:),gradI(:,:)
+
 contains
 
     ! Function for calculating the gradient of the density, inherits the scope of the vvstep subroutine
-complex(8) function grad(rho)
-    dimension grad(Nactive0,ns,ns)
-    complex(8), allocatable, intent(in) :: rho(:,:,:) ! fortran is column major so the last index is the fastest changing
+subroutine get_gradient(rho,grad)
+    complex(8), intent(in) :: rho(Nactive0,ns,ns) ! fortran is column major so the last index is the fastest changing
+    complex(8), intent(out) :: grad(Nactive0,ns,ns)
     integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki,nk
 
     ! Loop over the ADOs
     do I = 1, Imax
+        #ifdef Prune
         if (active0(I).eq.0) cycle !skip if not active
+        rhoI = rho(active0(I),:,:) ! temporary variable for the ADO (same done for the gradient, but needn't be initiallised as is overwritten)
+        #else
+        rhoI = rho(I,:,:)
+        #endif
 
-        ! temporary variable for the ADO (same done for the gradient, but needn't be initiallised as is overwritten)
-        rhoI = rho(active0(I),:,:)
         ! Get the n values for the ADOs
         n_ks = ADO_index(I,:)
 
         ! Execute the diagonal superoperator terms
+        #ifdef USEZGEMM
+        call ZGEMM('N','N',ns,ns,ns,-(1.0d0,0.0d0),iH_mat,ns,rhoI,ns,(0.0d0,0.0d0),gradI,ns) ! gradI = -iH_mat * rhoI
+        call ZGEMM('N','N',ns,ns,ns,(1.0d0,0.0d0),rhoI,ns,iH_mat,ns,(1.0d0,0.0d0),gradI,ns)  ! gradI = gradI + rhoI * iH_mat
+        gradI = gradI  - sum(n_ks * gam_ks) * rhoI
+        #else
         gradI = ( - matmul(iH_mat,rhoI) + matmul(rhoI,iH_mat)) &
                 - sum(n_ks * gam_ks) * rhoI 
+        #endif
 
         ! Itziki Trucation (if present)
-        if (lowTcoef_switch.eq.1) then
+        #ifdef LowTCorr
             gradI = gradI + lowTcoef  &
             * ( matmul(s_mat2,rhoI) + matmul(rhoI,s_mat2) + 2.d0*matmul(matmul(is_mat,rhoI),is_mat)) !note the + on last term is as (is)Rho(is) = - 2 s Rho s
-        end if
+        #endif
 
         ! Execute the off-diagonal superoperator terms
         !NOTE: The [commented lines] are what the code is really doing (we put in the precalculated values to speed up the code)
@@ -42,37 +52,57 @@ complex(8) function grad(rho)
             I_nkm1 = I_nk_plusminus(I,ki,-1)
 
             if (I_nkp1.ne.-1) then !check if the index is valid
+                #ifdef Prune
                 if (active0(I_nkp1).eq.0) then      !skip if not active0 (initially active)
                     if (active(I_nkp1).eq.0) then   ! if not already active, add to the list of active ADOs that will be updated
                         Nactive = Nactive + 1
                         active(I_nkp1) = Nactive
                     end if
                 else    ! index is valid and rhos are active so do the operation
-                rhoInkp1 = rho(active0(I_nkp1),:,:)
+                I_nkp1=active0(I_nkp1)
+                #endif
+                rhoInkp1 = rho(I_nkp1,:,:)
+                #ifdef USEZGEMM
+                call ZGEMM('N','N',ns,ns,ns,c_U(ki,nk),rhoInkp1,ns,is_mat,ns,(1.0d0,0.0d0),gradI,ns)    ! gradI = gradI + c_U(ki,nk) * rhoInkp1 * is_mat
+                call ZGEMM('N','N',ns,ns,ns,-c_U(ki,nk),is_mat,ns,rhoInkp1,ns,(1.0d0,0.0d0),gradI,ns)   ! gradI = gradI - c_U(ki,nk) * is_mat * rhoInkp1
+                #else
                 gradI = gradI &
                 +  c_U(ki,nk) * ( - matmul(is_mat,rhoInkp1) + matmul(rhoInkp1,is_mat))
                 !   + [sqrt((nk+1)*abs(Ck)) * ( - matmul(is_mat,rho(I_nkp1,:,:)) + matmul(rho(I_nkp1,:,:),is_mat))]
+                #endif
                 endif
-            endif
+                #ifdef Prune
+                endif
+                #endif
 
             if (I_nkm1.ne.-1) then
+                #ifdef Prune
                 if(active0(I_nkm1).eq.0) then
                     if (active(I_nkm1).eq.0) then
                         Nactive = Nactive + 1
                         active(I_nkm1) = Nactive
                     end if
                 else
-                rhoInkm1 = rho(active0(I_nkm1),:,:)
+                I_nkm1=active0(I_nkm1)
+                #endif
+                rhoInkm1 = rho(I_nkm1,:,:)
+                #ifdef USEZGEMM
+                call ZGEMM('N','N',ns,ns,ns,c_D_LEFT(ki,nk),is_mat,ns,rhoInkm1,ns,(1.0d0,0.0d0),gradI,ns)  ! gradI = gradI + c_D_LEFT(ki,nk) * is_mat * rhoInkm1
+                call ZGEMM('N','N',ns,ns,ns,c_D_RIGHT(ki,nk),rhoInkm1,ns,is_mat,ns,(1.0d0,0.0d0),gradI,ns) ! gradI = gradI + c_D_RIGHT(ki,nk) * rhoInkm1 * is_mat
+                #else
                 gradI = gradI &
                 +  c_D_LEFT(ki,nk) * matmul(is_mat,rhoInkm1) + c_D_RIGHT(ki,nk) * matmul(rhoInkm1,is_mat)
                 !   +  [sqrt(nk/abs(Ck)) * (- Ck*matmul(is_mat,rho(I_nkm1,:,:)) + conjg(Ck)*matmul(rho(I_nkm1,:,:),is_mat))]
+                #endif
                 endif
-            endif
+                #ifdef Prune
+                endif
+                #endif
         end do
         ! Update the gradient array
         grad(active0(I),:,:) = gradI
     end do
-end function grad
+end subroutine get_gradient
 
 
 ! Function for hashing the ADO index

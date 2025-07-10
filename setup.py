@@ -1,7 +1,7 @@
 import numpy as np
-import os
+import os,sys
 from Feom.hashmap import generateHashmap#,Convert_to_list
-from Feom.utils import writeZ,writeI,writeParams
+from Feom.utils import writeZ,writeI,writeParams,FORT_SWITCHES
 
 npF = np.asfortranarray # Aliasing to make the code more legible
 
@@ -51,7 +51,15 @@ class Setup:
         writeZ('Forts_mat',npF(self.s_mat))
         # Write the parameters to the file
         writeParams('Fortparams',self)
-        # Copy the fortran executable to the temporary directory
+        # get the switches and name of the makefile
+        makefile_command, executable_suffix = FORT_SWITCHES(self)
+        self.executable_name=f'propagation{executable_suffix}'
+        # Copy the correct fortran executable to the temporary directory
+        print(f'\n Copying the fortran executable {self.executable_name} to the tmp/ directory\n')
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        os.system(f' cp {script_dir}/fort/executables/propagation ./tmp/') 
+        if os.path.exists(f'{script_dir}/fort/executables/{self.executable_name}'):
+            os.system(f' cp {script_dir}/fort/executables/{self.executable_name} ./tmp/') 
+        else:
+            print(f'\n Need to compile the fortran code. Run the command:\n\n make fast {makefile_command}\n')
+            sys.exit()
         return

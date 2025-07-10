@@ -1,38 +1,85 @@
+# -------------------------------------------------------------------------
+# Makefile for compiling the Fortran HEOM propagation code
+#
+# Usage:
+#   make [target] [SWITCHES="..."]
+#
+# If SWITCHES are not specified, defaults to:
+#   SWITCHES = -DLowTCorr
+#
+# Supported compile-time switches (SWITCHES):
+#   -DLowTCorr      Enable low-temperature correction via double commutator
+#   -DPrint_ADOs    Print the ADOs to file every N timesteps
+#   -DPrune         Prune the ADOs dynamically during propagation
+#
+# Example:
+#   make fast SWITCHES="-DLowTCorr -DPrint_ADOs"
+#
+# Targets:
+#   fast            Optimized build
+#   debug           Debug build with bounds and warnings
+#   profile         Build with profiling enabled
+#   f2py            Build Python module via f2py
+#   clean           Remove all compiled executables
+# -------------------------------------------------------------------------
+
+
 # Default switches
-SWITCHES?= -dLowTCorr
+SWITCHES?= -DLowTCorr
+### Calculate the name of the executable based on switches [replace -D with _]
+NAME := propagation
+SWITCH_SUFFIX := $(shell echo $(SWITCHES) | tr ' ' '\n' | sort | sed 's/-D//g; s/=/_/g' | paste -sd_ -) #puts them in alphabetical order
+ifeq ($(SWITCH_SUFFIX),)
+    EXENAME := $(NAME)
+else
+    EXENAME := $(NAME)_$(SWITCH_SUFFIX)
+endif
 # Compiler and flags
 FC = ifx             # Intel Fortran Compiler (can switch to gfortran if needed)
-# F90FLAGS = -g -O2 -heap-arrays
-F90FLAGS = -g -O3 -funroll-loops  -heap-arrays # may need to add -heap-arrays (depends on how big the arrays are)
-# F90DEBUGFLAGS = -g -traceback -check all -warn all -ftrapuv -heap-arrays -debug inline-debug-info -O0 ### WAY TOO SLOW
-F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0
-FILES =  shared_data.f90 input_output.f90 gradient.f90 propagator.f90 propagation.f90
-NAME = propagation
+F90FLAGS = -g -O3 -funroll-loops  -heap-arrays ${SWITCHES} 
+F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 ${SWITCHES}				# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
+FILES =  shared_data.F90 input_output.F90 gradient.F90 propagator.F90 propagation.F90 -qmkl
+
 # Directories
 EXEC_DIR = executables
 
 fast: 
-	$(FC) $(F90FLAGS) -o $(NAME) $(FILES)  
-	mv $(NAME) executables/
+	$(FC) $(F90FLAGS) -o $(EXENAME) $(FILES)  
+	mv $(EXENAME) executables/
+
+all:
+	$(FC) $(F90FLAGS)  -o  propagation $(FILES)
+	mv propagation executables/
+	wait
+	$(FC) $(F90FLAGS) -DLowTCorr -o propagation_LowTCorr $(FILES)
+	mv propagation_LowTCorr executables/
+	wait
+	$(FC) $(F90FLAGS) -DPrint_ADOs -o  propagation_Print_ADOs $(FILES)
+	mv propagation_Print_ADOs executables/
+	wait
+	$(FC) $(F90FLAGS) -DPrune  -o  propagation_Prune $(FILES)
+	mv propagation_Prune executables/
+
+
 
 clean:
 	rm  executables/*
 
 debug:
-	$(FC) $(F90DEBUGFLAGS) -o $(NAME) $(FILES)
-	mv $(NAME) executables/
+	$(FC) $(F90DEBUGFLAGS) -o $(EXENAME) $(FILES)
+	mv $(EXENAME) executables/
 
 f2py:
 	gfortran -Wall -g -fPIC -O2  -c $(FILES)  
-	f2py -c -m propagator propagation.f90  
+	f2py -c -m propagator propagation.F90  
 	rm propagation.o
 	mv propagator* executables/
 
 profile: 
-	ifx -g -prof -o $(NAME) $(FILES)
-	mv $(NAME) executables/
+	ifx -g -O0 -fpp -o $(EXENAME) $(FILES)
+	# ifx -g -prof -o $(EXENAME) $(FILES)
+	mv $(EXENAME) executables/
 
-default: fast f2py
 
 
 

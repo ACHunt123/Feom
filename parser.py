@@ -71,7 +71,12 @@ def parse_args():
     parser.add_argument("--bathmode",type=str,default='matsubara',help="Bath mode")
     parser.add_argument("--eta",type=float,default=0.25,help="bath strength")
     parser.add_argument("--gam",type=float,default=1,help="cuttoff frequency")
-    parser.add_argument("--lowTCorr",type=int,default=0,help="add low temp corrections?")
+    ### Switches
+    parser.add_argument("--lowTCorr",type=int,default=0,help="add low temp corrections?") # NEED TO CHANGE THIS TO BOOLEAN
+    # parser.add_argument("--lowTCorr", action="store_true", help="Add low temperature corrections if this flag is set.")
+    parser.add_argument("--print_ADOs", action="store_true", help="Print the ADOs to file every N timesteps")
+    parser.add_argument("--prune", action="store_true", help="Prune the ADOs dynamically during propagation")
+
     return parser.parse_args()
 
 ### Get all the parameters

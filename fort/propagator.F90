@@ -1,11 +1,12 @@
 ! Fortran module to propagate the HEOM code
 module prop_subroutines
-use shared_data, only: Imax, ns, dt, prune, tolerance, Nactive0, Nactive, active, active0
+use shared_data, only: Imax, ns, dt, tolerance, Nactive0, Nactive, active, active0
 use gradient
 implicit none
 ! Temporary arrays for computation
-complex(8), allocatable :: k1(:,:,:), k2(:,:,:), k3(:,:,:), k4(:,:,:), ktmp(:,:,:),ADOs_tmp(:,:,:)
-
+complex(8), allocatable :: k1(:,:,:), k2(:,:,:), k3(:,:,:), k4(:,:,:), ktmp(:,:,:),ADOs_tmp(:,:,:), temp_grad(:,:,:)
+complex(8) :: dto2,dto6,twothirds,third ! half the time step, used for the gradient calculation
+integer(4) :: Ntot !total number of elements in the ADOs array
 contains
 
 ! rk4 propagation of HEOM for one step
@@ -13,12 +14,19 @@ subroutine vvstep(ADOs)
     implicit none
     complex(8), allocatable, intent(inout) :: ADOs(:,:,:)
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
-
+    ! Precomputation of constants
+    dto2 = dt/(2.d0,0.d0)               ! half the time step, used for the gradient calculation
+    dto6 = dt/(6.d0,0.d0)               ! 1/6 the time step, used for the gradient calculation
+    twothirds = 2.d0/3.d0 *(1.d0,0.d0)  ! two thirds, used for the gradient calculation
+    third = 1.d0/3.d0* (1.d0,0.d0)      ! third, used for the gradient calculation
+    Ntot = Nactive*ns*ns                ! total number of elements in the ADOs array
     ! reallovate the temporary arrays if required
+    #ifdef Prune
     if (Nactive0.ne.Nactive) then
-        deallocate(k1,k2,k3,k4,ktmp)
-        allocate(k1(Nactive,ns,ns), k2(Nactive,ns,ns), k3(Nactive,ns,ns), k4(Nactive,ns,ns), ktmp(Nactive,ns,ns))
+        deallocate(k1,k2,k3,k4,ktmp,temp_grad)
+        allocate(k1(Nactive,ns,ns), k2(Nactive,ns,ns), k3(Nactive,ns,ns), k4(Nactive,ns,ns), ktmp(Nactive,ns,ns),temp_grad(Nactive,ns,ns))
     end if
+    #endif
 
     ! initialise nactive0 and active0
     ! those without 0 will be changed during propagations, those with 0 will not
@@ -26,19 +34,41 @@ subroutine vvstep(ADOs)
     active0 = active
 
     ! Calculate the k values for the Runge-Kutta method
-    k1 = grad(ADOs)*dt/2. !need to split the computation here into two lines to avoid a bug
-    ktmp = ADOs+k1
-    k2 = grad(ktmp)*dt/2.
-    ktmp = ADOs+k2
-    k3 = grad(ktmp)*dt
-    ktmp = ADOs+k3
-    k4 = grad(ktmp)
+    call get_gradient(ADOs,k1) ! calculate the gradient of the density matrix
+    ! k1 = temp_grad*dto2 !need to split the computation here into two lines to avoid a bug
+    call zscal(Ntot,dto2,k1,1) ! scale the gradient by half the time step
+    ! ktmp = ADOs+k1
+    call zcopy(Ntot, ADOs, 1, ktmp, 1)              ! copy the ADOs to a temporary array
+    call zaxpy(Ntot, (1.d0,0.d0), k1, 1, ktmp, 1)   ! add the scaled gradient to the ADOs
 
-    ! Update the density matrix
-    ADOs = ADOs + (dt/6.d0)*k4 + (2.d0/3.d0)*k2 + (k3 + k1)/3.d0 ! doest work for fourth order method
+    call get_gradient(ktmp,k2) ! calculate the gradient of the updated density matrix
+    ! k2 = temp_grad*dto2
+    call zscal(Ntot,dto2,k2,1) ! scale the gradient by half the time step
+    ! ktmp = ADOs+k2
+    call zcopy(Ntot, ADOs, 1, ktmp, 1)              ! copy the ADOs to a temporary array
+    call zaxpy(Ntot, (1.d0,0.d0), k2, 1, ktmp, 1)   ! add the scaled gradient to the ADOs
+
+    call get_gradient(ktmp,k3) ! calculate the gradient of the updated density matrix
+    ! k3 = temp_grad*dt
+    call zscal(Ntot,dt,k3,1) ! scale the gradient by half the time step
+    ! ktmp = ADOs+k3
+    call zcopy(Ntot, ADOs, 1, ktmp, 1)              ! copy the ADOs to a temporary array
+    call zaxpy(Ntot, (1.d0,0.d0), k3, 1, ktmp, 1)   ! add the scaled gradient to the ADOs
+
+    call get_gradient(ktmp,k4) 
+
+    ! ! Update the density matrix
+    ! ADOs = ADOs + dto6*k4 + twothirds*k2 + (k3 + k1)*third 
+    call zaxpy(Ntot, dto6, k4, 1, ADOs, 1)      ! ADOs = ADOs + dto6 * k4
+    call zaxpy(Ntot, twothirds, k2, 1, ADOs, 1) ! ADOs = ADOs + twothirds * k2
+    call zaxpy(Ntot, third, k3, 1, ADOs, 1)     ! ADOs = ADOs + third * k3
+    call zaxpy(Ntot, third, k1, 1, ADOs, 1)     ! ADOs = ADOs + third * k1
+
     
     ! Kill off ADOs with small norm
-    if (prune) call changeN(ADOs,active,active0,Nactive,Nactive0)
+    #ifdef Prune
+    call changeN(ADOs,active,active0,Nactive,Nactive0)
+    #endif
 
     contains
 

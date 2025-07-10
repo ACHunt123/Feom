@@ -104,4 +104,23 @@ def printparams(params):
     metadata += 'Data \n'
     return metadata
 
-
+def FORT_SWITCHES(params):
+        # Supported compile-time switches (SWITCHES):
+#   -DLowTCorr      Enable low-temperature correction via double commutator
+#   -DPrint_ADOs    Print the ADOs to file every N timesteps
+#   -DPrune         Prune the ADOs dynamically during propagation
+    switches = []
+    if params.lowTCorr==1:
+        switches.append('LowTCorr')
+    if params.print_ADOs:
+        switches.append('Print_ADOs')
+    if params.prune:
+        switches.append('Prune')
+    # sort the switches to be alphabetical
+    switches.sort()
+    makefile_command= f'SWITCHES=" -D{" -D".join(switches)}"'
+    executable_suffix='_'+'_'.join(switches)
+    if len(switches) == 0:
+        executable_suffix = ''
+        makefile_command = 'SWITCHES=""'    
+    return makefile_command, executable_suffix
