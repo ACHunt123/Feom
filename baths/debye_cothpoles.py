@@ -72,14 +72,25 @@ class Debye_cothpoles():
         
         if self.bathmode=='AAA':
             print(f'Using AAA decomposition for the bath.')
-            self.gam_i, self.w_i, self.k = cothAAA.get_coeffs(self) ### we calculate the support internally
+            if(0): # Calculate the support of the coth function such that J(w)/w is sampled evenly [DOESNT WORK WELL]
+                N_support = 100000
+                x_j=np.arange(1,N_support+1)/(self.gam**2*(N_support+1)) #equally spaced x
+                support = np.concatenate([np.array([-200]),
+                    -np.abs(np.sqrt(1 / x_j - self.gam**2)),
+                    np.flip(np.abs(np.sqrt(1 / x_j - self.gam**2)))
+                    ,np.array([200])])
+                values= self.P(support) # values of the coth function at the support points
+                self.gam_i, self.w_i, self.k = cothAAA.get_coeffs(self,support,values)
+            else: # Use support with uniform spacing in w (done within the cothAAA module)
+                self.gam_i, self.w_i, self.k = cothAAA.get_coeffs(self) 
+
              ### Recalculate the number of exponentials (as the AAA algorithm might have changed the number of poles)
             if self.N_exp != len(self.w_i)+self.N_nonmats:
                 print(f'Total of frequencies {len(self.w_i)+self.N_nonmats} does not match number of exponentials proposed ({self.N_exp}), changing now.')
                 print(f'With this new set, K={len(self.w_i)}.')
             self.N_exp = len(self.w_i)+self.N_nonmats  # update the number of exponentials
 
-        if self.bathmode[0:4]=='Pade':
+        elif self.bathmode[0:4]=='Pade':
             Padetype = self.bathmode[4:] # get the type of Pade decomposition
             print(f'Using Pade decomposition of type {Padetype} for the bath.')
             eta, xi, R_N =cothPade.get_coeffs(Padetype,self.mu) # get the poles and residues from the pade module
@@ -87,6 +98,8 @@ class Debye_cothpoles():
             self.gam_i = eta
             self.w_i = xi/(self.beta *self.hbar)
             self.k = R_N*(self.beta*self.hbar)**2/2.
+        else:
+            raise ValueError('Invalid typre of coth decomposition specified. Use "AAA" or "Pade..." .')
 
         if(1): # Plot the approximated function and J(w)
             w = np.linspace(-250,250,20000,dtype=np.complex128) 

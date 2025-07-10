@@ -5,10 +5,12 @@ function run_aaa_fromfile(K, location,filename,extension)
     if nargin < 2
         location = pwd;  % Default output location
     end
-    doplot=false;
-    tol = 1e-20;            % Initial AAA tolerance
-    stepfactor = 25;        % Tolerance multiplier
-    max_tol = 1e1;         % Stop if tolerance exceeds this
+    if nargin < 3
+        filename = 'aaa_data.txt';  % Default filename for input data
+    end
+    if nargin < 4
+        extension = '.txt';  % Default file extension for output data
+    end
 
     % Load data: x Re(f) Im(f)
     data = readmatrix(filename, 'FileType', 'text', 'Delimiter', ' ');
@@ -18,64 +20,94 @@ function run_aaa_fromfile(K, location,filename,extension)
     F = freal + 1i * fimag;
     Z = x;
 
+    %%% Initialize parameters
+    doplot=false;
+    max_tol = 1e1;          % Stop if tolerance exceeds this
+    min_tol = 1e-31;        % Stop if tolerance is less than this
+    tol_err = 1e-15;    % The error window for the final tolerance SEE BINARY SEARCH 
+
     fprintf('Calling aaa_algo...\n');
 
-    % Try increasing tolerance until we get K poles with significant imaginary part
-    while true
-        [r, pol, res, zer, ~, ~, ~, errvec] = aaa_algo(F, Z, tol);
+    %%% Find a an upper-bound for tolerance that will give K and K+1 poles
+    tol = max_tol;          % Initial AAA tolerance
+    for KK = [K, K+1] 
+        stepfactor = 25;          % Reset step factor for each KK
+        % we do not reset the tolerance after thefirst iteration as it will be lower for K+1 than for K
 
-        % Remove near-real poles, keep only positive imaginary poles
-        pol_clean = pol(imag(pol) > 1e-10);
-        
-        fprintf('tol = %.1e -> %d significant poles\n', tol, numel(pol_clean));
+        fprintf('Finding upper bound for tolerance for K=%d poles...\n', KK);
+        while true
+            [r, pol, res, zer, ~, ~, ~, errvec] = aaa_algo(F, Z, tol); %%% Run the AAA algorithm, cleaning up the poles afterwards
+            pol_clean = pol(imag(pol) > 1e-10);
+            fprintf('tol = %.1e -> %d significant poles\n', tol, numel(pol_clean));
 
-        if numel(pol_clean) == K
-            break;  % Desired number of poles found
-        
-        elseif numel(pol_clean) < K %we have overshot
-            tol = tol/stepfactor;          % Decrease tolerance back to previous value
-            stepfactor = stepfactor / 10;  % Reduce step factor
+            if numel(pol_clean) == KK        %%% Number of poles is desired
+                if KK == K+1
+                    min_tol = tol;          % Set min tolerance to current value [as this is not necessarily the best tolerance for the given K+1]
+                elseif KK == K
+                    max_tol = tol;          % Set max tolerance to current value [as this is not necessarily the best tolerance for the given K]
+                end
+                break;  
 
-        elseif tol > max_tol  % Too many poles, stop if tolerance is too high
-            fprintf('Warning: Too many poles found with tolerance %.1e. Stopping.\n', tol);
-            return;
-        else  % Too many poles, increase tolerance
-            tol = tol * stepfactor;         % Increase tolerance
+            elseif numel(pol_clean) > KK     %%% We have overshot
+                tol = tol*stepfactor;          % increase tolerance back to previous value
+                stepfactor = stepfactor / 10;  % Reduce step factor
+
+            elseif tol < min_tol  % Too many poles, stop if tolerance is too high
+                fprintf('Warning: Too many poles found with tolerance %.1e. Stopping.\n', tol);
+                return;
+            else  
+                tol = tol / stepfactor;         % decrease tolerance to find more poles
+            end
         end
+    end
+
+    fprintf('Found max tolerances: K=%d -> %.1e, K+1=%d -> %.1e\n', K, max_tol,K+1, min_tol);
+
+    %%% Now do a binary search between max_tol and min_tol to find the mininum tolerance for K poles
+    fprintf('Using binary search to find minimum tolerance for K=%d poles...\n', K);
+    while true
+        tol = (max_tol + min_tol) / 2;  % Start with the midpoint
+        [r, pol, res, zer, ~, ~, ~, errvec] = aaa_algo(F, Z, tol); %%% Run the AAA algorithm, cleaning up the poles afterwards
+        pol_clean = pol(imag(pol) > 1e-10); 
+        fprintf('tol = %.1e -> %d significant poles\n', tol, numel(pol_clean)); 
+        if numel(pol_clean) == K        %%% Number of poles is desired
+            max_tol = tol;          % Set max tolerance to current value [as this is not necessarily the best tolerance for the given K]
+        elseif numel(pol_clean)>K
+            min_tol= tol;          % Set min tolerance to current value [as this is not necessarily the best tolerance for the given K+1]
+        else
+            fprintf('Warning: Too few poles found with tolerance %.1e. Stopping.\n', tol);
+            return;
+        end
+        if abs(max_tol - min_tol) < tol_err  % If the tolerances are close enough, stop
+            [r, pol, res, zer, ~, ~, ~, errvec] = aaa_algo(F, Z, max_tol); %%% Run the AAA algorithm,
+            pol_clean = pol(imag(pol) > 1e-10); %%% clean up poles
+            fprintf('Converged to tolerance %.5e with window %.5e\n', max_tol, tol_err);
+            break;
+        end            
     end
 
     fprintf('AAA decomposition complete.\n');
     if doplot
-        % Plotting
-        xx = linspace(-1000, 1000, 2000);
-        yy = r(xx);  % Rational approximant
-
-        plot(x, freal, 'k-', 'LineWidth', 1.5); hold on
-        plot(xx, yy, 'r--', 'LineWidth', 1.5)
-        legend('Original', 'AAA Rational Approximant')
-        xlabel('x'); ylabel('f(x)')
-        title('AAA Approximation of f(x)')
-        grid on
-
-        % From residues
-        r_from_res = zeros(size(xx));
-        for j = 1:length(res)
-            r_from_res = r_from_res + res(j) ./ (xx - pol(j));
-        end
-        plot(xx, real(r_from_res), 'b-.', 'LineWidth', 1.5)
-
-        % Imaginary-only poles and residues
+        %%% Calculate the rational approximant with the final tolerance
+        xx=Z;
+        yy = r(xx);  
+        %%% Calculate the rational approximant with the final tolerance, and with imaginary-only poles
         r_from_res = zeros(size(xx));
         for j = 1:length(res)
             r_from_res = r_from_res + 1i*imag(res(j)) ./ (xx - 1i*imag(pol(j)));
         end
-        plot(xx, real(r_from_res), 'g-.', 'LineWidth', 1.5)
-
-        
+        %%% Plot the results
+        plot(x, freal, 'k-', 'LineWidth', 1.5); hold on
+        plot(xx, yy, 'r--', 'LineWidth', 1.5); hold on
+        plot(xx, real(r_from_res)+r(1000000), 'b-', 'LineWidth', 1.5);
+        legend('Original', 'AAA Rational Approximant', 'AAA Rational Approximant with imag-only poles')
+        xlabel('x'); ylabel('f(x)')
+        title('AAA Approximation of f(x)')
+        grid on   
         waitfor(gcf);  % Wait for user to close plot
     end
     % Save output
-    k = r(1000000);  % Evaluate approximant far out
+    k = r(1000000);  % Evaluate approximant far out for the constant term
     fprintf('Saving results to folder: %s\n', location);
     writematrix(real(pol), fullfile(location, ['pol_real', extension]), 'Delimiter', 'tab');
     writematrix(imag(pol), fullfile(location, ['pol_imag', extension]), 'Delimiter', 'tab');

@@ -2,14 +2,24 @@
 # This script runs the benchmark for the DebyeSB model
 
 echo "Starting benchmark for DebyeSB model..."
-# command to run the matlab script
+# command to run the matlab script (that will do all 3 benchmarks)
 matlab -batch "addpath('$HOME/software/phd/Feom/benchmark/DebyeSB'); TFaySB" > /dev/null & 
 # # command to run the feom.py script
- python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 3 --K 3 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --lowTCorr 1 > /dev/null &
+ python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 4 --K 3 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --lowTCorr 1 > /dev/null 
+ python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 3 --K 3 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debyeCothpoles --bathmode Pade[N/N] --eta 2 --gam 1 --lowTCorr 1 > /dev/null 
+ python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 2 --K 3 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debyeCothpoles --bathmode Pade[N-1/N] --eta 2 --gam 1 --lowTCorr 1 > /dev/null 
 wait
 echo "Benchmark for DebyeSB model completed, plotting with gnuplot..."
-mmv '*.out' '#1.txt'
-# command to plot the results (will plot everything with a .txt) using gnuplot
+
+#plot the results using gnuplot
+ext=".out"
+
+### warn if there are more than 6 files (as we only define 6 line styles)
+if [ $(ls *${ext} | wc -l) -gt 6 ]; then
+    echo "Warning: More than 6 output files found. Adjust gnuplot styles if necessary."
+fi
+
+### Plot
 gnuplot -persist <<EOF
 set terminal qt
 
@@ -21,20 +31,23 @@ set grid
 # Define line styles
 set dashtype 10 (5,7)  # longer dash and gap
 
-set style line 1 lt 1 lw 2 dt 1 lc rgb "#0000FF"  # Blue solid
-set style line 2 lt 1 lw 2 dt 10 lc rgb "#FF0000"  # Red dashed
+##NOTE define more line styles if you have more than 6 files
+set style line 1 lt 1 lw 2 dt 1  lc rgb "#0000FF"  # Blue solid
+set style line 2 lt 1 lw 2 dt 1  lc rgb "#00FF00"  # Green solid
+set style line 3 lt 1 lw 2 dt 1  lc rgb "#FF0000"  # Red solid
+
+set style line 4 lt 1 lw 2 dt 5  lc rgb "#FF00FF"  # Magenta dashed
+set style line 5 lt 1 lw 2 dt 5  lc rgb "#00FFFF"  # Cyan dashed
+set style line 6 lt 1 lw 2 dt 5  lc rgb "#000000"  # Black dashed
 
 plot \
-$(i=0; for f in *.txt; do
+$(i=0; for f in *${ext}; do
     i=$((i+1))
-    if [ $i -eq 2 ]; then
-        echo -n "'$f' using 1:2 with lines linestyle 2 title '$f', "
-    else
-        echo -n "'$f' using 1:2 with lines linestyle 1 title '$f', "
-    fi
+    title_f=$(echo "$f" | sed 's/_/\\_/g') # Make sure the gnuoplot doesnt break on underscores
+    echo -n "'$f' using 1:2 with lines linestyle $i title '$title_f', "
+
 done | sed 's/, $//')
 EOF
-echo "Plotting completed. Results are saved in the current directory."
-# remove the .txt files
-rm *.txt
-echo "Results removed."
+# Clean up the output files if you press enter
+read -p "Press Enter to delete output files ALL .out and .txts (or Ctrl+C to cancel)..."
+rm *out *txt

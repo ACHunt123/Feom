@@ -32,7 +32,6 @@ n_steps = 1000 ;
 krylov_dim = 8 ;
 krylov_tol = 1e-8 ;
 % parmeters for heirarchy truncation using L/M truncation
-L_max = 3 ; 
 M_max = 3 ;
 
 
@@ -55,9 +54,7 @@ full_system = struct ;
 % H_sys contains the system Hamiltonian
 full_system.H_sys = [[epsilon,Delta];
                      [Delta,-epsilon]];
-% baths is a cell array of structs describign each bath
-full_system.baths = {struct("V",[[1,0];[0,-1]],...
-    "spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D)} ;
+
 full_system.beta = beta ;
 
 % a struct that contains information about the HEOM dynamics
@@ -75,10 +72,9 @@ heom_dynamics.integrator.krylov_tol = krylov_tol ;
 heom_dynamics.heom_truncation = struct ;
 heom_dynamics.heom_truncation.truncation_method = "depth cut-off" ;
 heom_dynamics.heom_truncation.M_max = M_max ;
-heom_dynamics.heom_truncation.L_max = L_max ;
 % heom_dynamics.heom_truncation.truncation_method = "frequency cut-off" ;
 % heom_dynamics.heom_truncation.Gamma_cut = Gamma_cut ;
-heom_dynamics.heom_truncation.heom_termination = "low temp correction" ;
+
 
 % what system observables should be returned
 heom_dynamics.observables = struct ;
@@ -87,45 +83,62 @@ heom_dynamics.observables.system = O_sys ;
 % set the initial condition
 heom_dynamics.rho_0_sys = rho_0_sys ;
 
-% run the dynamics
-[O_t,t] = runHEOMDynamics(full_system,heom_dynamics) ;
+% run the dynamics LOOPING OVER DIFFERENT PARAMETER SETS
+L_max_list={4,3,2};
+full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...                       
+struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N/N]","N_pade",M_max),    ... 
+struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max)};
+termination_list={"low temp correction","none","none"};
+namelist={'ITlowtemp','Pade[NoN]','Pade[N-1oN]'};
+
+% loop over the different L_max values
+for i = 1:3
+    L_max = L_max_list{i};
+    heom_dynamics.heom_truncation.L_max = L_max;
+    full_system.baths = {full_system_bathslist{i}} ;
+    heom_dynamics.heom_truncation.heom_termination = termination_list{i};
+    name=namelist{i};
+  
+    [O_t,t] = runHEOMDynamics(full_system,heom_dynamics) ;
 
 
-%%% save results to a text file
-%make the filename 
-% Create a descriptive filename
-filename = sprintf('TFaySB_eps%.1f_D%.1f_beta%.1f_lam%.1f_wD%.1f_dt%.0e_L%d_M%d.txt', ...
-    epsilon, Delta, beta, lambda_D, omega_D, dt, L_max, M_max);
-outfile = fullfile(outfolder, filename);
-fileID = fopen(outfile, 'w');
-% write down the parameters used in the simulation
-fprintf(fileID, '## Spin Boson Model Simulation Results using Tom Fays Code\n');
-fprintf(fileID, '### Parameters:\n');
-fprintf(fileID, '# epsilon = %f\n', epsilon);
-fprintf(fileID, '# Delta = %f\n', Delta);
-fprintf(fileID, '# beta = %f\n', beta);
-fprintf(fileID, '# lambda_D = %f\n', lambda_D);
-fprintf(fileID, '# omega_D = %f\n', omega_D);
-fprintf(fileID, '# dt = %f\n', dt);
-fprintf(fileID, '# n_steps = %d\n', n_steps);
-fprintf(fileID, '# krylov_dim = %d\n', krylov_dim);
-fprintf(fileID, '# krylov_tol = %e\n', krylov_tol);
-fprintf(fileID, '# L_max = %d\n', L_max);
-fprintf(fileID, '# M_max = %d\n', M_max);
-fprintf(fileID, '# \n');
-fprintf(fileID, '## Results:\n');
-% Write the header for the results
-header = {'# t','\left<\sigma_x(t)\right>','\left<\sigma_y(t)\right>','\left<\sigma_z(t)\right>'};
-% Write the header to the file
-fprintf(fileID, '%s\t', header{1:end-1});  % Print all except last label
-fprintf(fileID, '%s\n', header{end});
+    %%% save results to a text file
+    %make the filename 
+    % Create a descriptive filename
+    filename = sprintf('TFaySB_eps%.1f_D%.1f_beta%.1f_lam%.1f_wD%.1f_dt%.0e_L%d_M%d_%s.out', ...
+    epsilon, Delta, beta, lambda_D, omega_D, dt, L_max, M_max, name);
+    outfile = fullfile(outfolder, filename);
+    fileID = fopen(outfile, 'w');
 
-% Loop through each row and write it to the file
-for i = 1:size(O_t, 2)
-    fprintf(fileID, '%f\t', t(i));
-for fxn = 1:size(O_t, 1)
-    fprintf(fileID, '%f\t', O_t(fxn, i));
+    % write down the parameters used in the simulation
+    fprintf(fileID, '## Spin Boson Model Simulation Results using Tom Fays Code\n');
+    fprintf(fileID, '### Parameters:\n');
+    fprintf(fileID, '# epsilon = %f\n', epsilon);
+    fprintf(fileID, '# Delta = %f\n', Delta);
+    fprintf(fileID, '# beta = %f\n', beta);
+    fprintf(fileID, '# lambda_D = %f\n', lambda_D);
+    fprintf(fileID, '# omega_D = %f\n', omega_D);
+    fprintf(fileID, '# dt = %f\n', dt);
+    fprintf(fileID, '# n_steps = %d\n', n_steps);
+    fprintf(fileID, '# krylov_dim = %d\n', krylov_dim);
+    fprintf(fileID, '# krylov_tol = %e\n', krylov_tol);
+    fprintf(fileID, '# L_max = %d\n', L_max);
+    fprintf(fileID, '# M_max = %d\n', M_max);
+    fprintf(fileID, '# \n');
+    fprintf(fileID, '## Results:\n');
+    % Write the header for the results
+    header = {'# t','\left<\sigma_x(t)\right>','\left<\sigma_y(t)\right>','\left<\sigma_z(t)\right>'};
+    % Write the header to the file
+    fprintf(fileID, '%s\t', header{1:end-1});  % Print all except last label
+    fprintf(fileID, '%s\n', header{end});
+
+    % Loop through each row and write it to the file
+    for j = 1:size(O_t, 2)
+        fprintf(fileID, '%f\t', t(j));
+    for fxn = 1:size(O_t, 1)
+        fprintf(fileID, '%f\t', O_t(fxn, j));
+    end
+    fprintf(fileID, '\n');  % Move to the next line after each row
+    end
+    fclose(fileID);
 end
-fprintf(fileID, '\n');  % Move to the next line after each row
-end
-fclose(fileID);

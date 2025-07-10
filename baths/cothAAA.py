@@ -7,11 +7,11 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 def get_coeffs(params, support=None, values=None):
     # Bathmode and settings
-    Jw_min_tol = 1e-3      # tolerance for the maximum frequency of the grid for the AAA decomposition
     minres_tol = 1e-6      # tolerance for the minimum abs value of a residue in the AAA decomposition
 
     ## Calculate the proposed extent of the support such that J(w) has decayed to 0
-    if support is None or values is None: #
+    if support is None or values is None: 
+        Jw_min_tol = 1e-3      # tolerance for the maximum frequency of the grid for the AAA decomposition
         w_max=params.gam # start with the cuttoff frequency
         while params.J(w_max) > Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
         print(f'Calculating the support and values for the AAA decomposition with tolerance {Jw_min_tol}...')
@@ -20,10 +20,14 @@ def get_coeffs(params, support=None, values=None):
         support = np.linspace(-w_max,w_max,nw,dtype=np.complex128) # support for the AAA decomposition
         values = params.P(support)                     # values of the pole function at the support points
         print(f'Maximum frequency for the AAA decomposition: {w_max} (tolerance {Jw_min_tol})')
+        ext = f'_nw{nw}_wmax{int(w_max)}.txt'                        # extension for the aaa files
+    else:
+        nw= len(support)  # number of support points
+        print(f'Using provided support and values for the AAA decomposition.')
+        ext = f'_quadrature_nw{nw}.txt'
 
     ### Use the AAA decomposition to get the coefficients
     folder = f'aaa_K{params.mu}'                                # folder to save the aaa files
-    ext = f'_nw{nw}_wmax{int(w_max)}.txt'                        # extension for the aaa files
     aaa_filename = f'aaa_data{ext}'                            # filename to save the aaa support and values data
     aaa_data_path = f'{folder}/{aaa_filename}'
     command= f"run_aaa_fromfile({params.mu},'{os.getcwd()}/{folder}','{os.getcwd()}/{aaa_data_path}','{ext}')" # the command to run the AAA decomposition in MATLAB
