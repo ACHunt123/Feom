@@ -1,11 +1,9 @@
 module gradient
 use shared_data, only: Imax, ns, dt, lowTcoef_switch, lowTcoef, Nactive0, Nactive, active, active0
 use shared_data, only: gam_ks, c_U, c_D_LEFT, c_D_RIGHT, ADO_index, I0s, lengths
-use shared_data, only: s_mat2, is_mat, iH_mat, Ktot, L
+use shared_data, only: s_mat2, is_mat, iH_mat, Ktot, L, Ntot
 
 implicit none  
-! parameters for the gradient calculation
-integer(4) :: Ntot !total number of elements in the ADOs array
 ! Temporary arrays for computation
 complex(8), allocatable :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:),gradI(:,:)
 

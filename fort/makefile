@@ -38,7 +38,7 @@ endif
 FC = ifx             # Intel Fortran Compiler (can switch to gfortran if needed)
 F90FLAGS = -g -O3 -funroll-loops  -heap-arrays ${SWITCHES} 
 F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 ${SWITCHES}				# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
-FILES =  shared_data.F90 input_output.F90 gradient.F90 propagator.F90 propagation.F90 -qmkl
+FILES =  shared_data.F90 input_output.F90 gradient.F90 propagator.F90 propagation.F90 -qmkl -lblas
 
 # Directories
 EXEC_DIR = executables

@@ -1,6 +1,7 @@
 program main
     use input_output
-    use prop_subroutines
+    use prop_subroutines, only: RK4step, Krylov_vecs, k1, k2, k3, k4, ktmp, ADOs_tmp, temp_grad, Krylov_dim
+    use gradient, only: rhoI, rhoInkp1, rhoInkm1, gradI
     use shared_data
     implicit none
     complex(8), allocatable :: ADOs(:,:,:) ! we have not made this global for clarity
@@ -13,14 +14,15 @@ program main
     open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
     read(10,'(I10, I10, D22.15, D22.15, I10, I10, D22.15, I10, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot, lowTcoef_switch
     close(10)
+    Ntot = Imax * ns * ns ! total number of elements in the ADOs array
     ! allocate the arrays
     allocate(iH_mat(ns,ns), is_mat(ns,ns), s_mat2(ns,ns), gam_ks(Ktot))
     allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
     allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
     allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns))
-    allocate(ADOs(Imax,ns,ns), k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns), &
-              temp_grad(Imax,ns,ns))
+    allocate(ADOs(Imax,ns,ns), k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns),temp_grad(Imax,ns,ns))
     allocate(active(Imax), active0(Imax), ADOs_tmp(Imax,ns,ns))
+    allocate(Krylov_vecs(0:Krylov_dim,Ntot))
     ! read the matrices from the files
     call read_matrices(ADOs)
 

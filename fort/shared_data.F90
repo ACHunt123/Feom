@@ -2,7 +2,7 @@ module shared_data
     implicit none
     ! Global parameters
     integer(4) :: lowTcoef_switch
-    integer(4) :: Imax, Ktot, ns, L
+    integer(4) :: Imax, Ktot, ns, L, Ntot
     real(8) :: dt, lowTcoef
     real(8), parameter :: epsilon = 1.0d-12 ! epsilon for real comparisons
     real(8), parameter :: tolerance = 1.d-20! tolerance for killing off ADOs with small norm
