@@ -72,7 +72,7 @@ program main
         if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
         #endif
         !verlet step
-        call vvstep(ADOs)
+        call RK4step(ADOs)
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)
