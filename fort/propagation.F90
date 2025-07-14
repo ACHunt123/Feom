@@ -1,6 +1,7 @@
 program main
     use input_output
-    use prop_subroutines, only: RK4step, Krylov_vecs, k1, k2, k3, k4, ktmp, ADOs_tmp, temp_grad, Krylov_dim
+    use prop_subroutines, only: RK4step, k1, k2, k3, k4, ktmp, ADOs_tmp, temp_grad
+    use prop_subroutines, only: Krylov_vecs, SIAstep, Krylov_dim, Recalculate_ADOs
     use gradient, only: rhoI, rhoInkp1, rhoInkm1, gradI
     use shared_data
     implicit none
@@ -8,6 +9,7 @@ program main
     ! Local variables
     real(8) :: hbar,time
     integer(4) :: stat,it,ki,nk,nttot,ni,ntout
+    logical :: printData
 
     !!! LOAD PARAMETERS AND MATRICIES !!!
     ! read the parameters from the input file
@@ -64,8 +66,14 @@ program main
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 0, nttot
-        if (mod(it,ntout).eq.0)  then
+        printData = mod(it,ntout).eq.0
+        if (printData)  then
             time = it * dt
+            #ifdef SIA 
+            call Recalculate_ADOs(ADOs) ! Recalculate the ADOs from the Krylov subspace
+            #endif
+            
+            !!! Write output and message to screen
             print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'            ! Update the screen output
             write(10,'(5E25.15)') time, &                             ! Print output to file
             real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
@@ -73,8 +81,15 @@ program main
         #ifdef Print_ADOs
         if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
         #endif
-        !verlet step
+
+        !!! verlet step
+        #ifdef SIA
+        call SIAstep(ADOs)
+        #else
         call RK4step(ADOs)
+        #endif
+
+        !!! Check for divergence
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)

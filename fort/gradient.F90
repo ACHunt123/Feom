@@ -4,9 +4,12 @@ use shared_data, only: gam_ks, c_U, c_D_LEFT, c_D_RIGHT, ADO_index, I0s, lengths
 use shared_data, only: s_mat2, is_mat, iH_mat, Ktot, L, Ntot
 
 implicit none  
+! Default everything to private
+private
 ! Temporary arrays for computation
-complex(8), allocatable :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:),gradI(:,:)
-
+complex(8), public, allocatable :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:),gradI(:,:)
+! Expose the gradent function
+public :: get_gradient
 contains
 
     ! Function for calculating the gradient of the density, inherits the scope of the vvstep subroutine
