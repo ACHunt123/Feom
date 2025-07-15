@@ -2,6 +2,7 @@
 module prop_subroutines
 use shared_data
 use gradient, only: get_gradient
+use utils, only: innerprod,norm, check_condition_number
 implicit none
 ! Default everything to private
 private
@@ -12,10 +13,10 @@ complex(8), public, allocatable :: k1(:,:,:), k2(:,:,:), k3(:,:,:), k4(:,:,:), k
 complex(8) :: dto2,dto6                                         ! half and 1/6 time step, used for the gradient calculation
 ! Temporary variables for Short Iterative Arnoldi method
 integer(4), public, parameter :: Krylov_dim = 8         ! dimension of the Krylov subspace
-real(8), parameter  :: Krylov_tol = 1.d-10              ! tolerance for the Krylov subspace
-complex(8) :: L_mat(Krylov_dim,Krylov_dim)          ! Liouvillian matrix for the Krylov subspace
+real(8), parameter  :: Krylov_tol = 1.d-8               ! tolerance for the Krylov subspace
+complex(8) :: L_mat(Krylov_dim,Krylov_dim)              ! Liouvillian matrix for the Krylov subspace
 complex(8), public, allocatable :: Krylov_vecs(:,:)     ! Krylov subspace vectors
-complex(8), public :: ADOs_Krylov(Krylov_dim)         ! ADOs in the Krylov basis
+complex(8), public :: ADOs_Krylov(Krylov_dim)           ! ADOs in the Krylov basis
 ! Expose some of the subroutines
 public :: RK4step, SIAstep, Recalculate_ADOs
 ! Interfaces for the LAPACK routines
@@ -180,7 +181,6 @@ subroutine Recalculate_ADOs(ADOs)
     implicit none
     complex(8), intent(inout) :: ADOs(Ntot)
     integer(4) :: i,j
-
     !!! reset ADOs
     ADOs=(0.d0,0.d0)
     !!! Recalculate the ADOs from the Krylov basis
@@ -202,19 +202,20 @@ subroutine SIAstep(ADOs)
     complex(8) :: scale, csum ! temporary variables
     complex(8) :: vec_R(Krylov_dim),vec_L(Krylov_dim),lambda,Av(Krylov_dim),vA(Krylov_dim),L_mat_copy(Krylov_dim,Krylov_dim) ! temporary variables for the eigenvector and eigenvalue
 
-    if (abs(ADOs_Krylov(Krylov_dim)).gt.Krylov_tol)    then 
-        ! print*, 'Recalculating Krylov subspace...'
+    ! get the basis vectors for the Krylov subspace (if it is needed)
+    if (abs(ADOs_Krylov(Krylov_dim)).gt.Krylov_tol*norm(ADOs_Krylov,Krylov_dim))    then 
+
         !!! Recalculate the ADOs from the Krylov basis
         call Recalculate_ADOs(ADOs)
 
         !!! regenerate the Krylov subspace using these new ADOs
-        ADOs_Krylov = (0.d0,0.d0)
-        ADOs_Krylov(1) = (1.d0,0.d0)
-
-        ! print*, 'Generating Krylov subspace...'
+        
         !!! get the basis vectors for the Krylov subspace
-        call generate_krylov_vecs(ADOs) ! generate the Krylov vectors
+        call generate_krylov_vecs(ADOs)         ! generate the Krylov vectors
+        ADOs_Krylov = (0.d0,0.d0)               ! in this new basis, the first vector is the ADOs/norm
+        ADOs_Krylov(1) = norm(ADOs,Ntot)  ! so the coefficient is the norm of the ADOs
         L_mat_copy = L_mat ! make a copy of the Liouvillian matrix
+
         !!! Diagonalise the Liouvillian matrix (DESTROYING IT)
         lwork= 2*(Krylov_dim)*(Krylov_dim) ! workspace size for the LAPACK routine
         allocate(work(lwork)) ! allocate the work array for the LAPACK routine
@@ -223,52 +224,51 @@ subroutine SIAstep(ADOs)
                 U_Krylov_L, Krylov_dim, U_Krylov_R, Krylov_dim, work, lwork, rwork, info)
         deallocate(work) ! deallocate the work array
         deallocate(rwork) ! deallocate the real work array
-        ! print*, 'Eigenvalues of the Liouvillian matrix:'
-        ! do i=1,Krylov_dim
-        !     print*, real(L_evals(i)), aimag(L_evals(i))
-        ! end do
         if (info /= 0) stop 'Error in zgeev'
-        ! Test that the eigenvectors are actually eigenvectors
-        do i = 1,Krylov_dim
-            vec_R=U_Krylov_R(:,i)
-            vec_L=conjg(U_Krylov_L(:,i))
-            lambda=L_evals(i)
-            Av= matmul(L_mat_copy,vec_R)
-            vA= matmul(vec_L,L_mat_copy)
-            ! print*,sum(abs(Av-lambda*vec_R))
-            ! print*,sum(abs(vA-lambda*vec_L))
-        end do
-        ! print*, 'Krylov subspace generated.'
-
         ! make the transformation matrices biorthogonal
-        ! print*, 'Biorthogonalising the transformation matrices...'
         do i=1,Krylov_dim
             scale = innerprod(U_Krylov_L(:,i) ,U_Krylov_R(:,i),Krylov_dim) ! calculate the inner product of the Krylov vectors
             U_Krylov_L(:,i)= U_Krylov_L(:,i)/dconjg(scale) ! scale the left transformation matrix
         end do
-        ! test that the transformation matrices are biorthogonal
-        do i=1,Krylov_dim
-            do j=1,Krylov_dim
-                ! print*,abs(innerprod(U_Krylov_L(:,i),U_Krylov_R(:,j),Krylov_dim))
-                if (i.eq.j) then
-                    if ((abs(innerprod(U_Krylov_L(:,i),U_Krylov_R(:,j),Krylov_dim))-1.d0) > 1.d-10) then
-                        print*, 'Biorthogonalisation failed for i=j=',i,abs(innerprod(U_Krylov_L(i,:),U_Krylov_R(j,:),Krylov_dim))
-                        stop
-                    end if
-                else
-                    if (abs(innerprod(U_Krylov_L(:,i),U_Krylov_R(:,j),Krylov_dim)) > 1.d-10) then
-                        print*, 'Biorthogonalisation failed for i=',i,' j=',j,abs(innerprod(U_Krylov_L(i,:),U_Krylov_R(j,:),Krylov_dim))
-                        stop
-                    end if
-                end if
-            end do
-        end do
 
-        ! print*, 'exponentiating the eigenvalues...'
-        ! Exponentiate eigenvalues with dt
+        !!! Exponentiate eigenvalues with dt to get the eigenvalues of the propagator
         L_evals = zexp(L_evals*dt) ! exponentiate the eigenvalues with the time step
 
-        ! Transform the Liouvillian matrix to the Krylov subspace
+        if (0) then !Tests: BIORTHOGONALITY, CONDITION NUMBER, EIGENVALUES
+            ! eigenvalues and eigenvectors are correct
+            do i = 1,Krylov_dim
+                vec_R=U_Krylov_R(:,i)
+                vec_L=conjg(U_Krylov_L(:,i))
+                lambda=L_evals(i)
+                Av= matmul(L_mat_copy,vec_R)
+                vA= matmul(vec_L,L_mat_copy)
+                if (sum(abs(Av-lambda*vec_R))>1e-10) print*, 'Error in eigenvector calculation for right vector i=',i, sum(abs(Av-lambda*vec_R))
+                if (sum(abs(vA-lambda*vec_L))>1e-10) print*, 'Error in eigenvector calculation for left vector i=',i, sum(abs(vA-lambda*vec_L))
+            end do
+            ! test that the transformation matrices are biorthogonal
+            do i=1,Krylov_dim
+                do j=1,Krylov_dim
+                    if (i.eq.j) then
+                        if ((abs(innerprod(U_Krylov_L(:,i),U_Krylov_R(:,j),Krylov_dim))-1.d0) > 1.d-10) then
+                            print*, 'Biorthogonalisation failed for i=j=',i,abs(innerprod(U_Krylov_L(i,:),U_Krylov_R(j,:),Krylov_dim))
+                            stop
+                        end if
+                    else
+                        if (abs(innerprod(U_Krylov_L(:,i),U_Krylov_R(:,j),Krylov_dim)) > 1.d-10) then
+                            print*, 'Biorthogonalisation failed for i=',i,' j=',j,abs(innerprod(U_Krylov_L(i,:),U_Krylov_R(j,:),Krylov_dim))
+                            stop
+                        end if
+                    end if
+                end do
+            end do
+            ! test how conditioned the eigenvalues are
+            call check_condition_number(U_Krylov_R, Krylov_dim, 'U_Krylov_R')
+            call check_condition_number(U_Krylov_L, Krylov_dim, 'U_Krylov_L')
+            ! test that the eigenvalues are not too big
+            if (any(abs(L_evals).gt.100.d0)) stop 'Error: eigenvalues of the Liouvillian matrix are too large'
+        end if
+
+        !!! Transform the Liouvillian matrix to the Krylov subspace
         L_mat = 0.d0 ! initialise the Liouvillian matrix in the Krylov subspace to zero
         do i=1,Krylov_dim
             do j=1,Krylov_dim
@@ -280,58 +280,27 @@ subroutine SIAstep(ADOs)
             end do
         end do
        
-        ! print*, 'Liouvillian matrix in the Krylov subspace:'
-        ! do i=1,Krylov_dim
-        !     write(*,'(10F10.5)') real(L_mat(i,:))
-        ! end do
-        ! print*, 'copy of the original'
-        ! do i=1,Krylov_dim
-        !     write(*,'(10F10.5)') real(L_mat_copy(i,:))
-        ! end do
-
-        
-        ! stop
-    else
-        !!! Propagate the vector with dt
-        do k=1,Krylov_dim
-            csum=(0.d0,0.d0) ! initialise the csum to zero
-            do j=1,Krylov_dim
-                csum = csum + L_mat(k,j) * ADOs_Krylov(j) ! sum over the Krylov vectors
-            end do
-            ADOs_Krylov(k) = csum ! store the result in the ADOs in the Krylov basis
-        end do
     end if
 
-    contains
-    function innerprod(v1,v2,size)
-        ! This function calculates the inner product of two vectors
-        ! Input |v1>, |v2> and their size
-        ! Output <v1|v2>
-        implicit none
-        integer(4), intent(in) :: size
-        complex(8), intent(in) :: v1(size), v2(size)
-        integer(4) :: ii
-        complex(8) :: innerprod ! the inner product of the two vectors
-        innerprod = (0.d0,0.d0) ! initialise the inner product to zero
-        do ii = 1,size
-            innerprod = innerprod + conjg(v1(ii)) * v2(ii) ! calculate the inner product
-        end do
-    end function innerprod
+    !!! Propagate the vector with dt 
+    ADOs_Krylov = matmul(L_mat,ADOs_Krylov) ! propagate the ADOs in the Krylov basis with the Liouvillian matrix
+    
 
+    contains
     subroutine generate_krylov_vecs(ADOs) 
         ! This subroutine generates the Krylov vectors for the short iterative method
         implicit none
         complex(8), intent(in) :: ADOs(Ntot) ! the ADOs in the Krylov basis
         integer(4) :: j,k,ni,nj
-        real(8) :: norm,beta
+        real(8) :: ADOnorm,beta
         complex(8) :: Phi(Nactive0,ns,ns) ! work vector
         
         !Get the zeroth Krylov vector
         L_mat = (0.d0,0.d0)
-        norm = dznrm2(Ntot, ADOs, 1)                            ! calculate the norm of the ADOs
+        ADOnorm = norm(ADOs,Ntot)                            ! calculate the norm of the ADOs
         Krylov_vecs= (0.d0,0.d0) ! initialise the Krylov vectors to zero
         phi = (0.d0,0.d0) ! initialise the work vector to zero
-        Krylov_vecs(1,:) = ADOs(:)/norm     ! normalise the zeroth Krylov vector
+        Krylov_vecs(1,:) = ADOs(:)/ADOnorm     ! normalise the zeroth Krylov vector
     
         ! calculate the rest of the Krylov vectors
         do k = 1, Krylov_dim
@@ -351,13 +320,13 @@ subroutine SIAstep(ADOs)
             end do
             
             ! normalise the Krylov vector, and store the k+1,k th element of the Liouvillian matrix
-            norm = dznrm2(Ntot, Phi, 1)                        ! calculate the norm of the Krylov vector
+            ADOnorm = norm(Phi,Ntot)                        ! calculate the norm of the Krylov vector
             if (k.lt.Krylov_dim) then
-                L_mat(k+1,k) = norm ! <Krylov_vecs(k+1,:)|L|Krylov_vecs(k,:)> = <phi| * (|phi> + stuff orthogal to |phi>) = <phi|phi>
-                if (abs(norm).lt.1d-20) then 
+                L_mat(k+1,k) = ADOnorm ! <Krylov_vecs(k+1,:)|L|Krylov_vecs(k,:)> = <phi| * (|phi> + stuff orthogal to |phi>) = <phi|phi>
+                if (abs(ADOnorm).lt.1d-20) then 
                     Krylov_vecs(k+1,:) =(0.d0,0.d0) ! if the norm is too small, set the Krylov vector to zero
                 else
-                    Krylov_vecs(k+1,:) = reshape(Phi,[Ntot])/norm ! normalise the Krylov vector
+                    Krylov_vecs(k+1,:) = reshape(Phi,[Ntot])/ADOnorm ! normalise the Krylov vector
                 end if
             endif
         !!!

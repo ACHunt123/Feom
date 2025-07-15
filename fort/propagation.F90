@@ -1,13 +1,14 @@
 program main
     use input_output
     use prop_subroutines, only: RK4step, k1, k2, k3, k4, ktmp, ADOs_tmp, temp_grad
-    use prop_subroutines, only: Krylov_vecs, SIAstep, Krylov_dim, Recalculate_ADOs
+    use prop_subroutines, only: Krylov_vecs, SIAstep, Krylov_dim, Recalculate_ADOs,ADOs_Krylov
     use gradient, only: rhoI, rhoInkp1, rhoInkm1, gradI
     use shared_data
+    use utils, only: norm
     implicit none
     complex(8), allocatable :: ADOs(:,:,:) ! we have not made this global for clarity
     ! Local variables
-    real(8) :: hbar,time
+    real(8) :: hbar,time, ADOnorm
     integer(4) :: stat,it,ki,nk,nttot,ni,ntout
     logical :: printData
 
@@ -24,7 +25,7 @@ program main
     allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns))
     allocate(ADOs(Imax,ns,ns), k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns),temp_grad(Imax,ns,ns))
     allocate(active(Imax), active0(Imax), ADOs_tmp(Imax,ns,ns))
-    allocate(Krylov_vecs(0:Krylov_dim,Ntot))
+    allocate(Krylov_vecs(Krylov_dim,Ntot))
     ! read the matrices from the files
     call read_matrices(ADOs)
 
@@ -56,10 +57,22 @@ program main
     ! this makes sense; truncation/addition of ados is done each timestep (a discrete process)
     ! if the number of ADOs explodes at t=0, then the timestep resolution is too low.
     ! also setting up this way ensures that if prune is off, the code will still work (active(I) = I)
+    Nactive = 0
+    Nactive0 = 0
+    active = 0 ! initialise the active array to zero
+    active0 = 0 ! initialise the active0 array to zero
     do ni = 1,Imax
         active(ni) = ni
+        active0(ni) = ni
         Nactive = Nactive + 1
+        Nactive0 = Nactive0 + 1
     end do
+
+    !!! Initialise SIA (such that the basis is recaluclated at the first timestep)
+    ADOnorm = norm(ADOs,Ntot)
+    ADOs_Krylov(:) = (1.0d0,0.0d0)*ADOnorm  ! initialise the ADOs in the Krylov basis (made to trigger recalculation initially)
+    Krylov_vecs(:,:) = (0.0d0,0.0d0)        ! initialise the Krylov vectors
+    Krylov_vecs(1,:) = reshape(ADOs(:,:,:), [Ntot])/ADOnorm ! set the first Krylov vector top be the ADOs
 
     !!! PROPAGATION !!!
     ntout = int(max(nttot / 1000,1)) ! how often to print the output
