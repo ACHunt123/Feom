@@ -24,7 +24,7 @@ program main
     allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
     allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns))
     allocate(ADOs(Imax,ns,ns), k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns),temp_grad(Imax,ns,ns))
-    allocate(active(Imax), active0(Imax), ADOs_tmp(Imax,ns,ns))
+    allocate(ADOs_tmp(Imax,ns,ns))
     allocate(Krylov_vecs(Krylov_dim,Ntot))
     ! read the matrices from the files
     call read_matrices(ADOs)
@@ -42,9 +42,6 @@ program main
     end do 
     ! Print out the hashmap for the ADO printout
     #ifdef Print_ADOs
-        #ifdef Prune
-         stop 'ADO printout is not implemented for pruning'
-        #endif
         open(20, file='ADO_index.out', status='unknown', action='write')
         do ni = 1,Imax
             write(20,'(I10, 5I10)') ni, ADO_index(ni,:)
@@ -52,21 +49,6 @@ program main
         close(20)
     #endif
 
-    !!! MAKE ALL ADOS INITIALLY ACTIVE !!!
-    ! it has been found that setting just the first to active gives inaccurate results 
-    ! this makes sense; truncation/addition of ados is done each timestep (a discrete process)
-    ! if the number of ADOs explodes at t=0, then the timestep resolution is too low.
-    ! also setting up this way ensures that if prune is off, the code will still work (active(I) = I)
-    Nactive = 0
-    Nactive0 = 0
-    active = 0 ! initialise the active array to zero
-    active0 = 0 ! initialise the active0 array to zero
-    do ni = 1,Imax
-        active(ni) = ni
-        active0(ni) = ni
-        Nactive = Nactive + 1
-        Nactive0 = Nactive0 + 1
-    end do
 
     !!! Initialise SIA (such that the basis is recaluclated at the first timestep)
     ADOnorm = norm(ADOs,Ntot)
@@ -87,7 +69,7 @@ program main
             #endif
             
             !!! Write output and message to screen
-            print*, it,'/',nttot, Nactive,'of',Imax,'ADOs'            ! Update the screen output
+            print*, it,'/',nttot           ! Update the screen output
             write(10,'(5E25.15)') time, &                             ! Print output to file
             real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
         endif
@@ -106,8 +88,8 @@ program main
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)
-    deallocate(ADOs, iH_mat, is_mat, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, active, s_mat2)
-    deallocate(rhoI,rhoInkp1,rhoInkm1,gradI,k1,k2,k3,k4,ktmp,ADOs_tmp,active0)
+    deallocate(ADOs, iH_mat, is_mat, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, s_mat2)
+    deallocate(rhoI,rhoInkp1,rhoInkm1,gradI,k1,k2,k3,k4,ktmp,ADOs_tmp)
 
 end program main
 

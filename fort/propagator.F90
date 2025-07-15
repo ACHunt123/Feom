@@ -61,83 +61,14 @@ end interface
 contains
 
 
-!    ! Function for killing off ADOs that have a small norm
-subroutine changeN(ADOs,active,active0,Nactive,Nactive0)
-    implicit none
-    complex(8), intent(inout), allocatable :: ADOs(:,:,:)
-    integer(4), intent(inout) :: active(Imax), active0(Imax), Nactive, Nactive0
-    integer(4) :: I, si, sj
-    real(8) :: norm
-    
-    ! reallocate the temporary array if required
-    if (Nactive0.ne.Nactive) then
-        deallocate(ADOs_tmp)
-        allocate(ADOs_tmp(Nactive,ns,ns))
-        ADOs_tmp = 0.d0
-    end if
-
-    ! reset number of active ADOs (as we are about to kill the small ones)
-    Nactive = 0
-    do I = 1, Imax
-        ! all ADOS
-        if (active(I).eq.0) cycle !skip if ADO not active at the end of the timestep
-        ! all ADOs that are active at end of timestep
-        if (active0(I).eq.0) then !if the ADO was not active at the start of the timestep, then it is not active now
-            Nactive = Nactive + 1
-            active(I) = Nactive
-            ADOs_tmp(Nactive,:,:) =  0.d0 ! create new ADO in list
-            cycle
-        endif
-        ! all ados that were active at start and end of timestep (now we kill off some)
-        norm = 0.d0
-        do si = 1, ns
-            do sj = 1, ns
-                norm = norm + abs(ADOs(active0(I),si,sj))**2
-            end do
-        end do
-        if (norm.gt.tolerance) then
-            Nactive = Nactive + 1
-            active(I) = Nactive
-            ADOs_tmp(Nactive,:,:) = ADOs(active0(I),:,:)
-            cycle
-        end if
-        ! the only left are the ones that are too small
-        active(I) = 0
-        
-    end do
-
-    if (Nactive0.ne.Nactive) then
-        deallocate(ADOs)
-        allocate(ADOs(Nactive,ns,ns))
-    end if
-    do I = 1, Nactive
-        ADOs(I,:,:) = ADOs_tmp(I,:,:)
-    end do
-    
-    end subroutine changeN
-
-
 ! rk4 propagation of HEOM for one step
 subroutine RK4step(ADOs)
     implicit none
-    complex(8), allocatable, intent(inout) :: ADOs(:,:,:)
+    complex(8), intent(inout) :: ADOs(Imax,ns,ns)
     if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
     ! Precomputation of constants
     dto2 = dt/(2.d0,0.d0)               ! half the time step, used for the gradient calculation
     dto6 = dt/(6.d0,0.d0)               ! 1/6 the time step, used for the gradient calculation
-
-    ! reallovate the temporary arrays if required
-    #ifdef Prune
-    if (Nactive0.ne.Nactive) then
-        deallocate(k1,k2,k3,k4,ktmp,temp_grad)
-        allocate(k1(Nactive,ns,ns), k2(Nactive,ns,ns), k3(Nactive,ns,ns), k4(Nactive,ns,ns), ktmp(Nactive,ns,ns),temp_grad(Nactive,ns,ns))
-    end if
-    #endif
-
-    ! initialise nactive0 and active0
-    ! those without 0 will be changed during propagations, those with 0 will not
-    Nactive0 = Nactive
-    active0 = active
 
     ! Calculate the k values for the Runge-Kutta method
     call get_gradient(ADOs,k1) ! calculate the gradient of the density matrix
@@ -170,11 +101,6 @@ subroutine RK4step(ADOs)
     call zaxpy(Ntot, third, k3, 1, ADOs, 1)     ! ADOs = ADOs + third * k3
     call zaxpy(Ntot, third, k1, 1, ADOs, 1)     ! ADOs = ADOs + third * k1
 
-    
-    ! Kill off ADOs with small norm
-    #ifdef Prune
-    call changeN(ADOs,active,active0,Nactive,Nactive0)
-    #endif
     end subroutine
 ! Recalculate the ADOs from the Krylov vectors
 subroutine Recalculate_ADOs(ADOs)
@@ -293,7 +219,7 @@ subroutine SIAstep(ADOs)
         complex(8), intent(in) :: ADOs(Ntot) ! the ADOs in the Krylov basis
         integer(4) :: j,k,ni,nj
         real(8) :: ADOnorm,beta
-        complex(8) :: Phi(Nactive0,ns,ns) ! work vector
+        complex(8) :: Phi(Imax,ns,ns) ! work vector
         
         !Get the zeroth Krylov vector
         L_mat = (0.d0,0.d0)
@@ -306,14 +232,14 @@ subroutine SIAstep(ADOs)
         do k = 1, Krylov_dim
             ! calculate the (non-orthonormalised) Krylov vector of the i+1 th order
             ! |phi_{k+1}> =  L|Krylov_vecs(k,:)>
-            call get_gradient(reshape(Krylov_vecs(k,:),[Nactive0,ns,ns]),Phi) 
+            call get_gradient(reshape(Krylov_vecs(k,:),[Imax,ns,ns]),Phi) 
 
             ! |phi_{k+1}> ==Gram-Schmidt Orthogonalisation==> |Krylov_vecs(k+1,:)>
             do j = 1, k
                 ! calculate the inner product of the Krylov vector with the previous Krylov vectors
                 beta = innerprod(Krylov_vecs(j,:),reshape(Phi,[Ntot]), Ntot) ! L_mat(i,j) = <Krylov_vecs(j,:),Phi>
                 ! remove the component of the Krylov vector that is in the direction of the previous Krylov vectors
-                Phi = Phi - beta*reshape(Krylov_vecs(j,:),[Nactive0,ns,ns])
+                Phi = Phi - beta*reshape(Krylov_vecs(j,:),[Imax,ns,ns])
                 ! store the inner product in the Liouvillian matrix
                 L_mat(j,k) = beta   ! L_mat(j,k) = <Krylov_vecs(j,:)|L|Krylov_vecs(k,:)>
                 

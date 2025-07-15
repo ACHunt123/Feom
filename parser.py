@@ -75,7 +75,7 @@ def parse_args():
     parser.add_argument("--lowTCorr",type=int,default=0,help="add low temp corrections?") # NEED TO CHANGE THIS TO BOOLEAN
     # parser.add_argument("--lowTCorr", action="store_true", help="Add low temperature corrections if this flag is set.")
     parser.add_argument("--print_ADOs", action="store_true", help="Print the ADOs to file every N timesteps")
-    parser.add_argument("--prune", action="store_true", help="Prune the ADOs dynamically during propagation")
+    parser.add_argument("--noSIA", action="store_true", help="Use RK4 step instead of SIA step")
 
     return parser.parse_args()
 

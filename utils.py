@@ -114,8 +114,8 @@ def FORT_SWITCHES(params):
         switches.append('LowTCorr')
     if params.print_ADOs:
         switches.append('Print_ADOs')
-    if params.prune:
-        switches.append('Prune')
+    if not params.noSIA:
+        switches.append('SIA')
     # sort the switches to be alphabetical
     switches.sort()
     makefile_command= f'SWITCHES=" -D{" -D".join(switches)}"'

@@ -1,5 +1,5 @@
 module gradient
-use shared_data, only: Imax, ns, dt, lowTcoef_switch, lowTcoef, Nactive0, Nactive, active, active0
+use shared_data, only: Imax, ns, dt, lowTcoef_switch, lowTcoef
 use shared_data, only: gam_ks, c_U, c_D_LEFT, c_D_RIGHT, ADO_index, I0s, lengths
 use shared_data, only: s_mat2, is_mat, iH_mat, Ktot, L, Ntot
 
@@ -14,18 +14,13 @@ contains
 
     ! Function for calculating the gradient of the density, inherits the scope of the vvstep subroutine
 subroutine get_gradient(rho,grad)
-    complex(8), intent(in) :: rho(Nactive0,ns,ns) ! fortran is column major so the last index is the fastest changing
-    complex(8), intent(out) :: grad(Nactive0,ns,ns)
+    complex(8), intent(in) :: rho(Imax,ns,ns) ! fortran is column major so the last index is the fastest changing
+    complex(8), intent(out) :: grad(Imax,ns,ns)
     integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki,nk
 
     ! Loop over the ADOs
     do I = 1, Imax
-        #ifdef Prune
-        if (active0(I).eq.0) cycle !skip if not active
-        rhoI = rho(active0(I),:,:) ! temporary variable for the ADO (same done for the gradient, but needn't be initiallised as is overwritten)
-        #else
-        rhoI = rho(I,:,:)
-        #endif
+        rhoI = rho(I,:,:) ! temporary variable for the ADO (same done for the gradient, but needn't be initiallised as is overwritten)
 
         ! Get the n values for the ADOs
         n_ks = ADO_index(I,:)
@@ -55,15 +50,7 @@ subroutine get_gradient(rho,grad)
             I_nkm1 = I_nk_plusminus(I,ki,-1)
 
             if (I_nkp1.ne.-1) then !check if the index is valid
-                #ifdef Prune
-                if (active0(I_nkp1).eq.0) then      !skip if not active0 (initially active)
-                    if (active(I_nkp1).eq.0) then   ! if not already active, add to the list of active ADOs that will be updated
-                        Nactive = Nactive + 1
-                        active(I_nkp1) = Nactive
-                    end if
-                else    ! index is valid and rhos are active so do the operation
-                I_nkp1=active0(I_nkp1)
-                #endif
+
                 rhoInkp1 = rho(I_nkp1,:,:)
                 #ifdef USEZGEMM
                 call ZGEMM('N','N',ns,ns,ns,c_U(ki,nk),rhoInkp1,ns,is_mat,ns,(1.0d0,0.0d0),gradI,ns)    ! gradI = gradI + c_U(ki,nk) * rhoInkp1 * is_mat
@@ -73,21 +60,11 @@ subroutine get_gradient(rho,grad)
                 +  c_U(ki,nk) * ( - matmul(is_mat,rhoInkp1) + matmul(rhoInkp1,is_mat))
                 !   + [sqrt((nk+1)*abs(Ck)) * ( - matmul(is_mat,rho(I_nkp1,:,:)) + matmul(rho(I_nkp1,:,:),is_mat))]
                 #endif
-                endif
-                #ifdef Prune
-                endif
-                #endif
+            endif
+
 
             if (I_nkm1.ne.-1) then
-                #ifdef Prune
-                if(active0(I_nkm1).eq.0) then
-                    if (active(I_nkm1).eq.0) then
-                        Nactive = Nactive + 1
-                        active(I_nkm1) = Nactive
-                    end if
-                else
-                I_nkm1=active0(I_nkm1)
-                #endif
+               
                 rhoInkm1 = rho(I_nkm1,:,:)
                 #ifdef USEZGEMM
                 call ZGEMM('N','N',ns,ns,ns,c_D_LEFT(ki,nk),is_mat,ns,rhoInkm1,ns,(1.0d0,0.0d0),gradI,ns)  ! gradI = gradI + c_D_LEFT(ki,nk) * is_mat * rhoInkm1
@@ -97,16 +74,12 @@ subroutine get_gradient(rho,grad)
                 +  c_D_LEFT(ki,nk) * matmul(is_mat,rhoInkm1) + c_D_RIGHT(ki,nk) * matmul(rhoInkm1,is_mat)
                 !   +  [sqrt(nk/abs(Ck)) * (- Ck*matmul(is_mat,rho(I_nkm1,:,:)) + conjg(Ck)*matmul(rho(I_nkm1,:,:),is_mat))]
                 #endif
-                endif
-                #ifdef Prune
-                endif
-                #endif
+            endif
+
         end do
         ! Update the gradient array
-        grad(active0(I),:,:) = gradI
+        grad(I,:,:) = gradI
     end do
-    ! Recalculate the total number of elements, considering the pruning
-    Ntot = Nactive*ns*ns                ! total number of elements in the ADOs array
 
 end subroutine get_gradient
 

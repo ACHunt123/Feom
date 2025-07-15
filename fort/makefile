@@ -36,10 +36,8 @@ else
 endif
 # Compiler and flags
 FC = ifx             # Intel Fortran Compiler (can switch to gfortran if needed)
-F90FLAGS = -g -O3 -funroll-loops  -heap-arrays ${SWITCHES} 
-F90FLAGS = -g -O3 -funroll-loops  -heap-arrays -DPrune ${SWITCHES} 
-F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 ${SWITCHES}				# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
-F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 -DPrune ${SWITCHES}				# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
+F90FLAGS = -g -O3 -funroll-loops  -heap-arrays  ${SWITCHES} -DSIA
+F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 ${SWITCHES} -DSIA			# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
 FILES = utils.F90 shared_data.F90 input_output.F90 gradient.F90 propagator.F90 propagation.F90 -qmkl 
 
 # Directories
@@ -58,9 +56,6 @@ all:
 	wait
 	$(FC) $(F90FLAGS) -DPrint_ADOs -o  propagation_Print_ADOs $(FILES)
 	mv propagation_Print_ADOs executables/
-	wait
-	$(FC) $(F90FLAGS) -DPrune  -o  propagation_Prune $(FILES)
-	mv propagation_Prune executables/
 
 
 
