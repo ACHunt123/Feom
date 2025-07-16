@@ -72,7 +72,7 @@ def writeParams(filename,params): # Writes small parameters into file
 def out_filename(params): # Name of the output file - contains all the parameters
     namestr = ''
     for key in params.__dict__.keys():
-        if key in ['header','out_name']: continue # dont put the header in the filename
+        if key in ['header','out_name','executable_suffix']: continue # dont put the header in the filename
         #get type of variable for formatting
         if type(params.__dict__[key]) == float:
             namestr += f'{key}{params.__dict__[key]:.3g}_'
@@ -84,31 +84,12 @@ def out_filename(params): # Name of the output file - contains all the parameter
     namestr = namestr.replace('bathname','BTH').replace('bathmode','').replace('potname','POT').replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
     return f'outfile_{namestr[:-1]}.out'
 
-def printparams(params):
-    ### Make metadata for headers in files - again this contains all the parameters
-    runcommand = 'feom.py '
-    metadata = "Input parameters used\n"
-    metadata += "------------------------------------------------------------------------------------\n"
-    for key in params.__dict__.keys():
-        if type(params.__dict__[key]) == float:
-            metadata += f'{key} = {params.__dict__[key]:.3g} \n'
-        if type(params.__dict__[key]) == int:
-            metadata += f'{key} = {params.__dict__[key]} \n'
-        if type(params.__dict__[key]) == str:
-            metadata += f'{key} = {params.__dict__[key]}\n'
-        if key not in ['header','out_name']:
-            runcommand += f'--{key} {params.__dict__[key]} '
-    metadata += 'To run this code use the following command\n'
-    metadata += runcommand + '\n'
-    metadata += "------------------------------------------------------------------------------------\n"
-    metadata += 'Data \n'
-    return metadata
 
 def FORT_SWITCHES(params):
-        # Supported compile-time switches (SWITCHES):
+# Supported compile-time switches (SWITCHES):
 #   -DLowTCorr      Enable low-temperature correction via double commutator
 #   -DPrint_ADOs    Print the ADOs to file every N timesteps
-#   -DPrune         Prune the ADOs dynamically during propagation
+#   -DSIA           Use SIA step instead of RK4 step (default)
     switches = []
     if params.lowTCorr==1:
         switches.append('LowTCorr')
@@ -124,3 +105,29 @@ def FORT_SWITCHES(params):
         executable_suffix = ''
         makefile_command = 'SWITCHES=""'    
     return makefile_command, executable_suffix
+
+
+def printparams(params):
+    ### Make metadata for headers in files - again this contains all the parameters
+    runcommand = 'feom.py '
+    metadata = "Input parameters used\n"
+    metadata += "------------------------------------------------------------------------------------\n"
+    for key in params.__dict__.keys():
+        if type(params.__dict__[key]) == float:
+            metadata += f'{key} = {params.__dict__[key]:.3g} \n'
+        if type(params.__dict__[key]) == int:
+            metadata += f'{key} = {params.__dict__[key]} \n'
+        if type(params.__dict__[key]) == str:
+            metadata += f'{key} = {params.__dict__[key]}\n'
+        if key not in ['header','out_name', 'executable_suffix']:
+            runcommand += f'--{key} {params.__dict__[key]} '
+    metadata += 'To compile the FORTRAN executable use the following command (in the Feom/fort directory) \n'
+    metadata += f'make fast {FORT_SWITCHES(params)[0]}' + '\n'
+    if ('DSIA' in FORT_SWITCHES(params)[0]):
+        metadata += 'SIA is Hardcoded with Krylov_dim = 8, Krylov_tol 1e-8, which so far has not had any issues\n'
+    metadata += "------------------------------------------------------------------------------------\n"
+    metadata += 'To run this code use the following command\n'
+    metadata += runcommand + '\n'
+    metadata += "------------------------------------------------------------------------------------\n"
+    metadata += 'Data \n'
+    return metadata

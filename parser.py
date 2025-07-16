@@ -81,7 +81,8 @@ def parse_args():
 
 ### Get all the parameters
 params = parse_args()
-### remove the unnecessary ones
+
+### remove the unnecessary ones and ones that must be overridden
 if params.potname == 'harmonic':
     del params.Delta
     del params.eps
@@ -91,6 +92,7 @@ elif params.potname == 'spinboson':
     del params.dx
     del params.xmin
     del params.xmax
+if params.bathmode == 'Pade[N-1,N]': lowTCorr = 0
 
 ### Write the parameters to a file and filename
 params.header = printparams(params)

@@ -5,7 +5,7 @@ echo "Starting benchmark for DebyeSB model..."
 # command to run the matlab script (that will do all 3 benchmarks)
 # matlab -batch "addpath('$HOME/software/phd/Feom/benchmark/DebyeSB'); TFaySB" > /dev/null & 
 # # command to run the feom.py script
- python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 4 --K 3 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.01 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --lowTCorr 1 > /dev/null
+ python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 4 --K 3 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.01 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --lowTCorr 1 > /dev/null 
  python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 3 --K 3 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.01 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debyeCothpoles --bathmode Pade[N/N] --eta 2 --gam 1 --lowTCorr 1 > /dev/null 
  python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 2 --K 3 --ns 2 --beta 1 --hbar 1 --tmax 10.0 --dt 0.01 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debyeCothpoles --bathmode Pade[N-1/N] --eta 2 --gam 1 --lowTCorr 1 > /dev/null 
 wait
@@ -51,4 +51,4 @@ EOF
 # Clean up the output files if you press enter
 read -p "Press Enter to delete output files ALL .out and .txts (or Ctrl+C to cancel)..."
 # rm *out *txt
-rm outfile* *txt     # doesnt delete Tom fays results
+rm outfile* *txt     # doesnt delete Tom fays

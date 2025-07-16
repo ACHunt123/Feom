@@ -37,7 +37,7 @@ setup.generate_input_files(rho) # writes the inputfiles and fortran code to tmp/
 ### Go
 run_here = 1
 if(run_here): # run the fortran code in the temporary directory
-    os.system('cd tmp/; ./propagation')
+    os.system(f'cd tmp/; ./{setup.executable_name}')
     fname = header = 'Css.txt'
     # get the raw output file
     data= np.loadtxt('tmp/output')
@@ -56,7 +56,7 @@ if(run_here): # run the fortran code in the temporary directory
     processed_data[:,4] = (1+(rho11 - rho00))/2  # Site 1 population
     datalabels = 't <s_z> <s_x> <s_y> (1+<s_z>)/2' 
 
-    np.savetxt(params.out_name,processed_data.real,header=params.header+datalabels)
+    np.savetxt(setup.out_name,processed_data.real,header=params.header+datalabels)
     os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
     os.system('rm -r tmp/ -f') #clean up the temporary directory
 

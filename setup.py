@@ -52,8 +52,8 @@ class Setup:
         # Write the parameters to the file
         writeParams('Fortparams',self)
         # get the switches and name of the makefile
-        makefile_command, executable_suffix = FORT_SWITCHES(self)
-        self.executable_name=f'propagation{executable_suffix}'
+        makefile_command, self.executable_suffix = FORT_SWITCHES(self)
+        self.executable_name=f'propagation{self.executable_suffix}'
         # Copy the correct fortran executable to the temporary directory
         print(f'\n Copying the fortran executable {self.executable_name} to the tmp/ directory\n')
         script_dir = os.path.dirname(os.path.abspath(__file__))
