@@ -2,48 +2,59 @@
 ##############################################
 # Parser for my HEOM module
 ##############################################
-import argparse,sys
+import argparse
 import numpy as np
 from Feom.utils import out_filename,printparams
 fs = 0.02418884254 #au
-
-
 '''
-Switches:
-potname=['harmonic','spinboson'][1]
-bathname = ['debye','debye'][0]
-
-bathmode = ['nbead','matsubara'] IF bathname == 'debye'
-bathmode = ['Pade[N,N]','Pade[N-1,N]','AAA'] IF bathname == 'debyeCothpoles'
-
-lowTCorr = 0 # 1 to add low temperature corrections, 0 to not add them [overridden for pade and AAA modes]
-
+===============================================================================================================
+GENERAL PARAMETERS: 
+---------------------------------------------------------------------------------------------------------------
+hbar = 1
+L           The depth of the ADO expansion
+K           The number of exponential terms in the BCF
+ns          Number of states to be propagated
+beta        Inverse temperature
+tmax        Maximum time to propagate
+dt          Time step size
+===============================================================================================================
+POTENTIALS:
+---------------------------------------------------------------------------------------------------------------
 Spin boson:
 Delta
 eps
-
+---------------------------------------------------------------------------------------------------------------
 Harmonic oscillator:
 omega
 m
 [dx]
 [xmin]
 [xmax]
+===============================================================================================================
+BATH PARAMETERS:
+J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(w - w_\alpha)
+---------------------------------------------------------------------------------------------------------------
+Debye bath:
+J(w) = \frac{\eta\gamma\omega}{\omega^2 + \gamma^2}
+eta         Coupling strength
+gam         Cuttoff frequency
+================================================================================================================
+SWITCHES:
+---------------------------------------------------------------------------------------------------------------
+potname = ['harmonic','spinboson']              Potential name
+bathname = ['debye','debyeCothpoles']           Bath name
 
-General: 
-hbar=1
-L = 3           The depth of the ADO expansion
-K = 3           The number of Matsubara terms in the BCF/ Total number of modes for AAA expansion (must be even)
-ns = 2          Number of states to be propagated
+bathmode = ['nbead','matsubara','nmats']        IF bathname == 'debye'
+bathmode = ['Pade[N,N]','Pade[N-1,N]','AAA']    IF bathname == 'debyeCothpoles'
 
-Bath:
-Delta=1
-wc=1*Delta
-eps=1*Delta
-Lambda = 0.5*Delta
-beta=0.25/Delta
+NOTE: nmats and nbead are if we chose n beads, then set the frequencies to be the Matsubara/RP frequencies
+this means that the c0 coefifients will contain a finute sum. The matsubara option includes all poles,
+giving the tan() in c0. This is the one used with Ishizki-Tanimura terminator.
 
-eta = Lambda/2
-gam = wc
+lowTCorr = [0,1]    Whether to add Ishizki-Tanimura terminator [overridden for most bathmodes, but useful ]
+--print_ADOs        Print the ADOs to file every N (hardcoded) timesteps (if present, default False)
+--noSIA             Use RK4 step instead of SIA step (used present, default False)
+===============================================================================================================
 '''
 def parse_args():
     parser = argparse.ArgumentParser(description="Parser for Heom module")
@@ -82,7 +93,7 @@ def parse_args():
 ### Get all the parameters
 params = parse_args()
 
-### remove the unnecessary ones and ones that must be overridden
+### remove the unnecessary parameters
 if params.potname == 'harmonic':
     del params.Delta
     del params.eps
@@ -92,7 +103,10 @@ elif params.potname == 'spinboson':
     del params.dx
     del params.xmin
     del params.xmax
-if params.bathmode == 'Pade[N-1,N]': lowTCorr = 0
+
+### Override some of the parameters based on the bathname
+if params.bathmode in ['nmats','Pade[N-1,N]','nbead']: lowTCorr = 0
+
 
 ### Write the parameters to a file and filename
 params.header = printparams(params)
@@ -101,5 +115,5 @@ params.out_name = out_filename(params)
 
 ### Derived parameters (not input)
 params.nttot =int(params.tmax/params.dt)+1
-params.t_arr = np.arange(params.nttot)*params.dt
+# params.t_arr = np.arange(params.nttot)*params.dt
 

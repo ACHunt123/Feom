@@ -134,6 +134,10 @@ class Debye_cothpoles():
             data = np.column_stack((self.gam_i.real, self.w_i.real))
             filename= f'{self.cleanbathmode}_poles_and_residues.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
             np.savetxt(filename, data, header=f'# gamma_i w_i N={len(self.w_i)}', comments='') if self.save_debug_data else None
+            if self.bathmode in ['Pade[N/N]','AAA']:
+                k_filename= f'{self.cleanbathmode}_k.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
+                np.savetxt(k_filename, [self.k], header=f'# k', comments='') if self.save_debug_data else None
+
             plt.show() if self.plot_debug_data else None
 
 

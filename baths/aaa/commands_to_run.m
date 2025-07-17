@@ -1,1 +1,0 @@
-run_aaa_fromfile(8,'/home/ach221/data/Feom/TFay_Fig2_evenlowerTemp/debyeAAA/eta5/L6/K8/dt0.001/aaa_K8','/home/ach221/data/Feom/TFay_Fig2_evenlowerTemp/debyeAAA/eta5/L6/K8/dt0.001/aaa_K8/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')

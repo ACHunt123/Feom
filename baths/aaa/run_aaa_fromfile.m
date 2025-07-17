@@ -83,6 +83,13 @@ function run_aaa_fromfile(K, location,filename,extension)
         if abs(max_tol - min_tol) < tol_err  % If the tolerances are close enough, stop
             [r, pol, res, zer, ~, ~, ~, errvec] = aaa_algo(F, Z, max_tol); %%% Run the AAA algorithm,
             pol_clean = pol(imag(pol) > 1e-10); %%% clean up poles
+            % Check if we have the desired number of poles
+            if numel(pol_clean) ~= K
+                fprintf('Warning: Final tolerance %.1e does not yield %d poles, found %d poles.\n', max_tol, K, numel(pol_clean));
+                fprintf('Press any key to continue or Ctrl+C to stop.\n');
+                pause;
+                return;
+            end
             fprintf('Converged to tolerance %.5e with window %.5e\n', max_tol, tol_err);
             break;
         end            

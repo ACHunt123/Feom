@@ -5,11 +5,12 @@
 
 
 Z = linspace(-1000, 1000, 10000)';        % Sample points (column vector)
+Z = linspace(-200, 200, 10000)';        % Sample points (column vector)
 F = Sbeta(Z);                       % Function values at those points
 
 [r, pol, res, zer, z, f, w, errvec] = aaa_algo(F, Z);
 
-xx = linspace(-1000, 1000, 2000);       % Evaluation points
+xx = linspace(-300, 300, 2000);       % Evaluation points
 yy = r(xx);                         % Evaluate the rational approximant
 
 plot(xx, Sbeta(xx), 'k-', 'LineWidth', 1.5); hold on
