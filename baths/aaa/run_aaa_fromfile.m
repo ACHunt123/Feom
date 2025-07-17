@@ -21,7 +21,7 @@ function run_aaa_fromfile(K, location,filename,extension)
     Z = x;
 
     %%% Initialize parameters
-    doplot=false;
+    doplot=true;
     max_tol = 1e1;          % Stop if tolerance exceeds this
     min_tol = 1e-31;        % Stop if tolerance is less than this
     tol_err = 1e-15;    % The error window for the final tolerance SEE BINARY SEARCH 
@@ -50,10 +50,13 @@ function run_aaa_fromfile(K, location,filename,extension)
 
             elseif numel(pol_clean) > KK     %%% We have overshot
                 tol = tol*stepfactor;          % increase tolerance back to previous value
-                stepfactor = stepfactor / 10;  % Reduce step factor
+                stepfactor = max(stepfactor / 10, 1.5);  % Reduce step factor BUT NOT THAT IT MUST ALWAYS > 1
 
             elseif tol < min_tol  % Too many poles, stop if tolerance is too high
                 fprintf('Warning: Too many poles found with tolerance %.1e. Stopping.\n', tol);
+                return;
+            elseif tol > 100  % Too many poles, stop if tolerance is too high
+                fprintf('Warning: too high');
                 return;
             else  
                 tol = tol / stepfactor;         % decrease tolerance to find more poles
@@ -64,7 +67,6 @@ function run_aaa_fromfile(K, location,filename,extension)
     fprintf('Found max tolerances: K=%d -> %.1e, K+1=%d -> %.1e\n', K, max_tol,K+1, min_tol);
 
     %%% Now do a binary search between max_tol and min_tol to find the mininum tolerance for K poles
-    fprintf('Using binary search to find minimum tolerance for K=%d poles...\n', K);
     while true
         tol = (max_tol + min_tol) / 2;  % Start with the midpoint
         [r, pol, res, zer, ~, ~, ~, errvec] = aaa_algo(F, Z, tol); %%% Run the AAA algorithm, cleaning up the poles afterwards

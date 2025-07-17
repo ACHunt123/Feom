@@ -116,8 +116,8 @@ class Debye_cothpoles():
             plt.grid()
             plt.show() if self.plot_debug_data else None
             filename = f'{self.cleanbathmode}_Cothapproximation.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
-            data = np.column_stack((w.real, values.real, self.P_aaa_realcoeffs(w).real+self.k, self.J(w).real))
-            np.savetxt(filename, data, header='w Re[P_aaa(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
+            data = np.column_stack((w.real, self.P_aaa_realcoeffs(w).real+self.k, values.real, self.J(w).real))
+            np.savetxt(filename, data, header='# w Re[P_approx(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
             print(f'Saved the approximation plot to {filename}')
             # sys.exit(0) # exit the program after plotting the approximation
         if(1): #plot the poles and the Matsubara terms if they were to be used
@@ -133,7 +133,7 @@ class Debye_cothpoles():
             
             data = np.column_stack((self.gam_i.real, self.w_i.real))
             filename= f'{self.cleanbathmode}_poles_and_residues.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
-            np.savetxt(filename, data, header=f'gamma_i w_i N={len(self.w_i)}', comments='') if self.save_debug_data else None
+            np.savetxt(filename, data, header=f'# gamma_i w_i N={len(self.w_i)}', comments='') if self.save_debug_data else None
             plt.show() if self.plot_debug_data else None
 
 

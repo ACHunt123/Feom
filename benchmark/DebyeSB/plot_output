@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+import matplotlib.pyplot as plt
+import numpy as np
+import glob
+# Data for plotting
+files = glob.glob('*out')
+for filename in files:
+    data = np.loadtxt(filename)
+    t=data[:,0]
+    ct=data[:,1]
+
+    if 'TFay' in filename:
+        # make the line doted
+        plt.plot(t, ct, label=filename, linestyle='--')
+    else:
+        plt.plot(t, ct, label=filename)
+# plt.legend()
+plt.xlabel('Time')
+plt.ylabel('Population')
+plt.title('Benchmark Debye SB')
+plt.tight_layout()
+plt.show()  

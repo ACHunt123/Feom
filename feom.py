@@ -58,6 +58,6 @@ if(run_here): # run the fortran code in the temporary directory
 
     np.savetxt(setup.out_name,processed_data.real,header=params.header+datalabels)
     os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
-    os.system('rm -r tmp/ -f') #clean up the temporary directory
+   #  os.system('rm -r tmp/ -f') #clean up the temporary directory
 
 

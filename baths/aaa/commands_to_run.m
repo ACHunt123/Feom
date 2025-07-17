@@ -1,6 +1,1 @@
-run_aaa_fromfile(6,'/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K6/dt0.0001/aaa_K6','/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K6/dt0.0001/aaa_K6/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')
-run_aaa_fromfile(7,'/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K7/dt0.0002/aaa_K7','/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K7/dt0.0002/aaa_K7/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')
-run_aaa_fromfile(5,'/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K5/dt0.0002/aaa_K5','/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K5/dt0.0002/aaa_K5/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')
-run_aaa_fromfile(7,'/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K7/dt0.0001/aaa_K7','/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K7/dt0.0001/aaa_K7/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')
-run_aaa_fromfile(5,'/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K5/dt0.0001/aaa_K5','/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K5/dt0.0001/aaa_K5/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')
-run_aaa_fromfile(6,'/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K6/dt0.0002/aaa_K6','/home/ach221/data/Feom/TFay_Fig2/debyeAAA/eta5/L7/K6/dt0.0002/aaa_K6/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')
+run_aaa_fromfile(8,'/home/ach221/data/Feom/TFay_Fig2_evenlowerTemp/debyeAAA/eta5/L6/K8/dt0.001/aaa_K8','/home/ach221/data/Feom/TFay_Fig2_evenlowerTemp/debyeAAA/eta5/L6/K8/dt0.001/aaa_K8/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')
