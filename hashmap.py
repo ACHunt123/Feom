@@ -70,56 +70,62 @@ def generateHashmap(K,L,N_nonmats,write_to_file = False):
     # Create the hashmaps and format them as described above
     I2ind = np.array([tup2list(index) for index in allnums])         # List of each ADO index
 
-    if write_to_file:
-        with open('hashmap.txt','w') as f:
-            f.write(str(I_to_index))
-            f.write('\n')
-            f.write(str(index_to_I))
 
     return I2ind, I0s
 
 if __name__ == '__main__':
 
-    # INPUTS
-    K = 3   #number of exponential terms in the BCF - either the truncation of the number of beads + 1
-    L = 3   #maximum depth of the ADO expansion
-    N_nonmats = 1
-    Ktot=N_nonmats+K
+    ### Generate figure showing the number of ADOs in each tier
+    Kmax=10
+    Lmax=10
+    data= np.zeros((Lmax+1,Kmax+1),dtype=int)
+    for K in range(0,Kmax+1):
+        for L in range(0,Lmax+1):
+            data[L,K]=total_length(K,L,1)   
 
-    # Get hashmaps
-    I_to_index, index_to_I = generateHashmap(K,L,N_nonmats) 
-    sys.exit()  
-    print('\n')
-    ADO_index,I0s=Convert_to_list(I_to_index) # this list has dimensions [I, K] (where K is the number of exponential terms in the BCF)
-    print(ADO_index)
-    print(I0s)
+        
+    # Bold numeric labels only
+    col_labels = [fr'$\mathbf{{{k}}}$' for k in range(Kmax + 1)]
+    row_labels = [fr'    $\mathbf{{{l}}}\!\!$' for l in range(Lmax + 1)]
 
-    # ADO_tier=ADO_index[I0s[tier]:I0s[tier+1]]
-    # print(ADO_tier)
+    # Create plot
+    scale=2
+    xx=6 * scale
+    yy=4 *scale
+    fsz= (xx, yy)
+    fig, ax = plt.subplots(figsize=fsz)
+    # ax.axis('tight')
+    ax.axis('off')
+    # ax.set_aspect('equal')
 
-    ## now to make the algo
-    index = [1,0,0,2,0,0]
-    # starting min and max indices
-    tier= np.sum(index)
-    I0=I0s[tier]
-    sn=0 # Running total of indices that have been found so far (left to right)
-    Lengths = np.zeros((tier+1,Ktot),dtype=int)
-    for n in range(0,tier+1):
-        for k in range(1,Ktot):
-            Lengths[n,k]=length(n,k)
+    # Create table
+    table = ax.table(cellText=data,
+                    colLabels=col_labels,
+                    rowLabels=row_labels,
+                    cellLoc='center',
+                    loc='center')
 
-    for p in range(1,Ktot): # Loop over the digit to focus on [x,.,.,.,.,.] then [.,x,.,.,.,.] etc.
-        ni = index[p-1]     # The number of the digit
-        sn+=ni              # Add this to the running total
-        for n in range(0,tier-sn):
-            I0+=Lengths[n,Ktot-p] # Move to the first instance where the leading digit is x = ni
+    # Adjust table appearance
 
-        if sn==tier:        # If the running total of all the digits is equal to the tier, then we have found the correct index
-            break
-    print('\n')
-    print(ADO_index[I0:I0+1],'final')
+    table.scale(1, 2.1)
+    for key, cell in table.get_celld().items():
+        cell.set_fontsize(20)
+
+    # Add axis labels manually using text
+    # Positioning may need adjustment depending on scale
+    ax.text(0.5, 0.875, 'K', transform=ax.transAxes,
+            ha='center', va='center', fontsize=16, fontweight='bold')
+
+    ax.text(-0.12, 0.5, 'L', transform=ax.transAxes,
+            ha='center', va='center', fontsize=16, fontweight='bold')
+
+    plt.subplots_adjust(top=1.025, bottom=0.05)
 
 
+    fig.suptitle("Number of ADOs for Debye bath HEOM", fontsize=18)
+    fig.savefig("/home/ach221/data/Feom/telluride2025/figures/ADO_count_debye.pdf")
+
+    plt.show()
 
 
 

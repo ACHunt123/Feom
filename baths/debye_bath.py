@@ -49,10 +49,10 @@ class Debye_bath():
     def calc_coefs(self,ws):
         d = np.zeros(self.N_exp)
         ### Calculate the 0th (non-matsubara) term
-        if self.mode == 'nbead':
-            d0sum = np.sum(1/(self.gam**2 - ws**2))
-            d[0] = self.eta/self.beta + (2*self.eta*self.gam**2/self.beta) * d0sum 
-        elif self.mode == 'matsubara': #give the infinite mode prefactor
+        if self.mode in ['nbead','nmats']:              # give the finite mode prefactor
+            d0sum = np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))
+            d[0] = (self.hbar*self.eta*self.gam/2) * (2/(self.beta*self.hbar*self.gam) + (4*self.gam/(self.beta*self.hbar))*d0sum)
+        elif self.mode == 'matsubara': # give the infinite mode prefactor
             d[0] = (self.hbar*self.eta*self.gam/2) /np.tan(self.beta*self.hbar*self.gam/2)
         else:
             raise ValueError('Invalid mode')
@@ -69,13 +69,13 @@ class Debye_bath():
         gam_ks = np.zeros(self.N_exp,dtype=complex)
         gam_ks[0] = self.gam
         gam_ks[1:] = ws[1:]
-
-        # Calculate the low temperature coefficient for LowT correction
-        # self.lowTcoef = self.eta/(self.beta*self.hbar**2) - (1/self.hbar**2)*np.sum(np.real(C_ks)/gam_ks) if self.bathmode == 'matsubara' else 0 #OLD ONE
         
-        # Calculate the low temperature coefficient for LowT correction ### NEW ONE
-        self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
-        self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))  if self.mode == 'matsubara' else 0 ### remove the Matsubara terms that have been explicitly included
+        # Calculate the low temperature coefficient
+        if self.mode in ['nmats','nbead']: 
+            self.lowTcoef = 0
+        elif self.mode == 'matsubara':  # The Ishizaki-Tanimura terminator coefficient
+            self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
+            self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
 
         self.C_ks = C_ks
         self.gam_ks = gam_ks
@@ -85,22 +85,23 @@ class Debye_bath():
             print(f'gam_ks: {gam_ks}')
             sys.exit(0) #exit the program after printing the coefficients
         return 
-        # return C_ks,gam_ks
 
     # output TCF for a given set of C_ks and gam_ks
     def TCF(self,plotme=False,ax=plt,mode=None):
         if mode is None: mode = self.mode #allowing override of the mode from the __init__
 
-        C_ks,gam_ks = self.get_coeffs(mode=mode)
+        self.get_coeffs(mode=mode)
 
-        t = np.linspace(0,100,1000)
+        t = np.linspace(0,5,1000)
         C = np.zeros_like(t,dtype=complex)
-        C += C_ks[0]*np.exp(-gam_ks[0]*t)
+        # C += self.C_ks[0]*np.exp(-self.gam_ks[0]*t)
+        print(f'C0: {self.C_ks[0]}, mode : {mode}')
         for k in range(1,self.N_exp):
-            C += C_ks[k]*np.exp(-gam_ks[k]*t)
+            C += self.C_ks[k]*np.exp(-self.gam_ks[k]*t)
         if plotme:
             ax.plot(t,C.real)
             print(mode)
+            plt.show()
         return t,C
 
     # Calculate the C_ks and gam_ks for a bath, mode is the bath decomposition mode
@@ -110,10 +111,11 @@ class Debye_bath():
         if mode == 'highT':
             return np.array([self.C0hot]),np.array([self.gam]) #the high temperature limit - no matsubara terms
 
-        if mode == 'matsubara':
+        if mode in ['matsubara','nmats']: # Generate the K matsubara frequencies (the nmats will have the same freqs, but different c0 and no low temp truncation)
             betaN = self.beta/self.N_mds
             wN=1/(betaN*self.hbar)
             wns = np.array([2*wN*np.pi*k/self.N_mds for k in range(0,self.mu+1)])
+            print(f'mode {mode} with {self.mu} pairs of matsubara modes')
             # print(wns)
             return self.calc_coefs(wns)
 
@@ -121,8 +123,8 @@ class Debye_bath():
             betaN =  self.beta/self.N_mds
             wN=1/(betaN*self.hbar)
             wks = np.array([2*wN*np.sin(np.pi*k/self.N_mds) for k in range(0,self.mu+1)])
+            print(f'mode {mode} with {self.mu} pairs of matsubara modes')
             # print(wks)
-
             return self.calc_coefs(wks)
         else:
             raise ValueError('Invalid mode')

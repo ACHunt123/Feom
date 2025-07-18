@@ -105,7 +105,7 @@ elif params.potname == 'spinboson':
     del params.xmax
 
 ### Override some of the parameters based on the bathname
-if params.bathmode in ['nmats','Pade[N-1,N]','nbead']: lowTCorr = 0
+if params.bathmode in ['nmats','Pade[N-1,N]','nbead']: params.lowTCorr = 0
 
 
 ### Write the parameters to a file and filename
