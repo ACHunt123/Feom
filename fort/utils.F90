@@ -1,6 +1,19 @@
 module utils
     implicit none
-
+    interface
+        subroutine zgesvd(jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
+            implicit none
+            character(len=1), intent(in) :: jobu, jobvt
+            integer, intent(in) :: m, n, lda, ldu, ldvt, lwork
+            integer, intent(out) :: info
+            complex*16, intent(inout) :: a(lda, *)
+            double precision, intent(out) :: s(*)
+            complex*16, intent(out) :: u(ldu, *)
+            complex*16, intent(out) :: vt(ldvt, *)
+            complex*16, intent(inout) :: work(*)
+            double precision, intent(out) :: rwork(*)
+        end subroutine zgesvd
+    end interface
     contains 
 ! Inner product function
 function innerprod(v1,v2,size)

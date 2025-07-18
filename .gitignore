@@ -6,7 +6,7 @@
 *.mod
 *.smod
 # Ignore files in the executables directory
-fort/executables/*
+/fort/executables/
 
 # Igonre latex logs etc
 *.log
