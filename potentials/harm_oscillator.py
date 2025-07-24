@@ -25,13 +25,14 @@ class Harmonic_oscillator:
             fig = plt.figure()
             ax = fig.add_subplot(111)
             rho,z= self.initcond()
+            print(z)
             print(rho)
             ax.imshow(np.abs(rho), interpolation='nearest')
             plt.title('Initial Conditions Matrix')
             plt.xlabel('Energy Basis')
             plt.ylabel('Energy Basis')
             plt.show()
-
+            sys.exit()
         return
 
         
@@ -62,7 +63,7 @@ class Harmonic_oscillator:
         if(0):# Test that the eigenstates are orthonormal
             for i in range(0,self.ns):
                 for j in range(0,self.ns):
-                    print(np.round(np.sum(psi_ns[:,i]*np.conj(psi_ns[:,j])*dx),4),i,j)
+                    print(np.round(np.sum(psi_ns[:,i]*np.conj(psi_ns[:,j])*self.dx),4),i,j)
         
         return psi_ns, E_ns, x_arr
 
@@ -88,17 +89,39 @@ class Harmonic_oscillator:
         delEs = E_ns - E_ns[0] # the ground state is the zero of energy
         rho_s = np.diag(np.exp(-self.beta*delEs))
         Zs = np.trace(rho_s)
-        rho_s0 = rho_s@self.pos_matrix()/Zs
+        rho_s0 = rho_s@self.pos_matrix()/Zs # the intial condition is rho q 
+        # rho_s0 = rho_s/Zs # the intial condition is rho  
         return rho_s0,Zs
 
     # Generate the correlation function (this is hardcoded)
     def corr(self,rho_s,t):
         return np.trace(rho_s[:,:]@self.pos_matrix()),t
 
-    
-    def analytic_uncoupled(self,t_arr=np.arange(0,10,0.1)):# calculatees the analytic solution for the uncoupled system
+    # Calculate the analytic solution for the uncoupled system
+    def analytic_uncoupled(self,t_arr=np.arange(0,10,0.1)):
         x = np.exp(self.beta*self.hbar*self.omega/2)
         xm1 = x**-1
         Css_analyt_re = ((self.hbar/(2*self.m*self.omega)) * (x+xm1)/(x-xm1))*np.cos(self.omega*t_arr)
-
         return t_arr,Css_analyt_re
+    
+    # Format FORTRAN output and calculate common observables
+    def format_output(self,data,initial_header):
+        # Collect the data
+        t= data[:,0]
+        re_rho = data[:,1:1+self.ns**2]
+        im_rho = data[:,1+self.ns**2:]
+        rho = re_rho + 1.j*im_rho
+        rho = rho.reshape((len(t),self.ns,self.ns), order='F')  # reshape the data to be a 3D array
+        # format the data to calculate <s_z>, <s_y> and <s_x> and others
+        t = data[:,0]
+        # calculate <q> 
+        processed_data = np.zeros((len(t),5),dtype=complex)
+
+        processed_data[:,0] = t
+        processed_data[:,1] = np.einsum('inm,mn->i', rho,self.s_mat)
+        for it in range(len(t)):
+            processed_data[it,2] = np.min(np.diagonal(rho[it,:,:]))  # min diagonal element
+            processed_data[it,3] = np.sum(np.diagonal(rho[it,:,:]))  # trace of the density matrix
+
+        data_labels = '\n,Time /a.u. <q> min.diag. trace\n'
+        return processed_data, initial_header+data_labels
