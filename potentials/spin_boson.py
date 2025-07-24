@@ -46,7 +46,8 @@ class Spin_boson:
     def corr(self,rho_s,t): # (return population of the excited diabatic state)
         return rho_s[1,1],t
 
-    def analytic_uncoupled(self,t_arr=np.arange(0,10,0.1)):# calculatees the analytic solution for the uncoupled system
+    # Calculatees the analytic solution for the uncoupled system
+    def analytic_uncoupled(self,t_arr=np.arange(0,10,0.1)):
         phi_0=np.zeros((self.ns),dtype=complex)
         phi_0[1]=1
         phi_0 = self.Uda.T@phi_0 #transform into eigenbasis
@@ -56,3 +57,27 @@ class Spin_boson:
             phi_t = K@phi_0
             pop[i] = np.abs((self.Uda@phi_t)[1])**2
         return t_arr,pop
+       
+    # Format FORTRAN output and calculate common observables
+    def format_output(self,data,initial_header):
+        # Collect the data
+        t= data[:,0]
+        re_rho = data[:,1:1+self.ns**2]
+        im_rho = data[:,1+self.ns**2:]
+        rho = re_rho + 1.j*im_rho
+        rho = rho.reshape((len(t),self.ns,self.ns), order='F')  # reshape the data to be a 3D array
+        # format the data to calculate <s_z>, <s_y> and <s_x> and others
+        t = data[:,0]
+        rho11 = rho[:,1,1]  
+        rho00 = rho[:,0,0]
+        rho10 = rho[:,1,0]
+        rho01 = rho[:,0,1]
+
+        processed_data = np.zeros((len(t),5),dtype=complex)
+        processed_data[:,0] = t
+        processed_data[:,1] = rho11 - rho00  # <s_z>
+        processed_data[:,2] = 1.j*(rho10 - rho01)  # <s_y>
+        processed_data[:,3] = (rho10 + rho01)  # <s_x>   
+        processed_data[:,4] = (1+(rho11 - rho00))/2  # Site 1 population
+        data_labels = '\n,Time /a.u. <s_z> <s_y> <s_x> (1+<s_z>)/2'
+        return processed_data, initial_header+data_labels

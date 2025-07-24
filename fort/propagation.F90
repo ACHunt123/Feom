@@ -70,8 +70,11 @@ program main
             
             !!! Write output and message to screen
             print*, it,'/',nttot           ! Update the screen output
-            write(10,'(5E25.15)') time, &                             ! Print output to file
-            real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
+            ! write(10,'(5E25.15)') time, &                             ! Print output to file
+            ! real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
+            write(10,'(5000E25.15)') time, &
+                real(reshape(ADOS(1,:,:), [ns**2])), &
+                aimag(reshape(ADOS(1,:,:), [ns**2]))
         endif
         #ifdef Print_ADOs
         if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file

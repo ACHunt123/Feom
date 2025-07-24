@@ -37,27 +37,14 @@ setup.generate_input_files(rho) # writes the inputfiles and fortran code to tmp/
 ### Go
 run_here = 1
 if(run_here): # run the fortran code in the temporary directory
-    os.system(f'cd tmp/; ./{setup.executable_name}')
-    fname = header = 'Css.txt'
-    # get the raw output file
-    data= np.loadtxt('tmp/output')
-    t = data[:,0]
-    rho00= data[:,1]
-    rho11= data[:,2]        
-    rho01= data[:,3] + 1.j*data[:,4] # rho01 is complex
-    rho10= np.conj(rho01)  # rho10 is the complex conjugate of rho01
+   os.system(f'cd tmp/; ./{setup.executable_name}')
+   fname = header = 'Css.txt'
+   # get the raw output file and then format it, updating the header to get data_labels
+   data= np.loadtxt('tmp/output')
+   formatted_data, params.header = pot.format_output(data,params.header)
 
-    ### Process the data 
-    processed_data = np.zeros((len(t),5),dtype=complex)
-    processed_data[:,0] = t
-    processed_data[:,1] = rho11 - rho00  # <s_z>
-    processed_data[:,2] = rho01 + rho10  # <s_x>
-    processed_data[:,3] = 1.j*(rho10 - rho01)  # <s_y>
-    processed_data[:,4] = (1+(rho11 - rho00))/2  # Site 1 population
-    datalabels = 't <s_z> <s_x> <s_y> (1+<s_z>)/2' 
-
-    np.savetxt(setup.out_name,processed_data.real,header=params.header+datalabels)
-    os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
-    os.system('rm -r tmp/ -f') #clean up the temporary directory
+   np.savetxt(setup.out_name,formatted_data.real,header=params.header)
+   os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
+   os.system('rm -r tmp/ -f') #clean up the temporary directory
 
 

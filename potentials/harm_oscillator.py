@@ -20,6 +20,18 @@ class Harmonic_oscillator:
         self.H_matrix()
         ### Generate the position matrix in the eigenbasis
         self.s_mat = self.pos_matrix()
+        # plot the initial conditions matrix
+        if(0):
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            rho,z= self.initcond()
+            print(rho)
+            ax.imshow(np.abs(rho), interpolation='nearest')
+            plt.title('Initial Conditions Matrix')
+            plt.xlabel('Energy Basis')
+            plt.ylabel('Energy Basis')
+            plt.show()
+
         return
 
         

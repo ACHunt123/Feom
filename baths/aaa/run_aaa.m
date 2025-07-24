@@ -5,12 +5,12 @@
 
 
 Z = linspace(-1000, 1000, 10000)';        % Sample points (column vector)
-Z = linspace(-200, 200, 10000)';        % Sample points (column vector)
+Z = linspace(-500, 500, 100000)';        % Sample points (column vector)
 F = Sbeta(Z);                       % Function values at those points
 
 [r, pol, res, zer, z, f, w, errvec] = aaa_algo(F, Z);
 
-xx = linspace(-300, 300, 2000);       % Evaluation points
+xx = linspace(-25, 25, 100000);       % Evaluation points
 yy = r(xx);                         % Evaluate the rational approximant
 
 plot(xx, Sbeta(xx), 'k-', 'LineWidth', 1.5); hold on
@@ -25,19 +25,21 @@ r_from_res = zeros(size(xx));  % Initialize the result vector
 for j = 1:length(res)
     r_from_res = r_from_res + res(j) ./ (xx - pol(j));
 end
-plot(xx, real(r_from_res), 'b-.', 'LineWidth', 1.5)      % From residues
+% plot(xx, real(r_from_res), 'b-.', 'LineWidth', 1.5)      % From residues
 
 % Calculate for just the imaginary parts
 r_from_res = zeros(size(xx));  % Initialize the result vector
 for j = 1:length(res)
     r_from_res = r_from_res + 1i*imag(res(j)) ./ (xx - 1i*imag(pol(j)));
+    % r_from_res = r_from_res + real(res(j)) ./ (xx - 1i*imag(pol(j)));
 end
-plot(xx, real(r_from_res), 'g-.', 'LineWidth', 1.5)      % From residues with just the imaginary part
+plot(xx, real(r_from_res), 'b-.', 'LineWidth', 1.5)      % From residues with just the imaginary part
 
 % r_from_mats = zeros(size(xx));  % Initialize the result vector
 
 
-legend('Original', 'AAA Rational Approximant', 'From Residues','Just imaginary part residues')
+% legend('Original', 'AAA Rational Approximant', 'From Residues','Just imaginary part residues')
+legend('Original', 'AAA Rational Approximant','Just imaginary part residues')
 
 % Save all results as text files with tab delimiter for easy np.loadtxt reading
 writematrix(real(pol), '.files/pol_real.txt', 'Delimiter', 'tab');

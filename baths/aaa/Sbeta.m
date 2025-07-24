@@ -13,20 +13,17 @@
 % end
 
 
-function y = Sbeta(omega)
-    s = 1/2;          % You can adjust this
-    wc = 1.0;       % Cutoff frequency (ω_c)
+function wJw = Sbeta(omega)
+    s = 1/2;         % You can adjust this
+    wc = 1.0;        % Cutoff frequency (ω_c)
 
-    y = zeros(size(omega));  % Preallocate output array
+    Jw = zeros(size(omega));  % Preallocate output array
 
     % Positive omega: ω^s * exp(-ω / ω_c)
-    y(omega > 0) =  omega(omega > 0).^s .* exp(-omega(omega > 0) / wc);
+    Jw(omega > 0) =  omega(omega > 0).^s .* exp(-omega(omega > 0) / wc);
 
     % Negative omega: -|ω|^s * exp(-|ω| / ω_c)
-    y(omega < 0) = -abs(omega(omega < 0)).^s .* exp(-abs(omega(omega < 0)) / wc);
+    Jw(omega < 0) = -abs(omega(omega < 0)).^s .* exp(-abs(omega(omega < 0)) / wc);
 
-    % Optional: handle omega == 0 to avoid division by zero or undefined pow
-    y(omega == 0) = 0;
-
-    y = y./ omega;  % Normalize by omega to avoid division by zero
+    wJw = Jw.* omega;  % Multiply by omega
 end
