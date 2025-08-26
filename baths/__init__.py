@@ -1,8 +1,8 @@
 import numpy as np
 ### Importing baths
-from Feom.baths.debye_bath import Debye_bath
-from Feom.baths.debye_aaa import Debye_aaa              # NOTE: This is not implemented yet
-from Feom.baths.debye_cothpoles import Debye_cothpoles  # NOTE: This is not implemented yet
+from Feom.baths.debye.debye_bath import Debye_bath
+from Feom.baths.debye.debye_cothpoles import Debye_cothpoles 
+from Feom.baths.debye.debye_aaa import Debye_aaa              # NOTE: This is not implemented yet
 ### Mapping of potential names to potential classes
 bath_mapping = {
 'debye': Debye_bath,

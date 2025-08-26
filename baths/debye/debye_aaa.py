@@ -7,7 +7,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 # A class for the Debye bath
-''' A class to represent the Debye bath for the FEOM code, with AAA decomposition.
+''' A class to represent the Debye bath for the FEOM code, with AAA decomposition OF ENTIRE BCF.
 
 NOTE: The parameter K is the total number of ADO indices, such that it MUST be even.
         This is so that there are equal numbers of l and m ADO indices.

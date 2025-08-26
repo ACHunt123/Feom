@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys, os
-import Feom.baths.cothPade as cothPade 
-import Feom.baths.cothAAA as cothAAA
+import Feom.baths.coth_decomp.cothPade as cothPade 
+import Feom.baths.coth_decomp.cothAAA as cothAAA
 
 # A class for the Debye bath
 ''' A class to represent the Debye bath for the FEOM code, with AAA/Pade decomposition of A(w)/w
@@ -16,7 +16,6 @@ using the discretized definition, giving coefficients:
 J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(w - w_\alpha)
 '''
 
-# We need to add in pade approximants, but otherwiseshould be mostly complete
 
 class Debye_cothpoles():
     def __init__(self,params):

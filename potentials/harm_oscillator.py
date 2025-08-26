@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 
 ### Generates the Hamiltonian matrix for a harmonic oscillator in the position basis
+# NEED TO ADD RENORMALISATION!!!
 class Harmonic_oscillator:
     def __init__(self,params):
         self.m=params.m

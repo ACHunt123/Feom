@@ -1,0 +1,1 @@
+run_aaa_fromfile(4,'/home/ach221/data/Feom/telluride2025/beta10_Rgfit/debyeAAA/eta5/L3/K4/dt0.002/aaa_K4','/home/ach221/data/Feom/telluride2025/beta10_Rgfit/debyeAAA/eta5/L3/K4/dt0.002/aaa_K4/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt')
