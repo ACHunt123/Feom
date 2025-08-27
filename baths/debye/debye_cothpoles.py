@@ -148,6 +148,8 @@ class Debye_cothpoles():
         ### Calculate the 0th term
         d0sum = np.sum(self.gam_i/(self.gam**2 - self.w_i**2))
         d[0] = self.eta/self.beta + (2*self.eta*self.gam**2/self.beta)*d0sum - 2*self.eta*self.gam**2*self.k/self.beta
+        # NOTE: TOM FAYS CODE DOES NOT INCLUDE k IN C0. FOR THIS REASON THE PADE[N/N] DOES NOT AGREE WITH HIS RESULTS
+        # IF k IS REMOVED, THEN THE RESULTS AGREE.
 
         ### Calculate the rest of the terms (matsubara terms)
         d[1:] = -(2*self.eta*self.gam/self.beta) * self.w_i[:]*self.gam_i[:]/(self.gam**2*np.ones_like(self.w_i) - self.w_i[:]**2)

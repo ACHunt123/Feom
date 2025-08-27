@@ -44,14 +44,15 @@ SWITCHES:
 potname = ['harmonic','spinboson']              Potential name
 bathname = ['debye','debyeCothpoles']           Bath name
 
-bathmode = ['nbead','matsubara','nmats']        IF bathname == 'debye'
+bathmode = ['nbead','nmats','matsubara']        IF bathname == 'debye'
 bathmode = ['Pade[N,N]','Pade[N-1,N]','AAA']    IF bathname == 'debyeCothpoles'
 
 NOTE: nmats and nbead are if we chose n beads, then set the frequencies to be the Matsubara/RP frequencies
 this means that the c0 coefifients will contain a finute sum. The matsubara option includes all poles,
 giving the tan() in c0. This is the one used with Ishizki-Tanimura terminator.
 
-lowTCorr = [0,1]    Whether to add Ishizki-Tanimura terminator [overridden for most bathmodes, but useful ]
+lowTCorr = ['NZ2','IT','PT2']    Whether to add Nakajima-Zwanwig, Ishizki-Tanimura or 2nd order terminator [not available for nbeads/nmats as there are no exra terms in BCF]
+
 --print_ADOs        Print the ADOs to file every N (hardcoded) timesteps (if present, default False)
 --noSIA             Use RK4 step instead of SIA step (used present, default False)
 ===============================================================================================================
@@ -82,9 +83,8 @@ def parse_args():
     parser.add_argument("--bathmode",type=str,default='matsubara',help="Bath mode")
     parser.add_argument("--eta",type=float,default=0.25,help="bath strength")
     parser.add_argument("--gam",type=float,default=1,help="cuttoff frequency")
+    parser.add_argument("--LTCorr",type=str,default=argparse.SUPPRESS,help="Low temp correction")
     ### Switches
-    parser.add_argument("--lowTCorr",type=int,default=0,help="add low temp corrections?") # NEED TO CHANGE THIS TO BOOLEAN
-    # parser.add_argument("--lowTCorr", action="store_true", help="Add low temperature corrections if this flag is set.")
     parser.add_argument("--print_ADOs", action="store_true", help="Print the ADOs to file every N timesteps")
     parser.add_argument("--noSIA", action="store_true", help="Use RK4 step instead of SIA step")
 
@@ -105,7 +105,7 @@ elif params.potname == 'spinboson':
     del params.xmax
 
 ### Override some of the parameters based on the bathname
-if params.bathmode in ['nmats','Pade[N-1,N]','nbead']: params.lowTCorr = 0
+if params.bathmode in ['nmats','nbead']: del params.LTCorr
 
 
 ### Write the parameters to a file and filename
@@ -115,5 +115,4 @@ params.out_name = out_filename(params)
 
 ### Derived parameters (not input)
 params.nttot =int(params.tmax/params.dt)+1
-# params.t_arr = np.arange(params.nttot)*params.dt
 

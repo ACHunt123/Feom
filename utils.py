@@ -64,7 +64,8 @@ def writeParams(filename,params): # Writes small parameters into file
     with open(f"tmp/{filename}", "w") as f:
         Ktot=params.K+params.N_nonmats
         f.write("Ktot,L,hbar,lowTcoef,Imax,ns,dt,nttot,lowTcoef_switch\n")
-        f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.lowTcoef.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}{params.lowTCorr:10d}\n".replace('e','d'))
+        lowTcoef_switch = 1 if hasattr(params, 'LTCorr') else 0
+        f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.lowTcoef.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}{lowTcoef_switch:10d}\n".replace('e','d'))
         f.write("/\n")
     return
 
@@ -87,11 +88,11 @@ def out_filename(params): # Name of the output file - contains all the parameter
 
 def FORT_SWITCHES(params):
 # Supported compile-time switches (SWITCHES):
-#   -DLowTCorr      Enable low-temperature correction via double commutator
+#   -DLowTCorr      Enable low-temperature correction via double commutator term
 #   -DPrint_ADOs    Print the ADOs to file every N timesteps
 #   -DSIA           Use SIA step instead of RK4 step (default)
     switches = []
-    if params.lowTCorr==1:
+    if hasattr(params, 'LTCorr'):
         switches.append('LowTCorr')
     if params.print_ADOs:
         switches.append('Print_ADOs')

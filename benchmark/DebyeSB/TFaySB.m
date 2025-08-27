@@ -20,7 +20,7 @@ addpath(genpath('/home/ach221/software/phd/HEOMLAB/heom-lab/functions'));
 epsilon = 1.0 ;
 Delta = 2.0 ;
 % bath parameters
-beta = 1.0 ; 
+beta = 1.5 ; 
 % debye bath parameters
 lambda_D = 1 ;
 omega_D = 1.0 ;
@@ -32,7 +32,7 @@ n_steps = 1000 ;
 krylov_dim = 8 ;
 krylov_tol = 1e-8 ;
 % parmeters for heirarchy truncation using L/M truncation
-M_max = 3 ;
+M_max = 5 ;
 
 
 % matrices of system observable operators to be returned, 
