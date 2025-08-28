@@ -43,8 +43,7 @@ class Debye_cothpoles():
         # self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
         # params.K = len(self.w_i) # Update the number of exponentials in the params object to match the number of poles found
         # params.lowTCorr=True if self.k != 0 else False
-        ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
-        utils.get_C_UDs(self)
+
 
     def J(self,w,plotme=False,ax=plt):
         Jw = self.eta*self.gam*w/(w**2+self.gam**2)

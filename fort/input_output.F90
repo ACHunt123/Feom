@@ -2,7 +2,7 @@ module input_output
     use shared_data, only: Imax, ns, Ktot, L
     use shared_data, only: iH_mat, is_mat, gam_ks
     use shared_data, only: c_U, c_D_LEFT, c_D_RIGHT
-    use shared_data, only: ADO_index, I0s
+    use shared_data, only: ADO_index, I0s, Xi_terminator
     implicit none
     contains
 
@@ -26,6 +26,7 @@ subroutine read_matrices(ADOs)
         open(70, file='Fortrho', status='old', action='read');read(70,*)
         open(80, file='Forts_mat', status='old', action='read');read(80,*)
         open(90, file='FortADO_index', status='old', action='read');read(90,*)
+        open(100, file='FortTerminator', status='old', action='read');read(100,*)
 
         ! read the large matrices
         do Ii = 1, Imax
@@ -46,6 +47,24 @@ subroutine read_matrices(ADOs)
                 is_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives s)
             end if
         end do; end do; end do
+
+        ! read the terminator superoperator
+        # if LTCorr == 1
+            do si = 1, ns*ns
+            do sj = 1, ns*ns
+                read(100,'(D22.15)') z_real
+                read(100,'(D22.15)') z_imag
+                Xi_terminator(1,si,sj) = dcmplx(z_real, z_imag)
+            end do; end do
+        # elif LTCorr == 2
+            do Ii = 1, Imax
+            do si = 1, ns*ns
+            do sj = 1, ns*ns
+                read(100,'(D22.15)') z_real
+                read(100,'(D22.15)') z_imag
+                Xi_terminator(Ii,si,sj) = dcmplx(z_real, z_imag)
+            end do; end do; end do
+        # endif
 
         ! read the small matrices
         do Ii = 1,Ktot
@@ -73,6 +92,7 @@ subroutine read_matrices(ADOs)
         end do
         close(11);close(21) !close the small files
         close(31);close(40);close(50);close(60);close(70);close(80);close(90) !close the files
+        close(100)
     end subroutine
 
 subroutine ADOs_print(ADOs,Imax,ns,it)

@@ -1,13 +1,13 @@
 module gradient
-use shared_data, only: Imax, ns, dt, lowTcoef
+use shared_data, only: Imax, ns, dt
 use shared_data, only: gam_ks, c_U, c_D_LEFT, c_D_RIGHT, ADO_index, I0s, lengths
-use shared_data, only: s_mat2, is_mat, iH_mat, Ktot, L, Ntot
+use shared_data, only: is_mat, iH_mat, Ktot, L, Ntot, Xi_terminator
 
 implicit none  
 ! Default everything to private
 private
 ! Temporary arrays for computation
-complex(8), public, allocatable :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:),gradI(:,:)
+complex(8), public, allocatable :: rhoI(:,:),rhoInkp1(:,:),rhoInkm1(:,:),gradI(:,:),result_vec(:), rhoI_vec(:)
 ! Expose the gradent function
 public :: get_gradient
 contains
@@ -37,8 +37,9 @@ subroutine get_gradient(rho,grad)
 
         ! Itziki Trucation (if present)
         #if LTCorr == 1 
-            gradI = gradI + lowTcoef  &
-            * ( matmul(s_mat2,rhoI) + matmul(rhoI,s_mat2) + 2.d0*matmul(matmul(is_mat,rhoI),is_mat)) !note the + on last term is as (is)Rho(is) = - 2 s Rho s
+            rhoI_vec = reshape(rhoI,[ns*ns])
+            result_vec = matmul(Xi_terminator(1,:,:),rhoI_vec)
+            gradI = gradI + reshape(result_vec,[ns,ns]) 
         # elif LTCorr == 2
             stop 'Error: LTCorr=2 is not supported yet, please recompile with LTCorr=1 or LTCorr=0'
         #endif

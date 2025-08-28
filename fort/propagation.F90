@@ -2,7 +2,7 @@ program main
     use input_output
     use prop_subroutines, only: RK4step, k1, k2, k3, k4, ktmp, ADOs_tmp, temp_grad
     use prop_subroutines, only: Krylov_vecs, SIAstep, Krylov_dim, Recalculate_ADOs,ADOs_Krylov
-    use gradient, only: rhoI, rhoInkp1, rhoInkm1, gradI
+    use gradient, only: rhoI, rhoInkp1, rhoInkm1, gradI, result_vec, rhoI_vec
     use shared_data
     use utils, only: norm
     implicit none
@@ -15,17 +15,25 @@ program main
     !!! LOAD PARAMETERS AND MATRICIES !!!
     ! read the parameters from the input file
     open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
-    read(10,'(I10, I10, D22.15, D22.15, I10, I10, D22.15, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
+    read(10,'(I10, I10, D22.15, I10, I10, D22.15, I10)') Ktot, L, hbar, Imax, ns, dt, nttot
     close(10)
     Ntot = Imax * ns * ns ! total number of elements in the ADOs array
     ! allocate the arrays
-    allocate(iH_mat(ns,ns), is_mat(ns,ns), s_mat2(ns,ns), gam_ks(Ktot))
+    allocate(iH_mat(ns,ns), is_mat(ns,ns), gam_ks(Ktot))
     allocate(c_U(Ktot,0:L),c_D_LEFT(Ktot,0:L),c_D_RIGHT(Ktot,0:L))
     allocate(ADO_index(Imax,Ktot), I0s(0:L+1), lengths(0:L,Ktot))
-    allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns))
+    allocate(rhoI(ns,ns),rhoInkp1(ns,ns),rhoInkm1(ns,ns),gradI(ns,ns),result_vec(ns*ns),rhoI_vec(ns*ns))
     allocate(ADOs(Imax,ns,ns), k1(Imax,ns,ns), k2(Imax,ns,ns), k3(Imax,ns,ns), k4(Imax,ns,ns), ktmp(Imax,ns,ns),temp_grad(Imax,ns,ns))
     allocate(ADOs_tmp(Imax,ns,ns))
     allocate(Krylov_vecs(Krylov_dim,Ntot))
+    # if LTCorr == 0
+        allocate(Xi_terminator(1,1,1))
+    # elif LTCorr == 1
+        allocate(Xi_terminator(1,ns*ns,ns*ns))
+    # elif LTCorr == 2
+        allocate(Xi_terminator(Imax,ns*ns,ns*ns))
+        stop 'Error: LTCorr=2 is not supported yet, please recompile with LTCorr=1 or LTCorr=0'
+    # endif
     ! read the matrices from the files
     call read_matrices(ADOs)
 
@@ -33,7 +41,6 @@ program main
     ! scale the matrices and make is2
     iH_mat = iH_mat/hbar
     is_mat = is_mat/hbar
-    s_mat2 = - matmul(is_mat,is_mat) ! s_mat2 = -(i*s_mat)^2
     ! Calculate the lengths of each block of ado indices (pascals triangle)
     do nk = 0,L 
         do ki = 1,Ktot
@@ -91,9 +98,12 @@ program main
         if (abs(ADOs(1,1,1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
     close(10)
-    deallocate(ADOs, iH_mat, is_mat, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT, s_mat2)
+    
+    deallocate(ADOs, iH_mat, is_mat, gam_ks, ADO_index, I0s, lengths, c_U, c_D_LEFT, c_D_RIGHT)
     deallocate(rhoI,rhoInkp1,rhoInkm1,gradI,k1,k2,k3,k4,ktmp,ADOs_tmp)
-
+    deallocate(temp_grad,Krylov_vecs,Xi_terminator)
+    call exit(0)
+    
 end program main
 
 

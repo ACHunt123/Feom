@@ -40,7 +40,7 @@ setup.generate_input_files(rho) # writes the inputfiles and fortran code to tmp/
 ### Go
 run_here = 1
 if(run_here): # run the fortran code in the temporary directory
-    os.system('cd tmp/; valgrind ./propagation*  -s --leak-check=full')
+    os.system('cd tmp/; valgrind --leak-check=full --show-leak-kinds=all  -s  ./propagation* ')
     fname = header = 'Css.txt'
     data= np.loadtxt('tmp/output')
     if(1): # format the data to match tom fay's

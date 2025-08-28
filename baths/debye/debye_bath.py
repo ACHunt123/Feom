@@ -38,7 +38,7 @@ class Debye_bath():
         ### Calculate the C_ks and gam_ks for the bath and add to the class
         self.get_coeffs()
         ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
-        utils.get_C_UDs(self)
+        # utils.get_C_UDs(self)
 
     def J(self,w,plotme=False,ax=plt):
         w = np.linspace(0,2,1000)

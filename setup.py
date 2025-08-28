@@ -1,7 +1,7 @@
 import numpy as np
 import os,sys
 from Feom.hashmap import generateHashmap
-from Feom.baths.termintator.generate_terminator import Terminator
+from Feom.baths.utils import get_C_UDs,generate_Terminator
 from Feom.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
 
 npF = np.asfortranarray # Aliasing to make the code more legible
@@ -18,9 +18,7 @@ class Setup:
         self.N_exp = bath.N_exp
         self.gam_ks = bath.gam_ks
         self.C_ks = bath.C_ks
-        self.c_U = bath.c_U
-        self.c_D_LEFT = bath.c_D_LEFT
-        self.c_D_RIGHT = bath.c_D_RIGHT
+        get_C_UDs(self)
         self.lowTcoef = bath.lowTcoef
         params.lowTcoef = bath.lowTcoef
         self.N_nonmats = bath.N_nonmats
@@ -32,6 +30,8 @@ class Setup:
         self.ADO_index, self.I0s = generateHashmap(self.K,self.L,self.N_nonmats) #hash map from the index of the ADO to the index of the BCF
 
         ### Calculate the terminator if needed
+        generate_Terminator(self)
+
         # if hasattr(self,'LTCorr'):
         #     Terminator(self)
 
@@ -58,6 +58,7 @@ class Setup:
         writeZ('Fortc_D_RIGHT',npF(self.c_D_RIGHT))
         writeZ('FortH_mat',npF(self.H_mat))
         writeZ('Forts_mat',npF(self.s_mat))
+        writeZ('FortTerminator',npF(self.Xi))
         # Write the parameters to the file
         writeParams('Fortparams',self)
         # get the switches and name of the makefile

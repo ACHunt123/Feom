@@ -5,7 +5,7 @@ echo "Starting Memory checker for FORTRAN CODE..."
 
 # # command to run the feom.py script
  echo "\n\n memcheck for Debye Low T \n\n" 
- python3 ~/software/phd/Feom/benchmark/valgrind/Bench_feom.py --L 4 --K 4 --ns 2 --beta 1 --hbar 1 --tmax 0.005 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --lowTCorr 1 
+ python3 ~/software/phd/Feom/benchmark/valgrind/Bench_feom.py --L 4 --K 4 --ns 2 --beta 1 --hbar 1 --tmax 0.005 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --LTCorr 'IT' 
 #  echo "\n\n memcheck for Pade N/N \n\n"
 #  python3 ~/software/phd/Feom/benchmark/valgrind/Bench_feom.py --L 2 --K 2 --ns 2 --beta 1 --hbar 1 --tmax 0.5 --dt 0.001 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debyeCothpoles --bathmode Pade[N/N] --eta 2 --gam 1 --lowTCorr 1 
 #  echo "\n\n memcheck for Pade N-1/N \n\n"
