@@ -1,8 +1,10 @@
 import numpy as np
 import os,sys
-from Feom.hashmap import generateHashmap
+from Feom.hashmap import generateHashmap, total_length
 from Feom.baths.utils import get_C_UDs,generate_Terminator
 from Feom.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
+import Feom.baths as baths
+import Feom.potentials as potentials
 
 npF = np.asfortranarray # Aliasing to make the code more legible
 
@@ -10,54 +12,45 @@ npF = np.asfortranarray # Aliasing to make the code more legible
 #   Setup class for the FEOM integrator
 #
 class Setup:
-    def __init__(self,bath,pot,params):
-        ### Add all of the parameters to the class
-        self.__dict__.update(vars(params))
-        ### Add the bath parameters that are needed
-        self.N_exp_prop = bath.N_exp_prop # number of exponentials that we are propogating (may be different to the number used in the coth decomposition)
-        self.N_exp = bath.N_exp
-        self.gam_ks = bath.gam_ks
-        self.C_ks = bath.C_ks
-        get_C_UDs(self)
-        self.lowTcoef = bath.lowTcoef
-        params.lowTcoef = bath.lowTcoef
-        self.N_nonmats = bath.N_nonmats
-        ### Arguments for the integrator
-        self.H_mat = pot.H_mat # Hamiltonian matrix
-        self.s_mat = pot.s_mat # perturbation operator (could be q for example) 
+    def __init__(self,params):
+        ### Add all of the generalparameters to the class
+        self.params=params
 
-        ### Calculate Hashmaps
-        self.ADO_index, self.I0s = generateHashmap(self.K,self.L,self.N_nonmats) #hash map from the index of the ADO to the index of the BCF
-
-        ### Calculate the terminator if needed
-        generate_Terminator(self)
-
-        # if hasattr(self,'LTCorr'):
-        #     Terminator(self)
-
-        ### Get the headers for the output files
+        ### Setup bath and potential 
+        self.bath = baths.getbath(self.params.bathname)(self.params)
+        self.pot = potentials.getpotential(self.params.potname)(self.params)
 
         ### Write the parameters to a file and filename
-        params.header = printparams(params)
-        params.out_name = out_filename(params)
+        params.header = printparams(self)
+        params.out_name = out_filename(self)
+        
+        ### Calculate the C_U, c_D_LEFT, c_D_RIGHT coefficients for the bath (that are used in the FEOM code)
+        get_C_UDs(self.bath)
+
+        ### Calculate Hashmaps
+        self.ADO_index, self.I0s = generateHashmap(self.params.K,self.params.L,self.bath.N_nonmats) #hash map from the index of the ADO to the index of the BCF
+        self.params.Imax = total_length(self.params.K,self.params.L,self.bath.N_nonmats)     # the total number of ADOs
+
+        ### Calculate the terminator if needed, and add to self
+        generate_Terminator(self)
 
 
     def generate_input_files(self,x0):
         # Format all of the data
-        x0fort =np.zeros((self.Imax,self.ns,self.ns),dtype=complex,order='F')
-        for I in range(self.Imax):
+        x0fort =np.zeros((self.params.Imax,self.params.ns,self.params.ns),dtype=complex,order='F')
+        for I in range(self.params.Imax):
             x0fort[I,:,:] = npF(x0[:,:,I])
         # Write the data to the files
         writeZ('Fortrho',x0fort)
         writeI('FortADO_index',npF(self.ADO_index)) 
         writeI('FortI0s',npF(self.I0s)+1) # +1 because fortran is 1 indexed (not 0 indexed like in python)
-        writeZ('Fortgam_ks',npF(self.gam_ks[:self.N_exp_prop]))
-        writeZ('FortC_ks',npF(self.C_ks[:self.N_exp_prop]))
-        writeZ('Fortc_U',npF(self.c_U))
-        writeZ('Fortc_D_LEFT',npF(self.c_D_LEFT))
-        writeZ('Fortc_D_RIGHT',npF(self.c_D_RIGHT))
-        writeZ('FortH_mat',npF(self.H_mat))
-        writeZ('Forts_mat',npF(self.s_mat))
+        writeZ('Fortgam_ks',npF(self.bath.gam_ks[:self.bath.N_exp_prop]))
+        writeZ('FortC_ks',npF(self.bath.C_ks[:self.bath.N_exp_prop]))
+        writeZ('Fortc_U',npF(self.bath.c_U))
+        writeZ('Fortc_D_LEFT',npF(self.bath.c_D_LEFT))
+        writeZ('Fortc_D_RIGHT',npF(self.bath.c_D_RIGHT))
+        writeZ('FortH_mat',npF(self.pot.H_mat))
+        writeZ('Forts_mat',npF(self.pot.s_mat))
         writeZ('FortTerminator',npF(self.Xi))
         # Write the parameters to the file
         writeParams('Fortparams',self)
@@ -73,3 +66,16 @@ class Setup:
             print(f'\n Need to compile the fortran code. Run the command:\n\n make fast {makefile_command}\n')
             sys.exit()
         return
+    
+    def go(self,extra_commands=''):
+        # Run the executable
+        os.system(f'cd tmp/; {extra_commands} ./propagation*')
+        #Load the data and format it
+        data= np.loadtxt('tmp/output')
+        formatted_data, self.params.header = self.pot.format_output(data,self.params.header)
+        #Save it with nice filename and header
+        np.savetxt(self.params.out_name,formatted_data.real,header=self.params.header)
+        #Clean up the temporary directory
+        os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
+        os.system('rm -r tmp/ -f') #clean up the temporary directory
+        return 

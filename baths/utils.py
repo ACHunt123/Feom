@@ -21,7 +21,7 @@ def get_C_UDs(params):
     return 
 
 
-def generate_Terminator(params):
+def generate_Terminator(sim):
     '''Function to generate terminator for HEOM.
     IT - ishizaki-Tanimura terminator (same for each ADO)
     PT2 - 2nd order perturbative terminator (same for each ADO)
@@ -31,10 +31,13 @@ def generate_Terminator(params):
     self.init_lowtcoef is the low-temp correction either due to IT, or the k term from AAA and Pade[N/N] it will be added to
     It is a class, as it need to store its type and size
     '''
+    params = sim.params
+    pot= sim.pot
+    bath = sim.bath
     def getL(params):
         ''' Get the Liouvillian matrix for the system Hamiltonian, and transformation matrices'''
         I = np.eye(params.ns)
-        Lsys = -1.j*(np.kron(params.H_mat,I) - np.kron(I,params.H_mat.T))/params.hbar
+        Lsys = -1.j*(np.kron(pot.H_mat,I) - np.kron(I,pot.H_mat.T))/params.hbar
         eigvals, eigvecs = np.linalg.eig(Lsys)
         Lams = np.diag(eigvals)
         Pis = eigvecs
@@ -53,12 +56,12 @@ def generate_Terminator(params):
     Ldata = getL(params)                     # get the Liouvillian data   
     I = np.eye(params.ns)
 
-    Vcross = np.kron(params.s_mat,I) - np.kron(I,params.s_mat.T)  # commutator superoperator for the system-bath coupling operator
-    Xi_lowtcorr=  params.lowTcoef * Vcross @ Vcross  # low temperature correction term (same for all ADOs)
+    Vcross = np.kron(pot.s_mat,I) - np.kron(I,pot.s_mat.T)  # commutator superoperator for the system-bath coupling operator
+    Xi_lowtcorr=  bath.lowTcoef * Vcross @ Vcross  # low temperature correction term (same for all ADOs)
 
 
-    params.Xi = np.zeros((1,params.ns**2,params.ns**2),dtype=complex)
-    params.Xi[0,:,:] = Xi_lowtcorr
+    sim.Xi = np.zeros((1,params.ns**2,params.ns**2),dtype=complex)
+    sim.Xi[0,:,:] = Xi_lowtcorr
 
     # if LTCorr is None and params.lowTcoef == 0: # no terminator and no constant term in 
     #     params.Xi = np.zeros((1,1,1),dtype=complex) 

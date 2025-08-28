@@ -59,18 +59,22 @@ def writeI(filename, array): # for the large integer arrays
             #I10 is the format specifier for fortran for each number
         f.write("/\n")
     return
-def writeParams(filename,params): # Writes small parameters into file
+def writeParams(filename,sim): # Writes small parameters into file
+    params=sim.params
+    bath=sim.bath
+    nttot =int(params.tmax/params.dt)+1 # calculate the total number of time steps
     if not os.path.exists(f"tmp/"): os.makedirs(f"tmp/")
     with open(f"tmp/{filename}", "w") as f:
-        Ktot=params.K+params.N_nonmats
+        Ktot=params.K+bath.N_nonmats
         f.write("Ktot,L,hbar,Imax,ns,dt,nttot\n")
         # f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}\n".replace('e','d')) # old fixed width format
-        f.write(f"{Ktot:10d} {params.L:10d} {params.hbar.real:22.15e} {params.Imax:10d} {params.ns:10d} {params.dt:22.15e} {params.nttot:10d}\n".replace('e','d'))
+        f.write(f"{Ktot:10d} {params.L:10d} {params.hbar.real:22.15e} {params.Imax:10d} {params.ns:10d} {params.dt:22.15e} {nttot:10d}\n".replace('e','d'))
         f.write("/\n")
     return
 
 # ### Write functions for the output files  and metadata
-def out_filename(params): # Name of the output file - contains all the parameters
+def out_filename(sim): # Name of the output file - contains all the parameters
+    params=sim.params
     namestr = ''
     for key in params.__dict__.keys():
         if key in ['header','out_name','executable_suffix']: continue # dont put the header in the filename
@@ -86,7 +90,9 @@ def out_filename(params): # Name of the output file - contains all the parameter
     return f'outfile_{namestr[:-1]}.out'
 
 
-def FORT_SWITCHES(params):
+def FORT_SWITCHES(sim):
+    params = sim.params
+    bath = sim.bath
     ''' Supported compile-time switches (SWITCHES):
        -DLTCorr=[0,1,2]     0: no low temperature correction
                             1: same low temperature correction for each ADO [IT or k term from AAA and Pade[N/N]]
@@ -97,7 +103,7 @@ def FORT_SWITCHES(params):
     switches = []
     if getattr(params, 'LTCorr', None) in ['IT','PT2']: switchvalue = 1
     elif getattr(params, 'LTCorr', None) == 'NZ2':      switchvalue = 2 
-    elif params.lowTcoef != 0: switchvalue=1
+    elif bath.lowTcoef != 0: switchvalue=1
     else: switchvalue = 0
     switches.append(f'LTCorr{switchvalue}')
     if params.print_ADOs:
@@ -114,7 +120,8 @@ def FORT_SWITCHES(params):
     return makefile_command, executable_suffix
 
 
-def printparams(params):
+def printparams(sim):
+    params= sim.params
     ### Make metadata for headers in files - again this contains all the parameters
     runcommand = 'feom.py '
     metadata = "Input parameters used\n"
@@ -129,8 +136,8 @@ def printparams(params):
         if key not in ['header','out_name', 'executable_suffix']:
             runcommand += f'--{key} {params.__dict__[key]} '
     metadata += 'To compile the FORTRAN executable use the following command (in the Feom/fort directory) \n'
-    metadata += f'make fast {FORT_SWITCHES(params)[0]}' + '\n'
-    if ('DSIA' in FORT_SWITCHES(params)[0]):
+    metadata += f'make fast {FORT_SWITCHES(sim)[0]}' + '\n'
+    if ('DSIA' in FORT_SWITCHES(sim)[0]):
         metadata += 'SIA is Hardcoded with Krylov_dim = 8, Krylov_tol 1e-8, which so far has not had any issues\n'
     metadata += "------------------------------------------------------------------------------------\n"
     metadata += 'To run this code use the following command\n'

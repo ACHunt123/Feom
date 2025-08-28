@@ -108,6 +108,4 @@ elif params.potname == 'spinboson':
 if params.bathmode in ['nmats','nbead']: del params.LTCorr
 
 
-### Derived parameters (not input)
-params.nttot =int(params.tmax/params.dt)+1
 
