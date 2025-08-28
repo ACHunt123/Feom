@@ -29,9 +29,9 @@ def get_coeffs(params, support=None, values=None,terminate=False):
         ext = f'_quadrature_nw{nw}.txt'
 
     ### Use the AAA decomposition to get the coefficients
-    mu_eff = params.mu if not terminate else 0  # number of poles for AAA decomposition
-    folder = f'aaa_K{mu_eff}'                                # folder to save the aaa files
-    aaa_filename = f'aaa_data{ext}'                            # filename to save the aaa support and values data
+    mu_eff = params.mu if not terminate else 0  # number of poles for AAA decomposition (0 means as many as needed)
+    folder = f'aaa_K{mu_eff}'                                   # folder to save the aaa files
+    aaa_filename = f'aaa_data{ext}'                             # filename to save the aaa support and values data
     aaa_data_path = f'{folder}/{aaa_filename}'
     command= f"run_aaa_fromfile({mu_eff},'{os.getcwd()}/{folder}','{os.getcwd()}/{aaa_data_path}','{ext}','{terminate}')" # the command to run the AAA decomposition in MATLAB
 

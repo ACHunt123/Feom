@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import sys, os
 import Feom.baths.coth_decomp.cothPade as cothPade 
 import Feom.baths.coth_decomp.cothAAA as cothAAA
+import Feom.baths.utils as utils
 
 # A class for the Debye bath
 ''' A class to represent the Debye bath for the FEOM code, with AAA/Pade decomposition of A(w)/w
@@ -43,7 +44,7 @@ class Debye_cothpoles():
         # params.K = len(self.w_i) # Update the number of exponentials in the params object to match the number of poles found
         # params.lowTCorr=True if self.k != 0 else False
         ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
-        self.get_C_UDs()
+        utils.get_C_UDs(self)
 
     def J(self,w,plotme=False,ax=plt):
         Jw = self.eta*self.gam*w/(w**2+self.gam**2)
@@ -220,22 +221,6 @@ class Debye_cothpoles():
             plt.show()
         return t,C
 
-    def get_C_UDs(self):
-        # Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
-        self.c_U = np.zeros((self.N_exp_prop,self.L+1),dtype=complex)
-        self.c_D_LEFT = np.zeros((self.N_exp_prop,self.L+1),dtype=complex)
-        self.c_D_RIGHT = np.zeros((self.N_exp_prop,self.L+1),dtype=complex)
-        for ki in range(self.N_exp_prop):
-            for nk in range(self.L+1):
-                self.c_U[ki,nk] = np.sqrt((nk+1)*abs(self.C_ks[ki]))
-                if abs(self.C_ks[ki]) < 1e-10:
-                    self.c_D_LEFT[ki,nk] = 0.0
-                    self.c_D_RIGHT[ki,nk] = 0.0
-                    print(f'Warning: C_ks({ki}) is zero, setting superoperator terms to zero')
-                else:
-                    self.c_D_LEFT[ki,nk] = -np.sqrt(nk/abs(self.C_ks[ki]))*self.C_ks[ki]
-                    self.c_D_RIGHT[ki,nk] = np.sqrt(nk/abs(self.C_ks[ki]))*np.conj(self.C_ks[ki])
-        return 
 
 
 
