@@ -8,14 +8,15 @@ program main
     implicit none
     complex(8), allocatable :: ADOs(:,:,:) ! we have not made this global for clarity
     ! Local variables
-    real(8) :: hbar,time, ADOnorm
+    real(8) :: time, ADOnorm
     integer(4) :: stat,it,ki,nk,nttot,ni,ntout
     logical :: printData
 
     !!! LOAD PARAMETERS AND MATRICIES !!!
     ! read the parameters from the input file
     open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
-    read(10,'(I10, I10, D22.15, I10, I10, D22.15, I10)') Ktot, L, hbar, Imax, ns, dt, nttot
+    ! read(10,'(I10, I10, D22.15, I10, I10, D22.15, I10)') Ktot, L, hbar, Imax, ns, dt, nttot ! old FIXED WIDTH FORMAT
+    read(10,*) Ktot, L, hbar, Imax, ns, dt, nttot
     close(10)
     Ntot = Imax * ns * ns ! total number of elements in the ADOs array
     ! allocate the arrays
@@ -32,15 +33,12 @@ program main
         allocate(Xi_terminator(1,ns*ns,ns*ns))
     # elif LTCorr == 2
         allocate(Xi_terminator(Imax,ns*ns,ns*ns))
-        stop 'Error: LTCorr=2 is not supported yet, please recompile with LTCorr=1 or LTCorr=0'
     # endif
     ! read the matrices from the files
     call read_matrices(ADOs)
 
-    !!! FLOP REDUCTIONS !!!
-    ! scale the matrices and make is2
-    iH_mat = iH_mat/hbar
-    is_mat = is_mat/hbar
+    !!! FLOP REDUCTIONS AND PRINTOUTS !!!
+
     ! Calculate the lengths of each block of ado indices (pascals triangle)
     do nk = 0,L 
         do ki = 1,Ktot

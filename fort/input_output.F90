@@ -1,5 +1,5 @@
 module input_output
-    use shared_data, only: Imax, ns, Ktot, L
+    use shared_data, only: Imax, ns, Ktot, L, hbar
     use shared_data, only: iH_mat, is_mat, gam_ks
     use shared_data, only: c_U, c_D_LEFT, c_D_RIGHT
     use shared_data, only: ADO_index, I0s, Xi_terminator
@@ -41,10 +41,10 @@ subroutine read_matrices(ADOs)
             if (Ii==1) then
                 read(60,'(D22.15)') z_real
                 read(60,'(D22.15)') z_imag
-                iH_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives H)
+                iH_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0)/hbar !multiply by i/hbar (as input file gives H)
                 read(80,'(D22.15)') z_real
                 read(80,'(D22.15)') z_imag
-                is_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives s)
+                is_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0)/hbar !multiply by i/hbar (as input file gives s)
             end if
         end do; end do; end do
 

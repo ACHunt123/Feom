@@ -64,7 +64,8 @@ def writeParams(filename,params): # Writes small parameters into file
     with open(f"tmp/{filename}", "w") as f:
         Ktot=params.K+params.N_nonmats
         f.write("Ktot,L,hbar,Imax,ns,dt,nttot\n")
-        f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}\n".replace('e','d'))
+        # f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}\n".replace('e','d')) # old fixed width format
+        f.write(f"{Ktot:10d} {params.L:10d} {params.hbar.real:22.15e} {params.Imax:10d} {params.ns:10d} {params.dt:22.15e} {params.nttot:10d}\n".replace('e','d'))
         f.write("/\n")
     return
 
