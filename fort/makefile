@@ -25,10 +25,10 @@
 
 
 # Default switches
-SWITCHES?= -DLowTCorr -DSIA
-### Calculate the name of the executable based on switches [replace -D with _]
+SWITCHES?= -DLTCorr=1 -DSIA
+### Calculate the name of the executable based on switches [replace -D with _, = with nothing, and sort alphabetically]
 NAME := propagation
-SWITCH_SUFFIX := $(strip $(shell echo $(SWITCHES) | tr ' ' '\n' | sort | sed 's/-D//g; s/=/_/g' | paste -sd_ -))
+SWITCH_SUFFIX := $(strip $(shell echo $(SWITCHES) | tr ' ' '\n' | sort | sed 's/-D//g; s/=//g' | paste -sd_ -))
 ifeq ($(SWITCH_SUFFIX),)
     EXENAME := $(NAME)
 else
@@ -51,7 +51,7 @@ all:
 	$(FC) $(F90FLAGS)  -o  propagation $(FILES)
 	mv propagation executables/
 	wait
-	$(FC) $(F90FLAGS) -DLowTCorr -o propagation_LowTCorr $(FILES)
+	$(FC) $(F90FLAGS) -DLTCorr=1 -o propagation_LowTCorr $(FILES)
 	mv propagation_LowTCorr executables/
 	wait
 	$(FC) $(F90FLAGS) -DPrint_ADOs -o  propagation_Print_ADOs $(FILES)

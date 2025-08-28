@@ -1,4 +1,5 @@
 #!/bin/bash
 make clean
-make fast SWITCHES="-DSIA"
-make fast SWITCHES="-DLowTCorr -DSIA"
+make fast SWITCHES="-DLTCorr=0 -DSIA"  #no low temperature correction
+make fast SWITCHES="-DLTCorr=1 -DSIA"  #with low temperature correction (same for each ADO)
+# make fast SWITCHES="-DLTCorr=2 -DSIA"  #with low temperature correction (different for each ADO)

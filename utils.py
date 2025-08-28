@@ -63,9 +63,8 @@ def writeParams(filename,params): # Writes small parameters into file
     if not os.path.exists(f"tmp/"): os.makedirs(f"tmp/")
     with open(f"tmp/{filename}", "w") as f:
         Ktot=params.K+params.N_nonmats
-        f.write("Ktot,L,hbar,lowTcoef,Imax,ns,dt,nttot,lowTcoef_switch\n")
-        lowTcoef_switch = 1 if hasattr(params, 'LTCorr') else 0
-        f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.lowTcoef.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}{lowTcoef_switch:10d}\n".replace('e','d'))
+        f.write("Ktot,L,hbar,lowTcoef,Imax,ns,dt,nttot\n")
+        f.write(f"{Ktot:10d}{params.L:10d}{params.hbar.real:22.15e}{params.lowTcoef.real:22.15e}{params.Imax:10d}{params.ns:10d}{params.dt:22.15e}{params.nttot:10d}\n".replace('e','d'))
         f.write("/\n")
     return
 
@@ -87,13 +86,19 @@ def out_filename(params): # Name of the output file - contains all the parameter
 
 
 def FORT_SWITCHES(params):
-# Supported compile-time switches (SWITCHES):
-#   -DLowTCorr      Enable low-temperature correction via double commutator term
-#   -DPrint_ADOs    Print the ADOs to file every N timesteps
-#   -DSIA           Use SIA step instead of RK4 step (default)
+    ''' Supported compile-time switches (SWITCHES):
+       -DLTCorr=[0,1,2]     0: no low temperature correction
+                            1: same low temperature correction for each ADO [IT or k term from AAA and Pade[N/N]]
+                            2: different low temperature correction for each ADO (not implemented yet)
+       -DPrint_ADOs         Print the ADOs to file every N timesteps
+       -DSIA                Use SIA step instead of RK4 step (default)
+     '''
     switches = []
-    if hasattr(params, 'LTCorr') or params.lowTcoef != 0:
-        switches.append('LowTCorr')
+    if getattr(params, 'LTCorr', None) in ['IT','PT2']: switchvalue = 1
+    elif getattr(params, 'LTCorr', None) == 'NZ2':      switchvalue = 2 
+    elif params.lowTcoef != 0: switchvalue=1
+    else: switchvalue = 0
+    switches.append(f'LTCorr{switchvalue}')
     if params.print_ADOs:
         switches.append('Print_ADOs')
     if not params.noSIA:

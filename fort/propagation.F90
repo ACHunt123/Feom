@@ -15,7 +15,7 @@ program main
     !!! LOAD PARAMETERS AND MATRICIES !!!
     ! read the parameters from the input file
     open(10, file='Fortparams', status='old', action='read', iostat=stat); read(10,*)
-    read(10,'(I10, I10, D22.15, D22.15, I10, I10, D22.15, I10, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot, lowTcoef_switch
+    read(10,'(I10, I10, D22.15, D22.15, I10, I10, D22.15, I10)') Ktot, L, hbar, lowTcoef, Imax, ns, dt, nttot
     close(10)
     Ntot = Imax * ns * ns ! total number of elements in the ADOs array
     ! allocate the arrays

@@ -51,7 +51,7 @@ NOTE: nmats and nbead are if we chose n beads, then set the frequencies to be th
 this means that the c0 coefifients will contain a finute sum. The matsubara option includes all poles,
 giving the tan() in c0. This is the one used with Ishizki-Tanimura terminator.
 
-lowTCorr = ['NZ2','IT','PT2']    Whether to add Nakajima-Zwanwig, Ishizki-Tanimura or 2nd order terminator [not available for nbeads/nmats as there are no exra terms in BCF]
+LTCorr = ['NZ2','IT','PT2']    Whether to add Nakajima-Zwanwig, Ishizki-Tanimura or 2nd order terminator [not available for nbeads/nmats as there are no exra terms in BCF]
 
 --print_ADOs        Print the ADOs to file every N (hardcoded) timesteps (if present, default False)
 --noSIA             Use RK4 step instead of SIA step (used present, default False)

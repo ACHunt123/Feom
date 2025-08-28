@@ -103,7 +103,7 @@ class Debye_cothpoles():
         
         self.N_exp = self.N_nonmats + mu_tot  # total number of exponentials in the BCF 
 
-        if(0): # Plot the approximated function and J(w)
+        if(1): # save and Plot the approximated function and J(w)
             w = np.linspace(-250,250,20000,dtype=np.complex128) 
             values = self.P(w)                     # values of the pole function at the w points
             plt.figure(figsize=(5,5))
@@ -122,7 +122,7 @@ class Debye_cothpoles():
             np.savetxt(filename, data, header='# w Re[P_approx(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
             print(f'Saved the approximation plot to {filename}')
             # sys.exit(0) # exit the program after plotting the approximation
-        if(0): #plot the poles and the Matsubara terms if they were to be used
+        if(1): #save and plot the poles and the Matsubara terms if they were to be used
             wmax= np.max(np.abs(self.w_i)) 
 
             fig, pole_ax = plt.subplots(figsize=(5,5))

@@ -1,5 +1,5 @@
 module gradient
-use shared_data, only: Imax, ns, dt, lowTcoef_switch, lowTcoef
+use shared_data, only: Imax, ns, dt, lowTcoef
 use shared_data, only: gam_ks, c_U, c_D_LEFT, c_D_RIGHT, ADO_index, I0s, lengths
 use shared_data, only: s_mat2, is_mat, iH_mat, Ktot, L, Ntot
 
@@ -36,9 +36,11 @@ subroutine get_gradient(rho,grad)
         #endif
 
         ! Itziki Trucation (if present)
-        #ifdef LowTCorr
+        #if LTCorr == 1 
             gradI = gradI + lowTcoef  &
             * ( matmul(s_mat2,rhoI) + matmul(rhoI,s_mat2) + 2.d0*matmul(matmul(is_mat,rhoI),is_mat)) !note the + on last term is as (is)Rho(is) = - 2 s Rho s
+        # elif LTCorr == 2
+            stop 'Error: LTCorr=2 is not supported yet, please recompile with LTCorr=1 or LTCorr=0'
         #endif
 
         ! Execute the off-diagonal superoperator terms
