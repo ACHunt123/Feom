@@ -67,7 +67,7 @@ class Setup:
             sys.exit()
         return
     
-    def go(self,extra_commands=''):
+    def go(self,extra_commands='',cleanup=True):
         # Run the executable
         os.system(f'cd tmp/; {extra_commands} ./propagation*')
         #Load the data and format it
@@ -77,5 +77,5 @@ class Setup:
         np.savetxt(self.params.out_name,formatted_data.real,header=self.params.header)
         #Clean up the temporary directory
         os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
-        os.system('rm -r tmp/ -f') #clean up the temporary directory
+        if cleanup: os.system('rm -r tmp/ -f') #clean up the temporary directory
         return 
