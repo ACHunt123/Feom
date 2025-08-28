@@ -34,7 +34,7 @@ class Debye_bath():
         self.N_mds = 2*self.mu+1                    # number of individual beads or matsubara modes (ODD)
         #
         self.mode= params.bathmode
-        self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
+        # self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
         ### Calculate the C_ks and gam_ks for the bath and add to the class
         self.get_coeffs()
         ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
@@ -63,14 +63,14 @@ class Debye_bath():
         dI = -self.hbar*self.eta*self.gam/2
 
         # Calculate the C_ks
-        C_ks = np.zeros(self.N_exp,dtype=complex)
-        C_ks[0] = (d[0] + dI*1.j)
-        C_ks[1:] = d[1:]
+        self.C_ks = np.zeros(self.N_exp,dtype=complex)
+        self.C_ks[0] = (d[0] + dI*1.j)
+        self.C_ks[1:] = d[1:]
 
         #Calculate the gam_ks
-        gam_ks = np.zeros(self.N_exp,dtype=complex)
-        gam_ks[0] = self.gam
-        gam_ks[1:] = ws[1:]
+        self.gam_ks = np.zeros(self.N_exp,dtype=complex)
+        self.gam_ks[0] = self.gam
+        self.gam_ks[1:] = ws[1:]
         
         # Calculate the low temperature coefficient
         if self.mode in ['nmats','nbead']: 
@@ -79,13 +79,6 @@ class Debye_bath():
             self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
             self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
 
-        self.C_ks = C_ks
-        self.gam_ks = gam_ks
-        if(0):
-            print(f'LowTcoef: {self.lowTcoef}')
-            print(f'C_ks: {C_ks}')
-            print(f'gam_ks: {gam_ks}')
-            sys.exit(0) #exit the program after printing the coefficients
         return 
 
     # output TCF for a given set of C_ks and gam_ks
@@ -110,8 +103,8 @@ class Debye_bath():
     def get_coeffs(self,mode=None):
         if mode is None: mode = self.mode #allowing override of the mode from the __init__
 
-        if mode == 'highT':
-            return np.array([self.C0hot]),np.array([self.gam]) #the high temperature limit - no matsubara terms
+        # if mode == 'highT':
+        #     return np.array([self.C0hot]),np.array([self.gam]) #the high temperature limit - no matsubara terms
 
         if mode in ['matsubara','nmats']: # Generate the K matsubara frequencies (the nmats will have the same freqs, but different c0 and no low temp truncation)
             betaN = self.beta/self.N_mds

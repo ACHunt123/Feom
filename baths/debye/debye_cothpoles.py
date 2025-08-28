@@ -69,17 +69,12 @@ class Debye_cothpoles():
          
     
     def calc_poles(self): # Reclusters the poles and residues from coth(x)
-        '''UP TO HERE:
-        we want to set n_exp depending on whether or not we are terminating or not.
+        '''
+        self.terminate = TRUE/FALSE is the switch for whether or not we are using a terminator
         if there is no terminator, N_exp=N_exp_prop
         if not, N_exp=N_exp_prop + (enough terms to converge the low temp correction)
         the C_ks and gam_ks calculated will then be used in the terminator module to calcuate the terminator
-        self.terminate = TRUE/FALSE is the switch for whether or not we are using a terminator
         '''
-        # self.N_exp = self.N_exp_prop # start with the number of exponentials that we are propogating
-        # extra_terms = 10
-        # self.N_exp = self.N_exp_prop + extra_terms
-        # self.mu_eff = self.mu + extra_terms # effective number of matsubara terms to use in the coth decomposition
 
         if self.bathmode=='AAA':
             print(f'Using AAA decomposition for the bath.')
@@ -104,11 +99,11 @@ class Debye_cothpoles():
             self.w_i = xi/(self.beta *self.hbar)
             self.k = R_N*(self.beta*self.hbar)**2/2.
         else:
-            raise ValueError('Invalid typre of coth decomposition specified. Use "AAA" or "Pade..." .')
+            raise ValueError('Invalid tyre of coth decomposition specified. Use "AAA" or "Pade..." .')
         
         self.N_exp = self.N_nonmats + mu_tot  # total number of exponentials in the BCF 
 
-        if(1): # Plot the approximated function and J(w)
+        if(0): # Plot the approximated function and J(w)
             w = np.linspace(-250,250,20000,dtype=np.complex128) 
             values = self.P(w)                     # values of the pole function at the w points
             plt.figure(figsize=(5,5))
@@ -127,7 +122,7 @@ class Debye_cothpoles():
             np.savetxt(filename, data, header='# w Re[P_approx(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
             print(f'Saved the approximation plot to {filename}')
             # sys.exit(0) # exit the program after plotting the approximation
-        if(1): #plot the poles and the Matsubara terms if they were to be used
+        if(0): #plot the poles and the Matsubara terms if they were to be used
             wmax= np.max(np.abs(self.w_i)) 
 
             fig, pole_ax = plt.subplots(figsize=(5,5))
@@ -164,21 +159,17 @@ class Debye_cothpoles():
         dI = -self.hbar*self.eta*self.gam/2
 
         # Calculate the C_ks
-        C_ks = np.zeros(self.N_exp,dtype=complex)
-        C_ks[0] = (d[0] + dI*1.j)
-        C_ks[1:] = d[1:]
+        self.C_ks = np.zeros(self.N_exp,dtype=complex)
+        self.C_ks[0] = (d[0] + dI*1.j)
+        self.C_ks[1:] = d[1:]
 
         #Calculate the gam_ks 
-        gam_ks = np.zeros(self.N_exp,dtype=complex)
-        gam_ks[0] = self.gam
-        gam_ks[1:] = self.w_i[:]
+        self.gam_ks = np.zeros(self.N_exp,dtype=complex)
+        self.gam_ks[0] = self.gam
+        self.gam_ks[1:] = self.w_i[:]
 
-       
-        self.C_ks = C_ks
-        self.gam_ks = gam_ks
-
+        # Calculate the low temperature coefficient
         self.lowTcoef=-2*self.eta*self.gam*self.k/(self.beta*self.hbar**2) 
-        # self.C0hot=None
 
         return 
 
@@ -220,6 +211,8 @@ class Debye_cothpoles():
             ax.grid(True)
             plt.show()
         return t,C
+    
+
 
 
 
