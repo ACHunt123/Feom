@@ -25,7 +25,7 @@
 
 
 # Default switches
-SWITCHES?= -DLowTCorr
+SWITCHES?= -DLowTCorr -DSIA
 ### Calculate the name of the executable based on switches [replace -D with _]
 NAME := propagation
 SWITCH_SUFFIX := $(strip $(shell echo $(SWITCHES) | tr ' ' '\n' | sort | sed 's/-D//g; s/=/_/g' | paste -sd_ -))
@@ -36,8 +36,8 @@ else
 endif
 # Compiler and flags
 FC = ifx             # Intel Fortran Compiler (can switch to gfortran if needed)
-F90FLAGS = -g -O3 -funroll-loops  -heap-arrays  ${SWITCHES} -DSIA
-F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 ${SWITCHES} -DSIA			# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
+F90FLAGS = -g -O3 -funroll-loops  -heap-arrays  ${SWITCHES} 
+F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 ${SWITCHES}			# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
 FILES = utils.F90 shared_data.F90 input_output.F90 gradient.F90 propagator.F90 propagation.F90 -qmkl 
 
 # Directories

@@ -3,9 +3,11 @@ import sys
 import numpy as np
 # Get the directory of the current script file
 script_dir = os.path.dirname(os.path.abspath(__file__))
+# go back one to get the bath location
+script_dir = os.path.dirname(script_dir)
 
 
-def get_coeffs(params, support=None, values=None):
+def get_coeffs(params, support=None, values=None,terminate=False):
     # Bathmode and settings
     minres_tol = 1e-6      # tolerance for the minimum abs value of a residue in the AAA decomposition
 
@@ -27,10 +29,11 @@ def get_coeffs(params, support=None, values=None):
         ext = f'_quadrature_nw{nw}.txt'
 
     ### Use the AAA decomposition to get the coefficients
-    folder = f'aaa_K{params.mu}'                                # folder to save the aaa files
+    mu_eff = params.mu if not terminate else 0  # number of poles for AAA decomposition
+    folder = f'aaa_K{mu_eff}'                                # folder to save the aaa files
     aaa_filename = f'aaa_data{ext}'                            # filename to save the aaa support and values data
     aaa_data_path = f'{folder}/{aaa_filename}'
-    command= f"run_aaa_fromfile({params.mu},'{os.getcwd()}/{folder}','{os.getcwd()}/{aaa_data_path}','{ext}')" # the command to run the AAA decomposition in MATLAB
+    command= f"run_aaa_fromfile({mu_eff},'{os.getcwd()}/{folder}','{os.getcwd()}/{aaa_data_path}','{ext}','{terminate}')" # the command to run the AAA decomposition in MATLAB
 
     if not os.path.exists(folder): os.makedirs(folder)
     if not os.path.exists(aaa_data_path):  # save the support and values to a file if it does not exist
@@ -79,4 +82,4 @@ def get_coeffs(params, support=None, values=None):
     upper_poles = np.array(upper_poles,dtype=np.complex128) ; upper_res = np.array(upper_res,dtype=np.complex128)
     w_i = np.imag(upper_poles)                             # these are the new prequencies
     gam_i = -2*np.imag(upper_poles)*np.imag(upper_res)     # these are the new gammas
-    return gam_i, w_i, konstant  # return the gammas, frequencies and constant shift k
+    return gam_i, w_i, konstant, len(gam_i)  # return the gammas, frequencies, constant shift k, and number of exponentials

@@ -108,11 +108,6 @@ elif params.potname == 'spinboson':
 if params.bathmode in ['nmats','nbead']: del params.LTCorr
 
 
-### Write the parameters to a file and filename
-params.header = printparams(params)
-params.out_name = out_filename(params)
-
-
 ### Derived parameters (not input)
 params.nttot =int(params.tmax/params.dt)+1
 

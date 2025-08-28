@@ -26,10 +26,11 @@ class Debye_bath():
         self.beta = params.beta
         self.hbar = params.hbar
         # Paramaters for bath indexing
-        self.N_nonmats = 1                      # number of exponential modes in BCF that are NOT matsubara terms (the Temp. ind. exp.)
-        self.mu = params.K                      # number of pairs of matsubara modes/ r.p. modes, each pair gives a single exponential term
-        self.N_exp = self.N_nonmats + self.mu   # number of exponential terms in the BCF [Temp ind. Exponential, <--- Matsubara Exponentials --->]
-        self.N_mds = 2*self.mu+1                # number of individual beads or matsubara modes (ODD)
+        self.N_nonmats = 1                          # number of exponential modes in BCF that are NOT matsubara terms (the Temp. ind. exp.)
+        self.mu = params.K                          # number of pairs of matsubara modes/ r.p. modes, each pair gives a single exponential term
+        self.N_exp = self.N_nonmats + self.mu       # number of exponential terms in the BCF [Temp ind. Exponential, <--- Matsubara Exponentials --->]
+        self.N_exp_prop = self.N_nonmats + self.mu  # number of exponentials that we are propogating (may be different to the number used in the coth decomposition)
+        self.N_mds = 2*self.mu+1                    # number of individual beads or matsubara modes (ODD)
         #
         self.mode= params.bathmode
         self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms

@@ -10,7 +10,15 @@ import sys
 # = 1/2 (e^[x/2]+e^[-x/2]) / (e^[x/2]-e^[-x/2])
 # = 1/2 coth(x/2)
 
-def get_coeffs(mode,N):
+def get_coeffs(mode,N,terminate=False):
+    '''
+    Get the coefficients for the Pade decomposition of the coth function
+    mode = '[N/N]' or '[N-1/N]' for different types of Pade decomposition
+    N = number of poles
+    terminate = are we using a terminator?
+    if so, we add lots of extra poles
+    '''
+    if terminate: N=20
     mode= str(mode.strip()) #clean up the mode string
     if mode == '[N/N]': #just do [N/N]
         M=2*N+1                     #(4c)
@@ -43,7 +51,7 @@ def get_coeffs(mode,N):
             eta[j] = num_prod/denom_prod
         R_N = 1/(4*(N+1)*b(N+1))
         eta*= R_N/2
-        return eta, xi, R_N #residues, poles, constant factor
+        return eta, xi, R_N, N #residues, poles, constant factor, number of poles
 
     elif mode=='[N-1/N]':
         M=2*N                         #(4c)
@@ -75,7 +83,7 @@ def get_coeffs(mode,N):
                 if k!=j: denom_prod *= (xi[k]**2 - xi[j]**2)
             eta[j] = num_prod/denom_prod
         eta*=(N/2)*b(N+1)
-        return eta, xi, 0 #residues, poles, constant factor
+        return eta, xi, 0, N #residues, poles, constant factor, number of poles
     elif mode=='[N+1/N]':
         sys.exit('not implemented yet')
     else: sys.exit('invalid mode')

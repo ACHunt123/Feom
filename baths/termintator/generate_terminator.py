@@ -2,88 +2,45 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-# A class to generate terminators for HEOM
-''' A class to represent the Debye bath for the FEOM code.
+'''Function to generate terminator for HEOM.
+IT - ishizaki-Tanimura terminator (same for each ADO)
+PT2 - 2nd order perturbative terminator (same for each ADO)
+NZ2 - Nakajima-Zwanwig terminator (different for each ADO, more expensive)
 
-eta : Coupling strength
-gam : Cuttoff frequency
 
-The spectral density is given by:
-J(w) = \frac{\eta\gamma\omega}{\omega^2 + \gamma^2}
-using the discretized definition, giving coefficients:
-J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(w - w_\alpha)
+self.init_lowtcoef is the low-temp correction either due to IT, or the k term from AAA and Pade[N/N] it will be added to
+It is a class, as it need to store its type and size
 '''
-
-
-class Debye_bath():
+class Terminator():
     def __init__(self,params):
         # Bathmode and settings
-        self.bathmode = params.bathmode
-        self.L = params.L                      # max tier of the ADOs
-        # General parameters
-        self.eta = params.eta
-        self.gam = params.gam
-        self.beta = params.beta
-        self.hbar = params.hbar
-        # Paramaters for bath indexing
-        self.N_nonmats = 1                      # number of exponential modes in BCF that are NOT matsubara terms (the Temp. ind. exp.)
-        self.mu = params.K                      # number of pairs of matsubara modes/ r.p. modes, each pair gives a single exponential term
-        self.N_exp = self.N_nonmats + self.mu   # number of exponential terms in the BCF [Temp ind. Exponential, <--- Matsubara Exponentials --->]
-        self.N_mds = 2*self.mu+1                # number of individual beads or matsubara modes (ODD)
-        #
-        self.mode= params.bathmode
-        self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
-        ### Calculate the C_ks and gam_ks for the bath and add to the class
-        self.get_coeffs()
-        ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
-        self.get_C_UDs()
+        self.init_lowtcoef = params.lowTcoef 
+        self.H=params.H_mat
+        self.s=params.s_mat
+        self.ns=params.ns
+        self.hbar=params.hbar
+        self.getL()
+        sys.exit()
 
-    def J(self,w,plotme=False,ax=plt):
-        w = np.linspace(0,2,1000)
-        Jw = self.eta*self.gam*w/(w**2+self.gam**2)
-        if plotme : 
-            ax.plot(w,Jw)
-        return Jw,w
+    def getL(self):
+        ''' Get the Liouvillian matrix for the system Hamiltonian, and transformation matrices'''
+        I = np.eye(self.ns)
+        self.Lsys = -1.j*(np.kron(self.H,I) - np.kron(I,self.H.T))/self.hbar
+        eigvals, eigvecs = np.linalg.eig(self.Lsys)
+        self.Lams = np.diag(eigvals)
+        self.Pis = eigvecs
+        self.Pis_inv = np.linalg.inv(self.Pis)
+        if(0):#test the eigen-decomposition
+            L_reconstructed = self.Pis @ self.Lams @ self.Pis_inv
+            error = np.linalg.norm(self.Lsys - L_reconstructed)
+            print(f"Eigen-decomposition reconstruction error: {error:.2e}")
+        return 
+        
 
     # Calculate the C_ks and gam_ks for a given set of ws
-    def calc_coefs(self,ws):
-        d = np.zeros(self.N_exp)
-        ### Calculate the 0th (non-matsubara) term
-        if self.mode in ['nbead','nmats']:              # give the finite mode prefactor
-            d0sum = np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))
-            d[0] = (self.hbar*self.eta*self.gam/2) * (2/(self.beta*self.hbar*self.gam) + (4*self.gam/(self.beta*self.hbar))*d0sum)
-        elif self.mode == 'matsubara': # give the infinite mode prefactor
-            d[0] = (self.hbar*self.eta*self.gam/2) /np.tan(self.beta*self.hbar*self.gam/2)
-        else:
-            raise ValueError('Invalid mode')
-        ### Calculate the rest of the terms (matsubara terms)
-        d[1:] = -(2*self.eta*self.gam/self.beta) * ws[1:]/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2)
-        dI = -self.hbar*self.eta*self.gam/2
+    def get_Xi_n(self,n):
+        ''' Get the Xi_n matrix for a given ADO n (list of indices)'''
 
-        # Calculate the C_ks
-        C_ks = np.zeros(self.N_exp,dtype=complex)
-        C_ks[0] = (d[0] + dI*1.j)
-        C_ks[1:] = d[1:]
-
-        #Calculate the gam_ks
-        gam_ks = np.zeros(self.N_exp,dtype=complex)
-        gam_ks[0] = self.gam
-        gam_ks[1:] = ws[1:]
-        
-        # Calculate the low temperature coefficient
-        if self.mode in ['nmats','nbead']: 
-            self.lowTcoef = 0
-        elif self.mode == 'matsubara':  # The Ishizaki-Tanimura terminator coefficient
-            self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
-            self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
-
-        self.C_ks = C_ks
-        self.gam_ks = gam_ks
-        if(0):
-            print(f'LowTcoef: {self.lowTcoef}')
-            print(f'C_ks: {C_ks}')
-            print(f'gam_ks: {gam_ks}')
-            sys.exit(0) #exit the program after printing the coefficients
         return 
 
     # output TCF for a given set of C_ks and gam_ks

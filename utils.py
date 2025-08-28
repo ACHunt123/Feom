@@ -92,7 +92,7 @@ def FORT_SWITCHES(params):
 #   -DPrint_ADOs    Print the ADOs to file every N timesteps
 #   -DSIA           Use SIA step instead of RK4 step (default)
     switches = []
-    if hasattr(params, 'LTCorr'):
+    if hasattr(params, 'LTCorr') or params.lowTcoef != 0:
         switches.append('LowTCorr')
     if params.print_ADOs:
         switches.append('Print_ADOs')

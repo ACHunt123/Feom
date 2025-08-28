@@ -24,6 +24,7 @@ class Debye_cothpoles():
         self.bathmode = params.bathmode
         self.cleanbathmode = self.bathmode.replace(' ','_').replace('/','_') # clean the bath mode name for saving files
         self.L = params.L                      # max tier of the ADOs
+        self.terminate = hasattr(params,'LTCorr') # whether or not we are using a terminator
         # General parameters
         self.eta = params.eta
         self.gam = params.gam
@@ -32,16 +33,15 @@ class Debye_cothpoles():
         # Paramaters for bath indexing
         self.N_nonmats = 1                      # number of exponential modes in BCF that are NOT matsubara terms (the Temp. ind. exp.)
         self.mu = params.K                      # number of pairs of matsubara modes/ r.p. modes, each pair gives a single exponential term
-        self.N_exp = self.N_nonmats + self.mu   # number of exponential terms in the BCF [Temp ind. Exponential, <--- Matsubara Exponentials --->]
-        self.N_mds = 2*self.mu+1                # number of individual beads or matsubara modes (ODD)
+        self.N_exp_prop = self.N_nonmats + self.mu   # number of exponential terms in the BCF EXPLICITLY PROPOGATED [Temp ind. Exponential, <--- Matsubara Exponentials --->]
         #
         self.mode= params.bathmode
-        self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
+        # self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
         ### Calculate the C_ks and gam_ks for the bath and add to the class
         self.get_coefs()
         # self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
-        params.K = len(self.w_i) # Update the number of exponentials in the params object to match the number of poles found
-        params.lowTCorr=True if self.k != 0 else False
+        # params.K = len(self.w_i) # Update the number of exponentials in the params object to match the number of poles found
+        # params.lowTCorr=True if self.k != 0 else False
         ### Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
         self.get_C_UDs()
 
@@ -68,7 +68,18 @@ class Debye_cothpoles():
          
     
     def calc_poles(self): # Reclusters the poles and residues from coth(x)
-        
+        '''UP TO HERE:
+        we want to set n_exp depending on whether or not we are terminating or not.
+        if there is no terminator, N_exp=N_exp_prop
+        if not, N_exp=N_exp_prop + (enough terms to converge the low temp correction)
+        the C_ks and gam_ks calculated will then be used in the terminator module to calcuate the terminator
+        self.terminate = TRUE/FALSE is the switch for whether or not we are using a terminator
+        '''
+        # self.N_exp = self.N_exp_prop # start with the number of exponentials that we are propogating
+        # extra_terms = 10
+        # self.N_exp = self.N_exp_prop + extra_terms
+        # self.mu_eff = self.mu + extra_terms # effective number of matsubara terms to use in the coth decomposition
+
         if self.bathmode=='AAA':
             print(f'Using AAA decomposition for the bath.')
             if(0): # Calculate the support of the coth function such that J(w)/w is sampled evenly [DOESNT WORK WELL]
@@ -79,26 +90,22 @@ class Debye_cothpoles():
                     np.flip(np.abs(np.sqrt(1 / x_j - self.gam**2)))
                     ,np.array([200])])
                 values= self.P(support) # values of the coth function at the support points
-                self.gam_i, self.w_i, self.k = cothAAA.get_coeffs(self,support,values)
+                self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,support,values,self.terminate)
             else: # Use support with uniform spacing in w (done within the cothAAA module)
-                self.gam_i, self.w_i, self.k = cothAAA.get_coeffs(self) 
-
-             ### Recalculate the number of exponentials (as the AAA algorithm might have changed the number of poles)
-            if self.N_exp != len(self.w_i)+self.N_nonmats:
-                print(f'Total of frequencies {len(self.w_i)+self.N_nonmats} does not match number of exponentials proposed ({self.N_exp}), changing now.')
-                print(f'With this new set, K={len(self.w_i)}.')
-            self.N_exp = len(self.w_i)+self.N_nonmats  # update the number of exponentials
+                self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,None,None,self.terminate) 
 
         elif self.bathmode[0:4]=='Pade':
             Padetype = self.bathmode[4:] # get the type of Pade decomposition
             print(f'Using Pade decomposition of type {Padetype} for the bath.')
-            eta, xi, R_N =cothPade.get_coeffs(Padetype,self.mu) # get the poles and residues from the pade module
+            eta, xi, R_N, mu_tot =cothPade.get_coeffs(Padetype,self.mu,self.terminate) # get the poles and residues from the pade module
             ### convert to the same format as the AAA decomposition
             self.gam_i = eta
             self.w_i = xi/(self.beta *self.hbar)
             self.k = R_N*(self.beta*self.hbar)**2/2.
         else:
             raise ValueError('Invalid typre of coth decomposition specified. Use "AAA" or "Pade..." .')
+        
+        self.N_exp = self.N_nonmats + mu_tot  # total number of exponentials in the BCF 
 
         if(1): # Plot the approximated function and J(w)
             w = np.linspace(-250,250,20000,dtype=np.complex128) 
@@ -170,7 +177,7 @@ class Debye_cothpoles():
         self.gam_ks = gam_ks
 
         self.lowTcoef=-2*self.eta*self.gam*self.k/(self.beta*self.hbar**2) 
-        self.C0hot=None
+        # self.C0hot=None
 
         return 
 
@@ -215,10 +222,10 @@ class Debye_cothpoles():
 
     def get_C_UDs(self):
         # Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
-        self.c_U = np.zeros((self.N_exp,self.L+1),dtype=complex)
-        self.c_D_LEFT = np.zeros((self.N_exp,self.L+1),dtype=complex)
-        self.c_D_RIGHT = np.zeros((self.N_exp,self.L+1),dtype=complex)
-        for ki in range(self.N_exp):
+        self.c_U = np.zeros((self.N_exp_prop,self.L+1),dtype=complex)
+        self.c_D_LEFT = np.zeros((self.N_exp_prop,self.L+1),dtype=complex)
+        self.c_D_RIGHT = np.zeros((self.N_exp_prop,self.L+1),dtype=complex)
+        for ki in range(self.N_exp_prop):
             for nk in range(self.L+1):
                 self.c_U[ki,nk] = np.sqrt((nk+1)*abs(self.C_ks[ki]))
                 if abs(self.C_ks[ki]) < 1e-10:
