@@ -92,10 +92,10 @@ def get_coeffs(mode,N,terminate=False):
 
 
 if __name__ == '__main__':
-    N = 10
+    N = 20
     import matplotlib.pyplot as plt
     import sys
-    eta,xi,R_N = get_coeffs('[N-1/N]',N)
+    eta,xi,R_N ,_= get_coeffs('[N-1/N]',N)
     # Plot the exact function vs the Pade approximation
     def xPhi_2Np1_x2(x):
         result= R_N*x

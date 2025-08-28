@@ -1,6 +1,6 @@
 import numpy as np
 from types import SimpleNamespace
-
+import sys
 
 def get_C_UDs(params):
     ''' Generate the coefficients C_U, c_D_LEFT, c_D_RIGHT from the C_ks for the bath (that are used in the FEOM code)'''
@@ -34,7 +34,14 @@ def generate_Terminator(sim):
     params = sim.params
     pot= sim.pot
     bath = sim.bath
-    def getL(params):
+
+    ### Calculate the terminator contribution from low temperature correction
+    I = np.eye(params.ns)
+    Vcross = np.kron(pot.s_mat,I) - np.kron(I,pot.s_mat.T)  # commutator superoperator for the system-bath coupling operator
+    Xi_lowtcorr =  bath.lowTcoef * Vcross @ Vcross  # low temperature correction term (same for all ADOs)
+
+    ### Get the Liouvillian and transformation matrices (for the NZ2 terminator)
+    def getL(params,pot):
         ''' Get the Liouvillian matrix for the system Hamiltonian, and transformation matrices'''
         I = np.eye(params.ns)
         Lsys = -1.j*(np.kron(pot.H_mat,I) - np.kron(I,pot.H_mat.T))/params.hbar
@@ -47,41 +54,65 @@ def generate_Terminator(sim):
             error = np.linalg.norm(Lsys - L_reconstructed)
             print(f"Eigen-decomposition reconstruction error: {error:.2e}")
         return SimpleNamespace(Lsys=Lsys,Lams=np.diag(eigvals),Pis=eigvecs,Pis_inv=np.linalg.inv(eigvecs))
-    
-    def get_Xi_n(params,n):
+
+
+
+    def get_Xi_n(params,n,Ldata):
         ''' Get the Xi_n matrix for a given ADO n (list of indices)'''
+        sys.exit('Not implemented yet')
+
+    def get_IT(params,pot,bath):
+        ''' Get the IT terminator matrix, calculated from the unused C_ks and gam_ks in the bath object'''
+        I = np.eye(params.ns)
+        VL = np.kron(pot.s_mat,I)
+        VR = np.kron(I,pot.s_mat.T)
+        Vcross = VL-VR  # commutator superoperator for the system-bath coupling operator
+        Xi_IT = np.zeros((params.ns**2,params.ns**2),dtype=complex)
+        nterm=len(bath.gamks_term)
+        for k in range(nterm):
+            gamk = bath.gamks_term[k]
+            Ck = bath.Cks_term[k]
+            O=(Ck*VL -Ck.conj()*VR)
+            Xi_IT -= Vcross@O/(gamk*params.hbar**2)
+        return Xi_IT
 
 
-    LTCorr = getattr(params, 'LTCorr', None) # what type of terminator are we using?
-    Ldata = getL(params)                     # get the Liouvillian data   
-    I = np.eye(params.ns)
 
-    Vcross = np.kron(pot.s_mat,I) - np.kron(I,pot.s_mat.T)  # commutator superoperator for the system-bath coupling operator
-    Xi_lowtcorr=  bath.lowTcoef * Vcross @ Vcross  # low temperature correction term (same for all ADOs)
+    ### Add on the terminator contribution from the terminated frequencies
+    LTCorr = getattr(params, 'LTCorr', None)
+    #get the Cks and gam_ks for which we have terminated
+    bath.gamks_term = bath.gam_ks[bath.N_exp_prop:]
+    bath.Cks_term = bath.C_ks[bath.N_exp_prop:]
+
+    if LTCorr is None:      # no extra low temperature correction
+        if bath.lowTcoef == 0: 
+            sim.Xi = np.zeros((1,1,1),dtype=complex) # this is just a dummy var
+        else:
+            sim.Xi = np.zeros((1,params.ns**2,params.ns**2),dtype=complex) 
+            sim.Xi[0,:,:] = Xi_lowtcorr  # add on the low temperature correction term from constant k
+        return
+
+    elif LTCorr == 'PT2': # second order perturbative terminator on the terminated frequencies
+        sim.Xi = np.zeros((1,params.ns,params.ns),dtype=complex)
+        Ldata = getL(params,pot)
+        params.Xi[0,:,:] = get_Xi_n(params,0,Ldata) # add Xi0 of tom's for each ADO
+        params.Xi[0,:,:] += Xi_lowtcorr             # add on the low temperature correction term from constant k
+
+    elif LTCorr == 'IT': # Markovian (Ishizaki-Tanimura-like) terminator on the terminated frequencies
+        sim.Xi = np.zeros((1,params.ns**2,params.ns**2),dtype=complex)
+        sim.Xi[0,:,:] = get_IT(params,pot,bath)      # add the markovian terms the terminated frequencies
+        sim.Xi[0,:,:] += Xi_lowtcorr        # add on the low temperature correction term from constant k
 
 
-    sim.Xi = np.zeros((1,params.ns**2,params.ns**2),dtype=complex)
-    sim.Xi[0,:,:] = Xi_lowtcorr
+    elif LTCorr == 'NZ2': # Tom Fay's Nakajima-Zwanwig terminator on the terminated frequencies
+        sim.Xi = np.zeros((params.Imax,params.ns**2,params.ns**2),dtype=complex) # one xi for EACH ADO
+        Ldata = getL(params,pot)
+        for I in range(params.Imax):
+            sim.Xi[I,:,:] = get_Xi_n(params,I,Ldata)
+            sim.Xi[I,:,:] += Xi_lowtcorr    # add on the low temperature correction term from constant k
 
-    # if LTCorr is None and params.lowTcoef == 0: # no terminator and no constant term in 
-    #     params.Xi = np.zeros((1,1,1),dtype=complex) 
-    #     return
-    
-    # elif LTCorr == 'NZ2':
-    #     params.Xi = np.zeros((params.Imax,params.ns,params.ns),dtype=complex) # one xi for each ADO
-    #     for n in range(params.Imax):
-    #         params.Xi[n,:,:] = get_Xi_n(params,n,Ldata)
-
-
-    # elif LTCorr in ['IT','PT2'] or params.lowTcoef!=0:
-    #     params.Xi = np.zeros((1,params.ns,params.ns),dtype=complex) # only one xi for all ADOs
-    #     params.Xi[n,:,:] = get_Xi_n(params,0,Ldata)
-    #     # fist add on the lowtcoef term
-
-    #     #then add on the Xi_0 term to all of them
-
-    # else:
-    #     raise ValueError('Invalid LTCorr type')
+    else:
+        raise ValueError('Invalid LTCorr type')
     
 
     return

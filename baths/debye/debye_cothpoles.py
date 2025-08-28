@@ -37,12 +37,9 @@ class Debye_cothpoles():
         self.N_exp_prop = self.N_nonmats + self.mu   # number of exponential terms in the BCF EXPLICITLY PROPOGATED [Temp ind. Exponential, <--- Matsubara Exponentials --->]
         #
         self.mode= params.bathmode
-        # self.C0hot = self.eta/self.beta -1.j*self.hbar*self.eta*self.gam/2 # C_0 with no matsubara terms
         ### Calculate the C_ks and gam_ks for the bath and add to the class
         self.get_coefs()
         # self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
-        # params.K = len(self.w_i) # Update the number of exponentials in the params object to match the number of poles found
-        # params.lowTCorr=True if self.k != 0 else False
 
 
     def J(self,w,plotme=False,ax=plt):
@@ -167,6 +164,11 @@ class Debye_cothpoles():
         self.gam_ks[0] = self.gam
         self.gam_ks[1:] = self.w_i[:]
 
+        # #Reorder the C_ks and gam_ks so that the smallest gam_ks are first (helps with numerical stability)
+        order = np.argsort(self.gam_ks.real) # sort in ascending order
+        self.gam_ks = self.gam_ks[order]
+        self.C_ks = self.C_ks[order]
+
         # Calculate the low temperature coefficient
         self.lowTcoef=-2*self.eta*self.gam*self.k/(self.beta*self.hbar**2) 
 
@@ -198,8 +200,8 @@ class Debye_cothpoles():
         for k in range(0,len(self.C_ks)):
             C += self.C_ks[k]*np.exp(-self.gam_ks[k]*t)
         if plotme:
-            ax.plot(t,C.real,label='AAA tcf real')
-            ax.plot(t,C.imag,label='AAA tcf imag')
+            ax.plot(t,C.real,label='tcf real')
+            ax.plot(t,C.imag,label='tcf imag')
             C_analytic_t = C_analytic(t)
             ax.plot(t,C_analytic_t.real,'--',label='Analytic TCF real')
             ax.plot(t,C_analytic_t.imag,'--',label='Analytic TCF Imaginary')

@@ -1,1 +1,6 @@
-run_aaa_fromfile(0,'/home/ach221/software/phd/Feom/benchmark/DebyeSB/aaa_K0','/home/ach221/software/phd/Feom/benchmark/DebyeSB/aaa_K0/aaa_data_nw20010_wmax2001.txt','_nw20010_wmax2001.txt','True')
+run_aaa_fromfile(0,'/home/ach221/data/test/debyeAAA_IT/eta5/L6/K2/dt0.002/aaa_K0','/home/ach221/data/test/debyeAAA_IT/eta5/L6/K2/dt0.002/aaa_K0/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt',true)
+run_aaa_fromfile(7,'/home/ach221/data/test/debyeAAA/eta5/L6/K7/dt0.002/aaa_K7','/home/ach221/data/test/debyeAAA/eta5/L6/K7/dt0.002/aaa_K7/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt',false)
+run_aaa_fromfile(3,'/home/ach221/data/test/debyeAAA/eta5/L6/K3/dt0.002/aaa_K3','/home/ach221/data/test/debyeAAA/eta5/L6/K3/dt0.002/aaa_K3/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt',false)
+run_aaa_fromfile(6,'/home/ach221/data/test/debyeAAA/eta5/L6/K6/dt0.002/aaa_K6','/home/ach221/data/test/debyeAAA/eta5/L6/K6/dt0.002/aaa_K6/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt',false)
+run_aaa_fromfile(4,'/home/ach221/data/test/debyeAAA/eta5/L6/K4/dt0.002/aaa_K4','/home/ach221/data/test/debyeAAA/eta5/L6/K4/dt0.002/aaa_K4/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt',false)
+run_aaa_fromfile(5,'/home/ach221/data/test/debyeAAA/eta5/L6/K5/dt0.002/aaa_K5','/home/ach221/data/test/debyeAAA/eta5/L6/K5/dt0.002/aaa_K5/aaa_data_nw250050_wmax25005.txt','_nw250050_wmax25005.txt',false)
