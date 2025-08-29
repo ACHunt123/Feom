@@ -26,6 +26,8 @@ class Debye_cothpoles():
         self.cleanbathmode = self.bathmode.replace(' ','_').replace('/','_') # clean the bath mode name for saving files
         self.L = params.L                      # max tier of the ADOs
         self.terminate = hasattr(params,'LTCorr') # whether or not we are using a terminator
+        #NOTE the above was used under the assumption that termination was of the extra terms in the BCFs (for the FAY way self.N_exp_prop=self.N_exp always)
+        # NEED TO LOOK INTO THIS ^^ maybe this is the best way, but IDK ^^
         # General parameters
         self.eta = params.eta
         self.gam = params.gam
@@ -165,12 +167,12 @@ class Debye_cothpoles():
         self.gam_ks[1:] = self.w_i[:]
 
         # #Reorder the C_ks and gam_ks so that the smallest gam_ks are first (helps with numerical stability)
-        order = np.argsort(self.gam_ks.real) # sort in ascending order
-        self.gam_ks = self.gam_ks[order]
-        self.C_ks = self.C_ks[order]
+        # order = np.argsort(self.gam_ks.real) # sort in ascending order
+        # self.gam_ks = self.gam_ks[order]
+        # self.C_ks = self.C_ks[order]
 
         # Calculate the low temperature coefficient
-        self.lowTcoef=-2*self.eta*self.gam*self.k/(self.beta*self.hbar**2) 
+        # self.lowTcoef=-2*self.eta*self.gam*self.k/(self.beta*self.hbar**2) 
 
         return 
 

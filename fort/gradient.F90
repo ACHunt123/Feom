@@ -41,7 +41,9 @@ subroutine get_gradient(rho,grad)
             result_vec = matmul(Xi_terminator(1,:,:),rhoI_vec)
             gradI = gradI + reshape(result_vec,[ns,ns]) 
         # elif LTCorr == 2
-            stop 'Error: LTCorr=2 is not supported yet, please recompile with LTCorr=1 or LTCorr=0'
+            rhoI_vec = reshape(rhoI,[ns*ns])
+            result_vec = matmul(Xi_terminator(I,:,:),rhoI_vec)
+            gradI = gradI + reshape(result_vec,[ns,ns]) 
         #endif
 
         ! Execute the off-diagonal superoperator terms

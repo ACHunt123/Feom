@@ -108,5 +108,10 @@ elif params.potname == 'spinboson':
 if params.bathmode in ['nmats','nbead'] and hasattr(params, 'LTCorr'):
     del params.LTCorr
 
+if params.bathmode == 'matsubara' and getattr(params, 'LTCorr', None) not in ['IT',None]:
+    del params.LTCorr
+    print('Only IT terminator is supported for matsubara bathmode, removing LTCorr argument')
+
+
 
 

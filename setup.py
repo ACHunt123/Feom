@@ -30,6 +30,7 @@ class Setup:
         ### Calculate Hashmaps
         self.ADO_index, self.I0s = generateHashmap(self.params.K,self.params.L,self.bath.N_nonmats) #hash map from the index of the ADO to the index of the BCF
         self.params.Imax = total_length(self.params.K,self.params.L,self.bath.N_nonmats)     # the total number of ADOs
+        print(f'Total number of ADOs: {self.params.Imax}')
 
         ### Calculate the terminator if needed, and add to self
         generate_Terminator(self)
@@ -69,7 +70,8 @@ class Setup:
     
     def go(self,extra_commands='',cleanup=True):
         # Run the executable
-        os.system(f'cd tmp/; {extra_commands} ./propagation*')
+        quiet=[' > /dev/null ',''][0]
+        os.system(f'cd tmp/; {extra_commands} ./propagation* {quiet}')
         #Load the data and format it
         data= np.loadtxt('tmp/output')
         formatted_data, self.params.header = self.pot.format_output(data,self.params.header)

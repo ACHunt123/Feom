@@ -1,6 +1,8 @@
 import numpy as np
+np.set_printoptions(precision=5,linewidth=200,suppress=True)
 from types import SimpleNamespace
-import sys
+import Feom.baths as baths
+import sys,copy
 
 def get_C_UDs(params):
     ''' Generate the coefficients C_U, c_D_LEFT, c_D_RIGHT from the C_ks for the bath (that are used in the FEOM code)'''
@@ -35,6 +37,25 @@ def generate_Terminator(sim):
     pot= sim.pot
     bath = sim.bath
 
+    ### Get termination coefficients (the FAY Way)
+    def get_termination_coefs(sim):
+        ''' Get the Cks and gamks for the terminated frequencies
+        deltaC(t) = C_{mats inf}(t) - C_{approx}(t)
+        where C_{mats inf}(t) is the full infinite matsubara decomposition
+        and C_{approx}(t) is the approximation we are using (e.g. Pade etc)
+        '''
+        # get the matsubara bath C_{mats inf}(t)
+        matsbath_params=copy.deepcopy(sim.params)
+        matsbath_params.bathmode='matsubara'
+        matsbath_params.K=200  # large number of matsubara terms to get all the frequencies
+        matsbath = baths.getbath('debye')(matsbath_params)
+        # now add on - C_approx(t)
+        delta_Cks = np.append(-sim.bath.C_ks[:sim.bath.N_exp_prop],matsbath.C_ks)
+        delta_gamks = np.append(sim.bath.gam_ks[:sim.bath.N_exp_prop],matsbath.gam_ks)
+        return delta_Cks, delta_gamks
+
+
+
     ### Get the Liouvillian and transformation matrices (for the NZ2 terminator)
     def getL(params,pot):
         ''' Get the Liouvillian matrix for the system Hamiltonian, and transformation matrices'''
@@ -52,9 +73,30 @@ def generate_Terminator(sim):
 
 
 
-    def get_Xi_n(params,n,Ldata):
-        ''' Get the Xi_n matrix for a given ADO n (list of indices)'''
-        sys.exit('Not implemented yet')
+    def get_Xi_n(sim,I,Ldata):
+        ''' Get the Xi_n matrix for a given ADO I (list of indices)'''
+
+        # first get the sum of the gam_ks*n_k for this ADO
+        nks = sim.ADO_index[I,:]
+        gamks = bath.gam_ks[:bath.N_exp_prop]
+        gamma_n = np.sum(nks*gamks)  # the sum of n_k * gam_k
+        # now calculate the terminator
+        I_s_hilbert = np.eye(params.ns)
+        VL = np.kron(pot.s_mat,I_s_hilbert)
+        VR = np.kron(I_s_hilbert,pot.s_mat.T)
+        V_x = VL-VR
+
+        # calculate the sum
+        Xi_n=np.zeros_like(Ldata.Lsys)
+        for Ck,gamk in zip(bath.Cks_term,bath.gamks_term):
+            if abs(Ck) < 1e-10:
+                print('Warning: Ck is zero, skipping term in terminator')
+                continue
+            L_k_plus = -1.j*(Ck*VL -Ck.conj()*VR)/(params.hbar)
+            L_k_minus= -1.j*V_x/params.hbar
+            fraction = np.diag(1/(gamk + gamma_n - np.diag(Ldata.Lams)))
+            Xi_n += L_k_minus @ Ldata.Pis @ (fraction) @ Ldata.Pis_inv @ L_k_plus
+        return Xi_n
 
     def get_IT(params,pot,bath):
         ''' Get the IT terminator matrix, calculated from the unused C_ks and gam_ks in the bath object'''
@@ -84,14 +126,14 @@ def generate_Terminator(sim):
     ### Add on the terminator contribution from the terminated frequencies
     LTCorr = getattr(params, 'LTCorr', None)
     # get the Cks and gam_ks for which we have terminated (will not be done explicitly for matsubara as they are infinite)
-    bath.gamks_term = bath.gam_ks[bath.N_exp_prop:]
-    bath.Cks_term = bath.C_ks[bath.N_exp_prop:]
+    bath.Cks_term,bath.gamks_term = get_termination_coefs(sim)
+
     if LTCorr is None:
         pass   
 
     elif LTCorr == 'PT2':   # Second order perturbative terminator on the terminated frequencies
         Ldata = getL(params,pot)
-        Xi += get_Xi_n(params,0,Ldata)      # add Xi0 of tom's for each ADO
+        Xi += get_Xi_n(sim,0,Ldata)      # add Xi0 of tom's for each ADO
 
     elif LTCorr == 'IT':    # Markovian (Ishizaki-Tanimura) terminator on the terminated frequencies
         if bath.mode == 'matsubara':        # The IT Term. coeff. has infinite mats terms in it
@@ -105,8 +147,8 @@ def generate_Terminator(sim):
         Xi_n = np.zeros((params.Imax,params.ns**2,params.ns**2),dtype=complex)  # one xi for EACH ADO (will overwrite Xi)
         Ldata = getL(params,pot)
         for I in range(params.Imax):
-            Xi_n[I,:,:] += get_Xi_n(params,I,Ldata)
-            Xi_n[I,:,:] += Xi               # add on the contributions from Xi onto each Xi_n
+            Xi_n[I,:,:] += get_Xi_n(sim,I,Ldata)
+            Xi_n[I,:,:] += Xi[0,:,:]               # add on the contributions from the constant term k onto each Xi_n
         Xi = Xi_n   # override Xi to be the full set of ADO-specific terminators
 
     else:
@@ -114,18 +156,11 @@ def generate_Terminator(sim):
     
     ### Assign a dummy variable if the terminator is zero
     if (abs(Xi)==0).all():
-        print('No terminator added')
         sim.Xi = np.zeros((1,1,1),dtype=complex) # this is just a dummy var
     else:
-        sim.Xi = Xi
+        sim.Xi = Xi.conj() #NOTE I dont know why but need to conjugate it
     return
-        
 
-    # Calculate the C_ks and gam_ks for a given set of ws
-    def get_Xi_n(self,n):
-        ''' Get the Xi_n matrix for a given ADO n (list of indices)'''
-
-        return 
 
 
 

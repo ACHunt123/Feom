@@ -20,7 +20,8 @@ addpath(genpath('/home/ach221/software/phd/HEOMLAB/heom-lab/functions'));
 epsilon = 1.0 ;
 Delta = 2.0 ;
 % bath parameters
-beta = 1.5 ; 
+% beta = 1.5 ; 
+beta = 5 ;
 % debye bath parameters
 lambda_D = 1 ;
 omega_D = 1.0 ;
@@ -32,7 +33,8 @@ n_steps = 1000 ;
 krylov_dim = 8 ;
 krylov_tol = 1e-8 ;
 % parmeters for heirarchy truncation using L/M truncation
-M_max = 5 ;
+% M_max = 5 ;
+M_max = 3; 
 
 
 % matrices of system observable operators to be returned, 
@@ -83,13 +85,29 @@ heom_dynamics.observables.system = O_sys ;
 % set the initial condition
 heom_dynamics.rho_0_sys = rho_0_sys ;
 
-% run the dynamics LOOPING OVER DIFFERENT PARAMETER SETS
+%% run the dynamics LOOPING OVER DIFFERENT PARAMETER SETS
+%% OLD ONE  (containing a mistake in the pade [N/N] case)
+        % L_max_list={4,3,2,4};
+        % full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...                       
+        % struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N/N]","N_pade",M_max),    ... 
+        % struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max), ...
+        % struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max)};
+        % termination_list={"low temp correction","none","none","low temp correction NZ2"};
+        % namelist={'ITlowtemp','Pade[NoN]','Pade[N-1oN]','Pade[N-1_N]NZ2'};
+%% NEW ONE not including the pade [N/N] case)
 L_max_list={4,3,2};
 full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...                       
-struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N/N]","N_pade",M_max),    ... 
+struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max), ...
 struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max)};
-termination_list={"low temp correction","none","none"};
-namelist={'ITlowtemp','Pade[NoN]','Pade[N-1oN]'};
+termination_list={"low temp correction","none","low temp correction NZ2"};
+namelist={'ITlowtemp','Pade[N-1oN]','Pade[N-1_N]NZ2'};
+
+
+% extra terms for the NZ2 terminator 
+heom_dynamics.heom_truncation.termination_k_max = 200 ; % max number of mats terms for NZ2
+heom_dynamics.heom_truncation.diagonal_only_term = false ;
+
+
 
 % loop over the different L_max values
 for i = 1:3

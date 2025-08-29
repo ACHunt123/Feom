@@ -18,7 +18,8 @@ def get_coeffs(mode,N,terminate=False):
     terminate = are we using a terminator?
     if so, we add lots of extra poles
     '''
-    if terminate: N=20
+    # if terminate: N=200
+    terminate=False #ignoring terminator for now
     mode= str(mode.strip()) #clean up the mode string
     if mode == '[N/N]': #just do [N/N]
         M=2*N+1                     #(4c)
