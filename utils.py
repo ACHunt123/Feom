@@ -95,16 +95,18 @@ def FORT_SWITCHES(sim):
     bath = sim.bath
     ''' Supported compile-time switches (SWITCHES):
        -DLTCorr=[0,1,2]     0: no low temperature correction
-                            1: same low temperature correction for each ADO [IT or k term from AAA and Pade[N/N]]
+                            1: same low temperature correction for each ADO [IT, PT2 or k term from AAA and Pade[N/N]]
                             2: different low temperature correction for each ADO (not implemented yet)
        -DPrint_ADOs         Print the ADOs to file every N timesteps
        -DSIA                Use SIA step instead of RK4 step (default)
      '''
     switches = []
-    if getattr(params, 'LTCorr', None) in ['IT','PT2']: switchvalue = 1
-    elif getattr(params, 'LTCorr', None) == 'NZ2':      switchvalue = 2 
-    elif bath.lowTcoef != 0: switchvalue=1
-    else: switchvalue = 0
+    if getattr(params, 'LTCorr', None) == 'NZ2':      
+        switchvalue = 2 
+    elif (getattr(params, 'LTCorr', None) in ['IT','PT2']) or (getattr(bath, 'k', 0) != 0): 
+        switchvalue = 1
+    else: 
+        switchvalue = 0
     switches.append(f'LTCorr{switchvalue}')
     if params.print_ADOs:
         switches.append('Print_ADOs')
@@ -123,18 +125,27 @@ def FORT_SWITCHES(sim):
 def printparams(sim):
     params= sim.params
     ### Make metadata for headers in files - again this contains all the parameters
-    runcommand = 'feom.py '
+    location = os.path.dirname(os.path.abspath(__file__))
+    runcommand = f'{location}/feom.py '
     metadata = "Input parameters used\n"
     metadata += "------------------------------------------------------------------------------------\n"
     for key in params.__dict__.keys():
         if type(params.__dict__[key]) == float:
             metadata += f'{key} = {params.__dict__[key]:.3g} \n'
-        if type(params.__dict__[key]) == int:
+        elif type(params.__dict__[key]) == int:
             metadata += f'{key} = {params.__dict__[key]} \n'
-        if type(params.__dict__[key]) == str:
+        elif type(params.__dict__[key]) == str:
             metadata += f'{key} = {params.__dict__[key]}\n'
+        elif type(params.__dict__[key]) == bool:
+            metadata += f'{key} = {params.__dict__[key]}\n'
+            if params.__dict__[key] : 
+                metadata += f'--{key}\n'
         if key not in ['header','out_name', 'executable_suffix']:
-            runcommand += f'--{key} {params.__dict__[key]} '
+            if type(params.__dict__[key]) == bool:
+                if params.__dict__[key]: 
+                    runcommand += f'--{key} '
+            else:
+                runcommand += f'--{key} {params.__dict__[key]} '
     metadata += 'To compile the FORTRAN executable use the following command (in the Feom/fort directory) \n'
     metadata += f'make fast {FORT_SWITCHES(sim)[0]}' + '\n'
     if ('DSIA' in FORT_SWITCHES(sim)[0]):

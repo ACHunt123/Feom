@@ -104,8 +104,9 @@ elif params.potname == 'spinboson':
     del params.xmin
     del params.xmax
 
-### Override some of the parameters based on the bathname
-if params.bathmode in ['nmats','nbead']: del params.LTCorr
+### nmats and nbead cannot have a low temperature correction as all exponential terms are explicitly included
+if params.bathmode in ['nmats','nbead'] and hasattr(params, 'LTCorr'):
+    del params.LTCorr
 
 
 

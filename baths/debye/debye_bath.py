@@ -30,7 +30,7 @@ class Debye_bath():
         self.N_nonmats = 1                          # number of exponential modes in BCF that are NOT matsubara terms (the Temp. ind. exp.)
         self.mu = params.K                          # number of pairs of matsubara modes/ r.p. modes, each pair gives a single exponential term
         self.N_exp = self.N_nonmats + self.mu       # number of exponential terms in the BCF [Temp ind. Exponential, <--- Matsubara Exponentials --->]
-        self.N_exp_prop = self.N_nonmats + self.mu  # number of exponentials that we are propogating (may be different to the number used in the coth decomposition)
+        self.N_exp_prop = self.N_nonmats + self.mu  # number of exponentials that we are propogating (should be the same as N_exp unless we want to truncate some matsubara terms (IT not included here))
         self.N_mds = 2*self.mu+1                    # number of individual beads or matsubara modes (ODD)
         #
         self.mode= params.bathmode
@@ -45,18 +45,18 @@ class Debye_bath():
         return Jw,w
 
     # Calculate the C_ks and gam_ks for a given set of ws
-    def calc_coefs(self,ws):
+    def calc_coefs(self):
         d = np.zeros(self.N_exp)
         ### Calculate the 0th (non-matsubara) term
         if self.mode in ['nbead','nmats']:              # give the finite mode prefactor
-            d0sum = np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))
+            d0sum = np.sum(1/(self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2))
             d[0] = (self.hbar*self.eta*self.gam/2) * (2/(self.beta*self.hbar*self.gam) + (4*self.gam/(self.beta*self.hbar))*d0sum)
         elif self.mode == 'matsubara': # give the infinite mode prefactor
             d[0] = (self.hbar*self.eta*self.gam/2) /np.tan(self.beta*self.hbar*self.gam/2)
         else:
             raise ValueError('Invalid mode')
         ### Calculate the rest of the terms (matsubara terms)
-        d[1:] = -(2*self.eta*self.gam/self.beta) * ws[1:]/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2)
+        d[1:] = -(2*self.eta*self.gam/self.beta) * self.ws[1:]/(self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2)
         dI = -self.hbar*self.eta*self.gam/2
 
         # Calculate the C_ks
@@ -67,14 +67,14 @@ class Debye_bath():
         #Calculate the gam_ks
         self.gam_ks = np.zeros(self.N_exp,dtype=complex)
         self.gam_ks[0] = self.gam
-        self.gam_ks[1:] = ws[1:]
+        self.gam_ks[1:] = self.ws[1:]
         
         # Calculate the low temperature coefficient
         if self.mode in ['nmats','nbead']: 
             self.lowTcoef = 0
         elif self.mode == 'matsubara':  # The Ishizaki-Tanimura terminator coefficient
             self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
-            self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(ws[1:]) - ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
+            self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
 
         return 
 
@@ -109,7 +109,8 @@ class Debye_bath():
             wns = np.array([2*wN*np.pi*k/self.N_mds for k in range(0,self.mu+1)])
             print(f'mode {mode} with {self.mu} pairs of matsubara modes')
             # print(wns)
-            return self.calc_coefs(wns)
+            self.ws = wns
+            return self.calc_coefs()
 
         if mode == 'nbead':
             betaN =  self.beta/self.N_mds
@@ -117,7 +118,8 @@ class Debye_bath():
             wks = np.array([2*wN*np.sin(np.pi*k/self.N_mds) for k in range(0,self.mu+1)])
             print(f'mode {mode} with {self.mu} pairs of matsubara modes')
             # print(wks)
-            return self.calc_coefs(wks)
+            self.ws = wks
+            return self.calc_coefs()
         else:
             raise ValueError('Invalid mode')
         return

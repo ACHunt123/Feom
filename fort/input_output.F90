@@ -64,6 +64,8 @@ subroutine read_matrices(ADOs)
                 read(100,'(D22.15)') z_imag
                 Xi_terminator(Ii,si,sj) = dcmplx(z_real, z_imag)
             end do; end do; end do
+        # else 
+            Xi_terminator = (0.d0,0.d0)
         # endif
 
         ! read the small matrices
