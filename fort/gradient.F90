@@ -36,6 +36,8 @@ subroutine get_gradient(rho,grad)
         #endif
 
         ! Itziki Trucation (if present)
+        ! there seems to be an issue with the complex Xi
+        ! coul it be that it should act on rho.T (this would conjugate rho) IDK
         #if LTCorr == 1 
             rhoI_vec = reshape(rhoI,[ns*ns])
             result_vec = matmul(Xi_terminator(1,:,:),rhoI_vec)
