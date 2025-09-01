@@ -16,7 +16,7 @@ contains
 subroutine get_gradient(rho,grad)
     complex(8), intent(in) :: rho(Imax,ns,ns) ! fortran is column major so the last index is the fastest changing
     complex(8), intent(out) :: grad(Imax,ns,ns)
-    integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki,nk
+    integer(4) :: I, n_ks(Ktot), I_nkp1, I_nkm1,ki,nk,ii,jj
 
     ! Loop over the ADOs
     do I = 1, Imax
@@ -35,17 +35,16 @@ subroutine get_gradient(rho,grad)
                 - sum(n_ks * gam_ks) * rhoI 
         #endif
 
-        ! Itziki Trucation (if present)
-        ! there seems to be an issue with the complex Xi
-        ! coul it be that it should act on rho.T (this would conjugate rho) IDK
+        ! Trucation (if present)
+        ! The vectorization here is a bit messy, but it works (makes rho(ns,ns) --> [rho(1,1),rho(1,2),rho(2,1),rho(2,2)]) for ns=2
         #if LTCorr == 1 
-            rhoI_vec = reshape(rhoI,[ns*ns])
+            rhoI_vec = reshape(transpose(rhoI),[ns*ns])
             result_vec = matmul(Xi_terminator(1,:,:),rhoI_vec)
-            gradI = gradI + reshape(result_vec,[ns,ns]) 
+            gradI = gradI + transpose(reshape(result_vec,[ns,ns]))
         # elif LTCorr == 2
-            rhoI_vec = reshape(rhoI,[ns*ns])
+            rhoI_vec = reshape(transpose(rhoI),[ns*ns])
             result_vec = matmul(Xi_terminator(I,:,:),rhoI_vec)
-            gradI = gradI + reshape(result_vec,[ns,ns]) 
+            gradI = gradI + transpose(reshape(result_vec,[ns,ns]))
         #endif
 
         ! Execute the off-diagonal superoperator terms

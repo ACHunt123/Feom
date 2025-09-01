@@ -47,7 +47,7 @@ def generate_Terminator(sim):
         # get the matsubara bath C_{mats inf}(t)
         matsbath_params=copy.deepcopy(sim.params)
         matsbath_params.bathmode='matsubara'
-        matsbath_params.K=200  # large number of matsubara terms to get all the frequencies
+        matsbath_params.K=5  # large number of matsubara terms to get all the frequencies
         matsbath = baths.getbath('debye')(matsbath_params)
         # now add on - C_approx(t)
         delta_Cks = np.append(-sim.bath.C_ks[:sim.bath.N_exp_prop],matsbath.C_ks)
@@ -158,7 +158,7 @@ def generate_Terminator(sim):
     if (abs(Xi)==0).all():
         sim.Xi = np.zeros((1,1,1),dtype=complex) # this is just a dummy var
     else:
-        sim.Xi = Xi.conj() #NOTE I dont know why but need to conjugate it
+        sim.Xi = Xi 
     return
 
 
