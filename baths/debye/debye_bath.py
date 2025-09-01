@@ -69,12 +69,10 @@ class Debye_bath():
         self.gam_ks[0] = self.gam
         self.gam_ks[1:] = self.ws[1:]
         
-        # # Calculate the low temperature coefficient
-        # if self.mode in ['nmats','nbead']: 
-        #     self.lowTcoef = 0
-        # elif self.mode == 'matsubara':  # The Ishizaki-Tanimura terminator coefficient
-        #     self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
-        #     self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
+        # # Calculate the low temperature coefficient  (for use in baths/utils.py)
+        if self.mode == 'matsubara':  # The Ishizaki-Tanimura terminator coefficient
+            self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
+            self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
 
         return 
 

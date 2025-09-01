@@ -95,22 +95,23 @@ heom_dynamics.rho_0_sys = rho_0_sys ;
         % termination_list={"low temp correction","none","none","low temp correction NZ2"};
         % namelist={'ITlowtemp','Pade[NoN]','Pade[N-1oN]','Pade[N-1_N]NZ2'};
 %% NEW ONE not including the pade [N/N] case)
-L_max_list={4,3,2};
-full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...                       
+L_max_list={4,5,3,2};
+full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...  
+struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...                       
 struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max), ...
 struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max)};
-termination_list={"low temp correction","none","low temp correction NZ2"};
-namelist={'ITlowtemp','Pade[N-1oN]','Pade[N-1_N]NZ2'};
+termination_list={"low temp correction","low temp correction NZ2","none","low temp correction NZ2"};
+namelist={'ITlowtemp','NZ2lowtemp','Pade[N-1oN]','Pade[N-1_N]NZ2'};
 
 
 % extra terms for the NZ2 terminator 
-heom_dynamics.heom_truncation.termination_k_max = 200 ; % max number of mats terms for NZ2
-heom_dynamics.heom_truncation.diagonal_only_term = false ;
+heom_dynamics.heom_truncation.termination_k_max = 500 ; % max number of mats terms for NZ2
+% heom_dynamics.heom_truncation.diagonal_only_term = false ;
 
 
 
 % loop over the different L_max values
-for i = 1:3
+for i = 1:4
     L_max = L_max_list{i};
     heom_dynamics.heom_truncation.L_max = L_max;
     full_system.baths = {full_system_bathslist{i}} ;

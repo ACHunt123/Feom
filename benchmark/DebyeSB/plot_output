@@ -6,6 +6,11 @@ import glob
 files = glob.glob('*out')
 cool_colors = ['#377eb8', '#4daf4a', "#00ffff", "#9fe400"]
 warm_colors = ['#e41a1c', '#ff7f00', "#c20d6e", "#6b0fb6"]
+
+colenamesdict={ 'outfile_L2_K3_ns2_beta5_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebyeCothpoles_PadeNm1oN_eta2_gam1_LTCorrNZ2.out':'Pade[N-1/N] + NZ2',
+ 'outfile_L3_K3_ns2_beta5_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebyeCothpoles_PadeNm1oN_eta2_gam1.out':'Pade[N-1/N]',
+ 'outfile_L4_K3_ns2_beta5_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebye_matsubara_eta2_gam1_LTCorrIT.out':'Matsubara + IT',
+ 'outfile_L5_K3_ns2_beta5_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebye_matsubara_eta2_gam1_LTCorrNZ2.out':'Matubara + NZ2. OFF DUE TO MARKOVIAN TERM',}
 nfay=0
 ncole=0
 for filename in files:
@@ -16,12 +21,12 @@ for filename in files:
     if 'TFay' in filename:
         # make the line doted, and the colr a cool one
         
-        plt.plot(t, ct, label=filename, linestyle='--',zorder=10, color=cool_colors[nfay])
+        plt.plot(t, ct, linestyle='--',zorder=10, color=cool_colors[nfay])
         nfay+=1
     else:
-        plt.plot(t, ct, label=filename,zorder =0, color=warm_colors[ncole])
+        plt.plot(t, ct, label=colenamesdict[filename],zorder =0, color=warm_colors[ncole])
         ncole+=1
-# plt.legend()
+plt.legend()
 plt.xlabel('Time')
 plt.ylabel('Population')
 plt.title('Benchmark Debye SB')

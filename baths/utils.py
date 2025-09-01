@@ -32,6 +32,16 @@ def generate_Terminator(sim):
 
     self.init_lowtcoef is the low-temp correction either due to IT, or the k term from AAA and Pade[N/N] it will be added to
     It is a class, as it need to store its type and size
+
+    C_exact(t) = C_approx(t) + C_mats_inf(t) - C_approx(t),
+    where C_approx(t) is the approximation we are using (e.g. Pade etc)
+    then we expand
+    C_exact(t) = C_approx(t) + [C_mats_Kbig(t) - C_approx(t)] + C_mats_K>Kbig(t)
+                                <------- deltaC(t) ------->             
+    
+    deltaC(t)           : treated peturbatively (PT2, NJZ) or markovianly (IT)
+    C_mats_K>Kbig(t)    : treated Markovianly (the IT terminator)
+    C_approx(t)         : explicitly propagated in the HEOM
     '''
     params = sim.params
     pot= sim.pot
@@ -39,20 +49,29 @@ def generate_Terminator(sim):
 
     ### Get termination coefficients (the FAY Way)
     def get_termination_coefs(sim):
-        ''' Get the Cks and gamks for the terminated frequencies
-        deltaC(t) = C_{mats inf}(t) - C_{approx}(t)
-        where C_{mats inf}(t) is the full infinite matsubara decomposition
-        and C_{approx}(t) is the approximation we are using (e.g. Pade etc)
+        ''' Get the Cks and gamks for the terminated frequencies corresponding to 
+        deltaC(t) = C_{mats Kbig}(t) - C_{approx}(t)
         '''
-        # get the matsubara bath C_{mats inf}(t)
+        # setup the matsubara bath object C_{mats Kbig}(t)
         matsbath_params=copy.deepcopy(sim.params)
         matsbath_params.bathmode='matsubara'
-        matsbath_params.K=5  # large number of matsubara terms to get all the frequencies
+        Kbig=500        # up to K=500, 
+        matsbath_params.K=Kbig
         matsbath = baths.getbath('debye')(matsbath_params)
-        # now add on - C_approx(t)
-        delta_Cks = np.append(-sim.bath.C_ks[:sim.bath.N_exp_prop],matsbath.C_ks)
-        delta_gamks = np.append(sim.bath.gam_ks[:sim.bath.N_exp_prop],matsbath.gam_ks)
-        return delta_Cks, delta_gamks
+        
+        # Get the Cks and gamks for the deltaC(t)
+        if bath.mode != 'matsubara':  
+            delta_Cks = np.append(-sim.bath.C_ks[:sim.bath.N_exp_prop],matsbath.C_ks)
+            delta_gamks = np.append(sim.bath.gam_ks[:sim.bath.N_exp_prop],matsbath.gam_ks)
+        else:
+            delta_Cks = matsbath.C_ks[sim.bath.N_exp_prop:]
+            delta_gamks = matsbath.gam_ks[sim.bath.N_exp_prop:]
+
+        # Get the Markovian terms from C_mats_K>Kbig(t) for the IT terminator
+        mark_corr = matsbath.lowTcoef
+        print(f'Low temp correction term from terminated frequencies: {mark_corr}')
+
+        return delta_Cks, delta_gamks, mark_corr
 
 
 
@@ -74,7 +93,8 @@ def generate_Terminator(sim):
 
 
     def get_Xi_n(sim,I,Ldata):
-        ''' Get the Xi_n matrix for a given ADO I (list of indices)'''
+        ''' Get the Xi_n matrix for a given ADO I (list of indices)
+        for the terminated frequencies'''
 
         # first get the sum of the gam_ks*n_k for this ADO
         nks = sim.ADO_index[I,:]
@@ -99,19 +119,12 @@ def generate_Terminator(sim):
         return Xi_n
 
     def get_IT(params,pot,bath):
-        ''' Get the IT terminator matrix, calculated from the unused C_ks and gam_ks in the bath object'''
+        ''' Get the Ishizaki-Tanimura terminator for the terminated frequencies
+        '''
         I = np.eye(params.ns)
-        VL = np.kron(pot.s_mat,I)
-        VR = np.kron(I,pot.s_mat.T)
-        Vcross = VL-VR  # commutator superoperator for the system-bath coupling operator
-        Xi_IT = np.zeros((params.ns**2,params.ns**2),dtype=complex)
-        nterm=len(bath.gamks_term)
-        for k in range(nterm):
-            gamk = bath.gamks_term[k]
-            Ck = bath.Cks_term[k]
-            O=(Ck*VL -Ck.conj()*VR)
-            Xi_IT -= Vcross@O/(gamk*params.hbar**2)
-        return Xi_IT
+        Vcross = np.kron(pot.s_mat,I) - np.kron(I,pot.s_mat.T)  # commutator superoperator for the system-bath coupling operator
+        IT_term_coef =  -np.sum(bath.Cks_term/bath.gamks_term)/params.hbar**2   # the IT terminator coefficient
+        return IT_term_coef * Vcross @ Vcross
 
 
     ### Calculate the terminator
@@ -124,32 +137,32 @@ def generate_Terminator(sim):
     Xi += k_term_coef * Vcross @ Vcross
 
     ### Add on the terminator contribution from the terminated frequencies
-    LTCorr = getattr(params, 'LTCorr', None)
-    # get the Cks and gam_ks for which we have terminated (will not be done explicitly for matsubara as they are infinite)
-    bath.Cks_term,bath.gamks_term = get_termination_coefs(sim)
+    bath.LTCorr = getattr(params, 'LTCorr', None)
+    # get the Cks and gam_ks for which we have terminated
+    bath.Cks_term,bath.gamks_term,bath.mark_corr = get_termination_coefs(sim)
 
-    if LTCorr is None:
+    if bath.LTCorr is None:
         pass   
 
-    elif LTCorr == 'PT2':   # Second order perturbative terminator on the terminated frequencies
+    elif bath.LTCorr == 'PT2':   # Second order perturbative terminator on the terminated frequencies
         Ldata = getL(params,pot)
-        Xi += get_Xi_n(sim,0,Ldata)      # add Xi0 of tom's for each ADO
+        Xi += get_Xi_n(sim,0,Ldata)                 # add Xi0 of tom's for each ADO
+        Xi += bath.mark_corr * Vcross @ Vcross      # add markovian term for the frequencies higher than those included in the PT2 terminator
 
-    elif LTCorr == 'IT':    # Markovian (Ishizaki-Tanimura) terminator on the terminated frequencies
-        if bath.mode == 'matsubara':        # The IT Term. coeff. has infinite mats terms in it
-            IT_term_coef = bath.eta* ((1/(2*bath.hbar))* ((1/(np.tan(bath.beta*bath.hbar*bath.gam/2))) - (2/(bath.beta*bath.hbar*bath.gam))))  ### Terms without removing of the matsubara terms that have been included
-            IT_term_coef -= bath.eta*(2*bath.gam/(bath.beta*bath.hbar**2))*np.sum(1/(bath.gam**2*np.ones_like(bath.ws[1:]) - bath.ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
-            Xi += IT_term_coef * Vcross @ Vcross
-        else:
-            Xi += get_IT(params,pot,bath)   # Calculate the IT terminator from the unused C_ks and gam_ks (calculated in Bath class)
+    elif bath.LTCorr == 'IT':    # Markovian (Ishizaki-Tanimura) terminator on the terminated frequencies
+        Xi += get_IT(params,pot,bath)               # Calculate the IT terminator from the terminated frequencies
+        Xi += bath.mark_corr * Vcross @ Vcross      # add markovian term for the frequencies higher than those included in the IT terminator
 
-    elif LTCorr == 'NZ2':   # Tom Fay's Nakajima-Zwanwig terminator on the terminated frequencies
+    elif bath.LTCorr == 'NZ2':   # Tom Fay's Nakajima-Zwanwig terminator on the terminated frequencies
         Xi_n = np.zeros((params.Imax,params.ns**2,params.ns**2),dtype=complex)  # one xi for EACH ADO (will overwrite Xi)
         Ldata = getL(params,pot)
         for I in range(params.Imax):
             Xi_n[I,:,:] += get_Xi_n(sim,I,Ldata)
-            Xi_n[I,:,:] += Xi[0,:,:]               # add on the contributions from the constant term k onto each Xi_n
-        Xi = Xi_n   # override Xi to be the full set of ADO-specific terminators
+            Xi_n[I,:,:] += Xi[0,:,:]                         # add on the contributions from the constant term k onto each Xi_n
+            Xi_n[I,:,:] += bath.mark_corr * Vcross @ Vcross  # add markovian term for the frequencies higher than those included in the NZ2 terminator
+            #NOTE: FAY does not include the Markovian term in his NZ2 terminator, but it should be there. see benchmark results (remove addition for exact agreement)
+        # override Xi to be the full set of ADO-specific terminators
+        Xi = Xi_n   
 
     else:
         raise ValueError('Invalid LTCorr type')
@@ -158,7 +171,7 @@ def generate_Terminator(sim):
     if (abs(Xi)==0).all():
         sim.Xi = np.zeros((1,1,1),dtype=complex) # this is just a dummy var
     else:
-        sim.Xi = Xi 
+        sim.Xi = Xi
     return
 
 
