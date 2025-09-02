@@ -116,6 +116,12 @@ def generate_Terminator(sim):
             L_k_minus= -1.j*V_x/params.hbar
             fraction = np.diag(1/(gamk + gamma_n - np.diag(Ldata.Lams)))
             Xi_n += L_k_minus @ Ldata.Pis @ (fraction) @ Ldata.Pis_inv @ L_k_plus
+
+        # remove the k term contribution if it exists (it is added separately)
+        # this is because dC(t) will have the k term in it too, so we need to remove it from what Xi would be if no terminator was added
+        k = getattr(sim.bath, 'k', 0)                                           # get the constant term in the BCF if it exists, otherwise 0
+        k_term_coef = -2*sim.bath.eta*sim.bath.gam*k/(params.beta*params.hbar**2)   # the constant term in the BCF gives a low temperature correction term
+        Xi_n -= k_term_coef * V_x @ V_x
         return Xi_n
 
     def get_IT(params,pot,bath):

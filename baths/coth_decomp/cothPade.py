@@ -93,7 +93,7 @@ def get_coeffs(mode,N,terminate=False):
 
 
 if __name__ == '__main__':
-    N = 20
+    N = 5
     import matplotlib.pyplot as plt
     import sys
     eta,xi,R_N ,_= get_coeffs('[N-1/N]',N)

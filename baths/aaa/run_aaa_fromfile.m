@@ -41,7 +41,7 @@ function run_aaa_fromfile(K, location,filename,extension,terminate)
         %%% Find a an upper-bound for tolerance that will give K and K+1 poles
         tol = max_tol;          % Initial AAA tolerance
         for KK = [K, K+1] 
-            stepfactor = 25;          % Reset step factor for each KK
+            stepfactor = 20;          % Reset step factor for each KK
             % we do not reset the tolerance after thefirst iteration as it will be lower for K+1 than for K
 
             fprintf('Finding upper bound for tolerance for K=%d poles...\n', KK);
