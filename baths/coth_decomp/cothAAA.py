@@ -8,7 +8,7 @@ script_dir = os.path.dirname(script_dir)
 
 
 def get_coeffs(params, support=None, values=None,terminate=False):
-    terminate=False #ignoring terminator for now
+    terminate=False # get the correct number of poles
     # Bathmode and settings
     minres_tol = 1e-6      # tolerance for the minimum abs value of a residue in the AAA decomposition
 

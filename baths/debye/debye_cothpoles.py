@@ -51,7 +51,15 @@ class Debye_cothpoles():
         return Jw
     
     def P(self,w): # Pole function for the coth, that we are gonna approximate
-        return (self.beta*self.hbar/4)*(1/w)*(1/np.tanh(self.beta*self.hbar*w/2) - 2/(self.beta*self.hbar*w))  
+        Pw=np.zeros_like(w)
+        for i, wi in enumerate(w):
+            if wi!=0:
+                Pw[i] = (self.beta*self.hbar/4)*(1/wi)*(1/np.tanh(self.beta*self.hbar*wi/2) - 2/(self.beta*self.hbar*wi))
+            else:
+                print('it is 0')
+                Pw[i] = ((self.beta*self.hbar)**2)/24
+        return Pw
+        # return (self.beta*self.hbar/4)*(1/w)*(1/np.tanh(self.beta*self.hbar*w/2) - 2/(self.beta*self.hbar*w))  
     
     def P_aaa(self,w): # Pole function for the coth, calculated using the original poles and residues from the AAA decomposition
         result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
@@ -76,14 +84,28 @@ class Debye_cothpoles():
 
         if self.bathmode=='AAA':
             print(f'Using AAA decomposition for the bath.')
-            if(0): # Calculate the support of the coth function such that J(w)/w is sampled evenly [DOESNT WORK WELL]
+            if(1): # Calculate the support of the coth function such that J(w)/w is sampled evenly [DOESNT WORK WELL]
+                N_support = 100000
                 N_support = 100000
                 x_j=np.arange(1,N_support+1)/(self.gam**2*(N_support+1)) #equally spaced x
-                support = np.concatenate([np.array([-200]),
-                    -np.abs(np.sqrt(1 / x_j - self.gam**2)),
+                support = np.concatenate([np.array([-200,-400,-800]),
+                    -np.abs(np.sqrt(1 / x_j - self.gam**2)),np.array([0]),
                     np.flip(np.abs(np.sqrt(1 / x_j - self.gam**2)))
-                    ,np.array([200])])
+                    ,np.array([200,400,800])])
+
+                eps=1e-4
+                w_max=self.gam # start with the cuttoff frequency
+                Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
+                while self.J(w_max) > Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
+                x_pos = np.logspace(np.log10(eps), np.log10(w_max), N_support // 2)
+                support = np.concatenate((-x_pos[::-1], [0.0], x_pos))
+    
                 values= self.P(support) # values of the coth function at the support points
+                # # plot the support and the P
+                # fig,ax=plt.subplots()
+                # ax.scatter(support,values)
+                # plt.show()
+                # sys.exit()
                 self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,support,values,self.terminate)
             else: # Use support with uniform spacing in w (done within the cothAAA module)
                 self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,None,None,self.terminate) 
@@ -96,6 +118,7 @@ class Debye_cothpoles():
             self.gam_i = eta
             self.w_i = xi/(self.beta *self.hbar)
             self.k = R_N*(self.beta*self.hbar)**2/2.
+            print(f"k = {self.k}")
         else:
             raise ValueError('Invalid tyre of coth decomposition specified. Use "AAA" or "Pade..." .')
         
