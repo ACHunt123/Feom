@@ -6,7 +6,6 @@ import sys,copy
 
 def get_C_UDs(params):
     ''' Generate the coefficients C_U, c_D_LEFT, c_D_RIGHT from the C_ks for the bath (that are used in the FEOM code)'''
-    # Calculate the coefficients C_U, c_D_LEFT, c_D_RIGHT for the bath (that are used in the FEOM code)
     params.c_U = np.zeros((params.N_exp,params.L+1),dtype=complex)
     params.c_D_LEFT = np.zeros((params.N_exp,params.L+1),dtype=complex)
     params.c_D_RIGHT = np.zeros((params.N_exp,params.L+1),dtype=complex)

@@ -10,16 +10,15 @@ import sys
 # = 1/2 (e^[x/2]+e^[-x/2]) / (e^[x/2]-e^[-x/2])
 # = 1/2 coth(x/2)
 
-def get_coeffs(mode,N,terminate=False):
+def get_coeffs(mode,N,max_accuracy=False):
     '''
     Get the coefficients for the Pade decomposition of the coth function
     mode = '[N/N]' or '[N-1/N]' for different types of Pade decomposition
     N = number of poles
-    terminate = are we using a terminator?
+    max_accuracy = do we want to just generate the best possible? (hardcoded to N = 200)
     if so, we add lots of extra poles
     '''
-    # if terminate: N=200
-    terminate=False #ignoring terminator for now
+    if max_accuracy: N=200
     mode= str(mode.strip()) #clean up the mode string
     if mode == '[N/N]': #just do [N/N]
         M=2*N+1                     #(4c)

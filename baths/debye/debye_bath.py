@@ -105,7 +105,7 @@ class Debye_bath():
             betaN = self.beta/self.N_mds
             wN=1/(betaN*self.hbar)
             wns = np.array([2*wN*np.pi*k/self.N_mds for k in range(0,self.mu+1)])
-            print(f'mode {mode} with {self.mu} pairs of matsubara modes')
+            # print(f'mode {mode} with {self.mu} pairs of matsubara modes')
             # print(wns)
             self.ws = wns
             return self.calc_coefs()
@@ -114,7 +114,7 @@ class Debye_bath():
             betaN =  self.beta/self.N_mds
             wN=1/(betaN*self.hbar)
             wks = np.array([2*wN*np.sin(np.pi*k/self.N_mds) for k in range(0,self.mu+1)])
-            print(f'mode {mode} with {self.mu} pairs of matsubara modes')
+            # print(f'mode {mode} with {self.mu} pairs of matsubara modes')
             # print(wks)
             self.ws = wks
             return self.calc_coefs()

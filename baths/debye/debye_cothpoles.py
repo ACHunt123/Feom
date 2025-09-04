@@ -25,7 +25,6 @@ class Debye_cothpoles():
         self.bathmode = params.bathmode
         self.cleanbathmode = self.bathmode.replace(' ','_').replace('/','_') # clean the bath mode name for saving files
         self.L = params.L                      # max tier of the ADOs
-        self.terminate = hasattr(params,'LTCorr') # whether or not we are using a terminator
         #NOTE the above was used under the assumption that termination was of the extra terms in the BCFs (for the FAY way self.N_exp_prop=self.N_exp always)
         # NEED TO LOOK INTO THIS ^^ maybe this is the best way, but IDK ^^
         # General parameters
@@ -55,8 +54,7 @@ class Debye_cothpoles():
         for i, wi in enumerate(w):
             if wi!=0:
                 Pw[i] = (self.beta*self.hbar/4)*(1/wi)*(1/np.tanh(self.beta*self.hbar*wi/2) - 2/(self.beta*self.hbar*wi))
-            else:
-                print('it is 0')
+            else: # treat the 0 divergence nicely
                 Pw[i] = ((self.beta*self.hbar)**2)/24
         return Pw
         # return (self.beta*self.hbar/4)*(1/w)*(1/np.tanh(self.beta*self.hbar*w/2) - 2/(self.beta*self.hbar*w))  
@@ -76,76 +74,53 @@ class Debye_cothpoles():
     
     def calc_poles(self): # Reclusters the poles and residues from coth(x)
         '''
-        self.terminate = TRUE/FALSE is the switch for whether or not we are using a terminator
-        if there is no terminator, N_exp=N_exp_prop
-        if not, N_exp=N_exp_prop + (enough terms to converge the low temp correction)
-        the C_ks and gam_ks calculated will then be used in the terminator module to calcuate the terminator
+        recluster poles from the coth function either using Pade or AAA algos
         '''
 
         if self.bathmode=='AAA':
             print(f'Using AAA decomposition for the bath.')
-            if(1): # Calculate the support of the coth function such that J(w)/w is sampled evenly [DOESNT WORK WELL]
-                N_support = 100000
-                N_support = 100000
-                x_j=np.arange(1,N_support+1)/(self.gam**2*(N_support+1)) #equally spaced x
-                support = np.concatenate([np.array([-200,-400,-800]),
-                    -np.abs(np.sqrt(1 / x_j - self.gam**2)),np.array([0]),
-                    np.flip(np.abs(np.sqrt(1 / x_j - self.gam**2)))
-                    ,np.array([200,400,800])])
-
+            if(1): # Calculate the support of the coth function with logarithmic spacing
+                N_support = 25000
                 eps=1e-4
                 w_max=self.gam # start with the cuttoff frequency
                 Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
                 while self.J(w_max) > Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
                 x_pos = np.logspace(np.log10(eps), np.log10(w_max), N_support // 2)
                 support = np.concatenate((-x_pos[::-1], [0.0], x_pos))
-    
                 values= self.P(support) # values of the coth function at the support points
-                # # plot the support and the P
-                # fig,ax=plt.subplots()
-                # ax.scatter(support,values)
-                # plt.show()
-                # sys.exit()
-                self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,support,values,self.terminate)
+                self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,support,values)
             else: # Use support with uniform spacing in w (done within the cothAAA module)
-                self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,None,None,self.terminate) 
+                self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,None,None) 
 
         elif self.bathmode[0:4]=='Pade':
             Padetype = self.bathmode[4:] # get the type of Pade decomposition
             print(f'Using Pade decomposition of type {Padetype} for the bath.')
-            eta, xi, R_N, mu_tot =cothPade.get_coeffs(Padetype,self.mu,self.terminate) # get the poles and residues from the pade module
+            eta, xi, R_N, mu_tot =cothPade.get_coeffs(Padetype,self.mu) # get the poles and residues from the pade module
             ### convert to the same format as the AAA decomposition
             self.gam_i = eta
             self.w_i = xi/(self.beta *self.hbar)
             self.k = R_N*(self.beta*self.hbar)**2/2.
             print(f"k = {self.k}")
         else:
-            raise ValueError('Invalid tyre of coth decomposition specified. Use "AAA" or "Pade..." .')
+            raise ValueError('Invalid type of coth decomposition specified. Use "AAA" or "Pade..." .')
         
         self.N_exp = self.N_nonmats + mu_tot  # total number of exponentials in the BCF 
-
-        if(1): # save and Plot the approximated function and J(w)
-            w = np.linspace(-250,250,20000,dtype=np.complex128) 
-            values = self.P(w)                     # values of the pole function at the w points
-            plt.figure(figsize=(5,5))
-            plt.plot(w.real, values.real, label='Original Function', color='blue')
-            plt.plot(w.real, self.P_aaa_realcoeffs(w).real+self.k, label=f'{self.bathmode} Approximation, imaginary poles/residues', color='green')
-            # plt.plot(w, self.P_aaa(w).real, label='AAA Approximation', color='red')
-            plt.plot(w.real, self.J(w).real, label='J(w)', color='orange')
-            plt.xlabel('w')
-            plt.ylabel('Function Value')
-            plt.title(f'{self.mu} mode approximation of {self.bathmode} Approximation of the Pole Function')
-            plt.legend()
-            plt.grid()
-            plt.show() if self.plot_debug_data else None
-            filename = f'{self.cleanbathmode}_Cothapproximation.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
-            data = np.column_stack((w.real, self.P_aaa_realcoeffs(w).real+self.k, values.real, self.J(w).real))
-            np.savetxt(filename, data, header='# w Re[P_approx(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
-            print(f'Saved the approximation plot to {filename}')
-            # sys.exit(0) # exit the program after plotting the approximation
-        if(1): #save and plot the poles and the Matsubara terms if they were to be used
-            wmax= np.max(np.abs(self.w_i)) 
-
+        # for printouts or debug data
+        w = np.linspace(-250,250,20000,dtype=np.complex128) 
+        values = self.P(w)  
+                           # values of the pole function at the w points
+        if(self.plot_debug_data): 
+            ### Plot the approximated function and J(w)
+            fit_fig,fit_ax=plt.subplots(figsize=(5,5))
+            fit_ax.plot(w.real, values.real, label='Original Function', color='blue')
+            fit_ax.plot(w.real, self.P_aaa_realcoeffs(w).real+self.k, label=f'{self.bathmode} Approximation, imaginary poles/residues', color='green')
+            fit_ax.plot(w.real, self.J(w).real, label='J(w)', color='orange')
+            fit_ax.set_xlabel('w')
+            fit_ax.set_ylabel('Function Value')
+            fit_ax.set_title(f'{self.mu} mode approximation of {self.bathmode} Approximation of the Pole Function')
+            fit_ax.legend()
+          
+            #save and plot the poles and the Matsubara terms if they were to be used
             fig, pole_ax = plt.subplots(figsize=(5,5))
             pole_ax.set_title(r'Poles and residues: $\sum_i \frac{\gamma_i}{\omega^2+\omega_i^2}$', fontsize=16)
             pole_ax.set_xlabel(r'$\gamma_i$', fontsize=14)
@@ -153,15 +128,22 @@ class Debye_cothpoles():
             pole_ax.grid(True)
             pole_ax.plot(self.gam_i, self.w_i, 'x', label=f'AAA, N={len(self.w_i)}', color='blue')
             pole_ax.legend()
+            plt.show()
             
+
+        if(self.save_debug_data):
+            # save the approximatoin of the pole function
+            filename = f'{self.cleanbathmode}_Cothapproximation.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
+            data = np.column_stack((w.real, self.P_aaa_realcoeffs(w).real+self.k, values.real, self.J(w).real))
+            np.savetxt(filename, data, header='# w Re[P_approx(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
+            print(f'Saved the approximation plot to {filename}')
+            # save the poles and residues
             data = np.column_stack((self.gam_i.real, self.w_i.real))
             filename= f'{self.cleanbathmode}_poles_and_residues.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
             np.savetxt(filename, data, header=f'# gamma_i w_i N={len(self.w_i)}', comments='') if self.save_debug_data else None
             if self.bathmode in ['Pade[N/N]','AAA']:
                 k_filename= f'{self.cleanbathmode}_k.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
                 np.savetxt(k_filename, [self.k], header=f'# k', comments='') if self.save_debug_data else None
-
-            plt.show() if self.plot_debug_data else None
 
 
     # Calculate the C_ks and gam_ks

@@ -20,6 +20,19 @@ xlabel('x'); ylabel('f(x)')
 title('AAA Approximation of f(x)')
 grid on
 
+
+% Set your threshold (e.g., 1e-5)
+residue_threshold = 1e-3;
+
+% Find indices where residues are "significant"
+mask = abs(res) > residue_threshold;
+
+% Apply mask
+pol = pol(mask);
+res = res(mask);
+
+
+
 % Calculate the function directly from the residues
 r_from_res = zeros(size(xx));  % Initialize the result vector
 for j = 1:length(res)
