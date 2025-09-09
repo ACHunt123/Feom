@@ -7,7 +7,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 script_dir = os.path.dirname(script_dir)
 
 
-def get_coeffs(params, support=None, values=None,max_accuracy=False):
+def get_coeffs(params, support=None, values=None,max_accuracy=False,ext_fname=''):
     max_accuracy=False # get the correct number of poles
     # Bathmode and settings
     minres_tol = 1e-6      # tolerance for the minimum abs value of a residue in the AAA decomposition
@@ -23,15 +23,15 @@ def get_coeffs(params, support=None, values=None,max_accuracy=False):
         support = np.linspace(-w_max,w_max,nw,dtype=np.complex128) # support for the AAA decomposition
         values = params.P(support)                     # values of the pole function at the support points
         print(f'Maximum frequency for the AAA decomposition: {w_max} (tolerance {Jw_min_tol})')
-        ext = f'_nw{nw}_wmax{int(w_max)}.txt'                        # extension for the aaa files
+        ext = f'_nw{nw}_wmax{int(w_max)}{ext_fname}.txt'                        # extension for the aaa files
     else:
         nw= len(support)  # number of support points
         print(f'Using provided support and values for the AAA decomposition.')
-        ext = f'_quadrature_nw{nw}.txt'
+        ext = f'_quadrature_nw{nw}{ext_fname}.txt'
 
     ### Use the AAA decomposition to get the coefficients
     mu_eff = params.mu if not max_accuracy else 0  # number of poles for AAA decomposition (0 means as many as needed)
-    folder = f'aaa_K{mu_eff}'                                   # folder to save the aaa files
+    folder = f'aaa_K{mu_eff}{ext_fname}'                                   # folder to save the aaa files
     aaa_filename = f'aaa_data{ext}'                             # filename to save the aaa support and values data
     aaa_data_path = f'{folder}/{aaa_filename}'
     command= f"run_aaa_fromfile({mu_eff},'{os.getcwd()}/{folder}','{os.getcwd()}/{aaa_data_path}','{ext}',{str(max_accuracy).lower()})" # the command to run the AAA decomposition in MATLAB
@@ -49,6 +49,8 @@ def get_coeffs(params, support=None, values=None,max_accuracy=False):
     else:                                       # print out the command to run the MATLAB script if it has not already been run
         if not os.path.exists(f'{folder}/pol_real{ext}'):
             print('run the following command in MATLAB to get the AAA coefficients:')
+            convert = lambda path: path.replace('/mnt/c/', 'C:\\').replace('/', '\\')
+            command = convert(command)
             print(f"\n{command}")
             ### append the command to a file for later use
             with open(f'{script_dir}/aaa/commands_to_run.m', 'a') as f:

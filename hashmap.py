@@ -1,6 +1,6 @@
 
 import numpy as np
-import sys
+import sys,math
 import matplotlib.pyplot as plt
 '''    +---------------------------------------+
        |   Hashmap: Generates the hashmaps     |  
@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 
 
 def length(n,k): # number of ADOs in the n'th tier with k elements
-    return np.math.factorial(n+k-1) // np.math.factorial(k-1) // np.math.factorial(n) # = [ (n+k-1) C (k-1)]
+    # return np.math.factorial(n+k-1) // np.math.factorial(k-1) // np.math.factorial(n) # = [ (n+k-1) C (k-1)]
+    return math.factorial(n+k-1) // math.factorial(k-1) // math.factorial(n) # = [ (n+k-1) C (k-1)]
 
 def total_length(K,L,N_nonmats): # total number of ADOs for a given K and L
     Ktot=K+N_nonmats

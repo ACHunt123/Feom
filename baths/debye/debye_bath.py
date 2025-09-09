@@ -42,7 +42,7 @@ class Debye_bath():
         Jw = self.eta*self.gam*w/(w**2+self.gam**2)
         if plotme : 
             ax.plot(w,Jw)
-        return Jw,w
+        return Jw
 
     # Calculate the C_ks and gam_ks for a given set of ws
     def calc_coefs(self):
