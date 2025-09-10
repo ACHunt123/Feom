@@ -49,48 +49,69 @@ class Debye_cothpoles():
             ax.plot(w,Jw)
         return Jw
     
-    def P(self,w): # Pole function for the coth, that we are gonna approximate
+    def P(self,w,M=1): 
+        ''' P(w), the pole function for the coth.
+        M is the number of low frequency matsubara terms to approximate by the highest frequency term'''
         Pw=np.zeros_like(w)
         for i, wi in enumerate(w):
             if wi!=0:
                 Pw[i] = (self.beta*self.hbar/4)*(1/wi)*(1/np.tanh(self.beta*self.hbar*wi/2) - 2/(self.beta*self.hbar*wi))
             else: # treat the 0 divergence nicely
                 Pw[i] = ((self.beta*self.hbar)**2)/24
+        # Add on the M approximated low frequency terms, if needed
+        wn_s = np.array([2*np.pi*n/(self.beta*self.hbar) for n in range(1,M+1)])
+        for wn in wn_s:
+            Pw -= 1/(w**2 + wn**2)
+        Pw += M/(w**2+wn_s[-1]**2) # add back on the terms (with all of the same frequencies)
         return Pw
-        # return (self.beta*self.hbar/4)*(1/w)*(1/np.tanh(self.beta*self.hbar*w/2) - 2/(self.beta*self.hbar*w))  
     
-    def P_aaa(self,w): # Pole function for the coth, calculated using the original poles and residues from the AAA decomposition
+    def P_aaa(self,w):
+        '''Calculate P(w) using the COMPLEX poles from the AAA decomposition of coth(x)'''
         result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
         for k in range(len(self.res_original)):
             result += self.res_original[k] / (w - self.poles_original[k])
         return result
     
-    def P_aaa_realcoeffs(self,w): # Pole function for the coth, calculated using the poles and residues from the AAA decomposition, with real coefficients
+    def P_aaa_realcoeffs(self,w): 
+        ''' 'Calculate P(w) using the IMAGINAGY poles from the AAA decomposition of coth(x)'''
         result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
         for k in range(len(self.gam_i)):
             result += self.gam_i[k] / (w**2 + self.w_i[k]**2)
         return result
          
-    
-    def calc_poles(self): # Reclusters the poles and residues from coth(x)
-        '''
-        recluster poles from the coth function either using Pade or AAA algos
-        '''
+    def get_support_and_values(self, mode='log',N_support = 50000):
+        ''' Generate the support and values for the AAA decomposition of the pole function'''    
+        if mode=='log': # logarithmic spacing including zero
+            eps=1e-4
+            w_max=self.gam # start with the cuttoff frequency
+            Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
+            while self.J(w_max) > Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
+            x_pos = np.logspace(np.log10(eps), np.log10(w_max), N_support // 2)
+            support = np.concatenate((-x_pos[::-1], [0.0], x_pos))
+            self.support_param_str = f'log_N{N_support}_wmax{int(w_max)}'
+        elif mode=='quadrature': # use the points from the quadrature of J(w)
+            x_j = np.arange(1, N_support + 1)/((N_support + 1)*(self.gam**2))  
+            w_j = np.sqrt(1/x_j - self.gam**2)  # abscissas
+            support = np.concatenate((-w_j[::-1], [0.0], w_j))  # support points
+            self.support_param_str = f'gauss_legendre_N{N_support}_gam{self.gam}' # save the parameters used to generate the support points
+        elif mode == 'uniform': # uniform spacing including zero
+            w_max=self.gam # start with the cuttoff frequency
+            Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
+            while self.J(w_max) > Jw_min_tol: w_max += 10
+            support = np.linspace(-w_max,w_max,N_support,dtype=np.complex128)
+            self.support_param_str = f'uniform_N{N_support}_wmax{int(w_max)}' # save the parameters used to generate the support points
+        else:
+            raise ValueError('Invalid mode for generating support points. Use "log", "quadrature" or "uniform".')
 
+        values= self.P(support) # values of the coth function at the support points
+        return values, support
+    
+    def calc_poles(self): 
+        '''recluster poles from the coth function either using Pade or AAA algos'''
         if self.bathmode=='AAA':
             print(f'Using AAA decomposition for the bath.')
-            if(1): # Calculate the support of the coth function with logarithmic spacing
-                N_support = 25000
-                eps=1e-4
-                w_max=self.gam # start with the cuttoff frequency
-                Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
-                while self.J(w_max) > Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
-                x_pos = np.logspace(np.log10(eps), np.log10(w_max), N_support // 2)
-                support = np.concatenate((-x_pos[::-1], [0.0], x_pos))
-                values= self.P(support) # values of the coth function at the support points
-                self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,support,values)
-            else: # Use support with uniform spacing in w (done within the cothAAA module)
-                self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,None,None) 
+            values, support = self.get_support_and_values()
+            self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,support,values)
 
         elif self.bathmode[0:4]=='Pade':
             Padetype = self.bathmode[4:] # get the type of Pade decomposition
@@ -100,15 +121,13 @@ class Debye_cothpoles():
             self.gam_i = eta
             self.w_i = xi/(self.beta *self.hbar)
             self.k = R_N*(self.beta*self.hbar)**2/2.
-            print(f"k = {self.k}")
         else:
             raise ValueError('Invalid type of coth decomposition specified. Use "AAA" or "Pade..." .')
         
         self.N_exp = self.N_nonmats + mu_tot  # total number of exponentials in the BCF 
         # for printouts or debug data
         w = np.linspace(-250,250,20000,dtype=np.complex128) 
-        values = self.P(w)  
-                           # values of the pole function at the w points
+        values = self.P(w)  # values of the pole function at the w points          
         if(self.plot_debug_data): 
             ### Plot the approximated function and J(w)
             fit_fig,fit_ax=plt.subplots(figsize=(5,5))

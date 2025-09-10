@@ -15,7 +15,6 @@ function run_aaa_fromfile(K, location,filename,extension,terminate)
         terminate = false; % if a terminator is used, we are allowing as many poles as possible
     end
     doplot=false;
-    
 
     % Load data: x Re(f) Im(f)
     data = readmatrix(filename, 'FileType', 'text', 'Delimiter', ' ');

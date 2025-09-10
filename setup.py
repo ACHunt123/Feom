@@ -70,7 +70,7 @@ class Setup:
     
     def go(self,extra_commands='',cleanup=True):
         # Run the executable
-        quiet=[' > /dev/null ',''][0]
+        quiet=[' > /dev/null ',''][1]
         os.system(f'cd tmp/; {extra_commands} ./propagation* {quiet}')
         #Load the data and format it
         data= np.loadtxt('tmp/output')

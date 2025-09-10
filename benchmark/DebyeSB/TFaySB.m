@@ -21,7 +21,7 @@ epsilon = 1.0 ;
 Delta = 2.0 ;
 % bath parameters
 % beta = 1.5 ; 
-beta = 5 ;
+beta = 15 ;
 % debye bath parameters
 lambda_D = 1 ;
 omega_D = 1.0 ;

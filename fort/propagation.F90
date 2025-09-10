@@ -4,12 +4,13 @@ program main
     use prop_subroutines, only: Krylov_vecs, SIAstep, Krylov_dim, Recalculate_ADOs,ADOs_Krylov
     use gradient, only: rhoI, rhoInkp1, rhoInkm1, gradI, result_vec, rhoI_vec
     use shared_data
-    use utils, only: norm
+    use utils, only: norm, binomial
     implicit none
     complex(8), allocatable :: ADOs(:,:,:) ! we have not made this global for clarity
     ! Local variables
     real(8) :: time, ADOnorm
-    integer(4) :: stat,it,ki,nk,nttot,ni,ntout
+    integer(4) :: stat,it,nttot,ni,ntout
+    integer(8) :: nk,ki
     logical :: printData
 
     !!! LOAD PARAMETERS AND MATRICIES !!!
@@ -42,7 +43,7 @@ program main
     ! Calculate the lengths of each block of ado indices (pascals triangle)
     do nk = 0,L 
         do ki = 1,Ktot
-            lengths(nk,ki) = int(gamma(real(nk+ki-1 + 1.0D0)) / gamma(real(ki-1 + 1.0D0)) / gamma(real(nk + 1.0D0)))
+            lengths(nk,ki) = binomial(nk + ki - 1, ki - 1)
         end do
     end do 
     ! Print out the hashmap for the ADO printout

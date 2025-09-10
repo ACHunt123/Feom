@@ -5,12 +5,13 @@
 
 
 Z = linspace(-1000, 1000, 10000)';        % Sample points (column vector)
-Z = linspace(-500, 500, 100000)';        % Sample points (column vector)
+Z = linspace(-1000, 1000, 20000)';        % Sample points (column vector)
 F = Sbeta(Z);                       % Function values at those points
 
-[r, pol, res, zer, z, f, w, errvec] = aaa_algo(F, Z);
+tol = 3e-8;
+[r, pol, res, zer, z, f, w, errvec] = aaa_algo(F, Z,tol);
 
-xx = linspace(-25, 25, 100000);       % Evaluation points
+xx = linspace(-1000, 1000, 20000);       % Evaluation points
 yy = r(xx);                         % Evaluate the rational approximant
 
 plot(xx, Sbeta(xx), 'k-', 'LineWidth', 1.5); hold on
@@ -21,15 +22,15 @@ title('AAA Approximation of f(x)')
 grid on
 
 
-% Set your threshold (e.g., 1e-5)
-residue_threshold = 1e-3;
+% % Set your threshold (e.g., 1e-5)
+% residue_threshold = 1e-3;
 
-% Find indices where residues are "significant"
-mask = abs(res) > residue_threshold;
+% % Find indices where residues are "significant"
+% mask = abs(res) > residue_threshold;
 
-% Apply mask
-pol = pol(mask);
-res = res(mask);
+% % Apply mask
+% pol = pol(mask);
+% res = res(mask);
 
 
 

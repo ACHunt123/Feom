@@ -33,7 +33,7 @@ params.mu=params.K # needed as params.mu is used in the cothAAA.py file
 
 support=np.linspace(-100,100,1000)
 fig,ax=plt.subplots()
-def Sbeta(w,mode='exact'):
+def Sbeta(w,mode='exact',M=1):
    ''' Calculate Sbeta (fourier tranform of the BCF)
    either exactly, or using the AAA poles
    we have to treat the divergence of coth at w=0 carefully'''
@@ -41,6 +41,9 @@ def Sbeta(w,mode='exact'):
       coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(bath.P(w)+bath.k)
    elif mode=='AAA coth poles':
       coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(bath.P_aaa_realcoeffs(w)+bath.k)
+   elif mode=='M low freq approx':
+      coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(bath.P(w,M=M)+bath.k)
+   else: sys.exit('invalid mode for Sbeta function')
    Jw_over_w = params.eta*params.gam/(w**2+params.gam**2)
    return (coth_term_times_w + w)*Jw_over_w
 
@@ -71,9 +74,19 @@ def Sbeta_AAA(w):
 
 
 
-ax.plot(support,Sbeta(support,'AAA coth poles'),label=r'AAA coth (imaginary) poles K='+str(oldmu))
-ax.plot(support,Sbeta_AAA(support).real,label=r'AAA complex poles N='+str(bath.mu))
-ax.plot(support,Sbeta(support,'exact'),ls='--',color='k',label=r'Exact $S_{\beta}(\omega)$')
+# ax.plot(support,Sbeta(support,'AAA coth poles'),label=r'AAA coth (imaginary) poles K='+str(oldmu))
+# ax.plot(support,Sbeta_AAA(support).real,label=r'AAA complex poles N='+str(bath.mu))
+# ax.plot(support,Sbeta(support,'exact'),ls='--',color='k',label=r'Exact $S_{\beta}(\omega)$')
+fig, (ax1,ax2) = plt.subplots(2,1,figsize=(8,10))
+for M in [10,50,100,200,500]:
+   delta=np.max(np.abs(Sbeta(support,'M low freq approx',M) - Sbeta(support,'exact')))
+   ax1.plot(support,Sbeta(support,'M low freq approx',M),ls='-',label=r'$S_{\beta}(\omega) M=$'+str(M)+f' (difference is {delta:.2e})')
+   ax2.plot(support,(bath.P(support,M=M)),ls='-',label=r'$P(\omega)$ M='+str(M))
+ax1.set_xlim(-100,100)
+ax2.set_xlim(-0.1,0.1)
+ax1.legend()
+ax2.legend()
+# ax.plot(support,Sbeta(support,'exact'),ls='--',color='k',label=r'Exact $S_{\beta}(\omega)$')
 ax.set_xlabel(r'Frequency $(\omega)$')
 ax.set_ylabel(r'$S_{\beta}(\omega)$')
 ax.set_title(r'$S_{\beta}(\omega)$'+f' for Debye Bath with beta={params.beta}.\n Setup such that both HEOMS have the same number of ADOs indices.')

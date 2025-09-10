@@ -80,4 +80,20 @@ subroutine check_condition_number(A, dim, label)
     ! Cleanup
     deallocate(s, rwork, work, a_copy, u, vt)
 end subroutine check_condition_number
+! Safe binomial coefficient function
+integer(8) function binomial(n, k)
+    implicit none
+    integer(8), intent(in) :: n, k
+    integer(8) :: i
+    if (k < 0 .or. k > n) then
+        binomial = 0
+    elseif (k == 0 .or. k == n) then
+        binomial = 1
+    else
+        binomial = 1
+        do i = 1, k
+            binomial = binomial * (n - i + 1) / i
+        end do
+    end if
+end function binomial
 end module utils

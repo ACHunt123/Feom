@@ -142,7 +142,27 @@ integer(4) function I_nk_plusminus(I,ki,pm) !pm is +1 or -1, I is the inital ind
         do n = 0, tier1-sn-1    ! add number of ADOS for the sum of the remaining digits = 0,1 ... tier1-sn-1
             I_nk_plusminus = I_nk_plusminus + lengths(n,Ktot-p) ! lengths is a pascals triangle array (see main)
         end do
-        if (sn==tier1) return ! If the running total of all the digits is equal to the tier, then we have found the correct index
+        if (sn==tier1) then ! If the running total of all the digits is equal to the tier, then we have found the correct index
+
+        ! check that the ado index is correct
+        ! if (.not. all(ADO_index(I_nk_plusminus,:) == indx)) then
+        !     print*,'####ORIGINAL INDEX#'
+        !     print*, ADO_index(I,:)
+        !     print*,'###################'
+        !     print*, 'ki,pm=',ki,pm
+        !     print*,'####TARGET INDEX####'
+        !     print*, indx
+        !     print*,'###################'
+        !     print*,'####FOUND INDEX####'
+        !     print*, ADO_index(I_nk_plusminus,:) 
+        !     print*,'####FOUND INDEX + 1 ####'
+        !     print*, ADO_index(I_nk_plusminus+1,:) 
+        !     print *, "Error in hashing algorithm, index not found correctly"
+        !     stop
+        ! end if
+        return
+
+        end if
     end do
     return
 end function I_nk_plusminus
