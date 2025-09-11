@@ -12,7 +12,7 @@ def get_coeffs(params, support, values, max_accuracy=False,ext_fname=''):
     # Bathmode and settings
     minres_tol = 1e-6               # tolerance for the minimum abs value of a residue in the AAA decomposition
     nw= len(support)                # number of support points
-    ext=params.support_param_str + ext_fname + '.txt' # extension for the aaa files
+    ext = getattr(params, 'support_param_str', '')  + ext_fname + '.txt' # extension for the aaa files
 
     ### Use the AAA decomposition to get the coefficients
     mu_eff = params.mu if not max_accuracy else 0  # number of poles for AAA decomposition (0 means as many as needed)

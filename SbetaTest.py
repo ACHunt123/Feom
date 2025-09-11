@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import sys,os
 import numpy as np
 from Feom.baths.coth_decomp.cothAAA import get_coeffs
+import copy
 
 ###Store the command used to run this script in a file for later use
 # Get the name of the Python interpreter (e.g., 'python' or 'python3')
@@ -25,67 +26,92 @@ with open("run.sh", "w") as f:
 ####
 
 ### Load all the parameters into the setup object  (will perform the AAA decomposition if needed)
-sim = Setup(params)
-bath=sim.bath
-params=sim.params
-params.mu=params.K # needed as params.mu is used in the cothAAA.py file
-# after this point, there will be a command to run AAA on the pole function
+assert params.bathmode == 'AAA'
+cothpoles = Setup(params)
+cothpoles.params.mu=params.K # needed as params.mu is used in the cothAAA.py file
 
-support=np.linspace(-100,100,1000)
-fig,ax=plt.subplots()
+## COMMAND HERE TO GET THE AAA DECOMPOSITION OF THE COTH FUNCTION
+
 def Sbeta(w,mode='exact',M=1):
    ''' Calculate Sbeta (fourier tranform of the BCF)
    either exactly, or using the AAA poles
    we have to treat the divergence of coth at w=0 carefully'''
    if mode=='exact':
-      coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(bath.P(w)+bath.k)
+      coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(cothpoles.bath.P(w))
    elif mode=='AAA coth poles':
-      coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(bath.P_aaa_realcoeffs(w)+bath.k)
+      coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(cothpoles.bath.P_aaa_realcoeffs(w)+cothpoles.bath.k)
    elif mode=='M low freq approx':
-      coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(bath.P(w,M=M)+bath.k)
+      coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(cothpoles.bath.P(w,M=M))
    else: sys.exit('invalid mode for Sbeta function')
    Jw_over_w = params.eta*params.gam/(w**2+params.gam**2)
    return (coth_term_times_w + w)*Jw_over_w
 
-### Generate a command to run the AAA decomposition on Sbetaw
-# Generate the support and values for the AAA decomposition (copy pasta)
-N_support = 25000
-eps=1e-4
-w_max=bath.gam # start with the cuttoff frequency
-Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
-while bath.J(w_max) > Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
-x_pos = np.logspace(np.log10(eps), np.log10(w_max), N_support // 2)
-support = np.concatenate((-x_pos[::-1], [0.0], x_pos))
-values= Sbeta(support) # values of Sbeta function at the support points
-oldmu=bath.mu
-print('old mu = ',bath.mu)
-bath.mu=bath.mu//2 + 1
-print('new mu = ',bath.mu)
-# get the AAA decomposition of Sbeta OVERWRITES THE POLES IN THE BATH OBJECT
-_,_,konstant,_=get_coeffs(bath,support,values,ext_fname='_Sbeta_decomp') 
+### Run the AAA decomposition directly on Sbeta (Xu et al)
+Xumethod = copy.deepcopy(cothpoles)
+Xumethod.bath.mu = cothpoles.bath.mu//2 + 1 # only half the number of poles can be used for Sbeta (they are complex)
+_,support = Xumethod.bath.get_support_and_values(mode='log',N_support = 50000) # Get support used for the cothpoles decomposition
+values= Sbeta(support)         
+print('old mu = ',cothpoles.bath.mu) # store the old mu value (number of coth poles)
+print('new mu = ',Xumethod.bath.mu)
+_,_,Xumethod.bath.konstant,_=get_coeffs(Xumethod.bath,support,values,ext_fname='_Sbeta_decomp') 
+
+## COMMAND HERE TO GET THE AAA DECOMPOSITION OF SBETA
+
 def Sbeta_AAA(w):
    '''Calculate Sbeta using the poles from the AAA decomposition of the ENITRE FUNCTION'''
    result = 0.0+0j if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
    w=np.array(w,dtype=np.complex128)
-   for kk in range(len(bath.res_original)):
-      result += bath.res_original[kk] / (w - bath.poles_original[kk])
-
-   return result + konstant
-
+   for kk in range(len(Xumethod.bath.res_original)):
+      result += Xumethod.bath.res_original[kk] / (w - Xumethod.bath.poles_original[kk])
+   return result + Xumethod.bath.konstant
 
 
-# ax.plot(support,Sbeta(support,'AAA coth poles'),label=r'AAA coth (imaginary) poles K='+str(oldmu))
-# ax.plot(support,Sbeta_AAA(support).real,label=r'AAA complex poles N='+str(bath.mu))
-# ax.plot(support,Sbeta(support,'exact'),ls='--',color='k',label=r'Exact $S_{\beta}(\omega)$')
-fig, (ax1,ax2) = plt.subplots(2,1,figsize=(8,10))
-for M in [10,50,100,200,500]:
+### Approximate Sbeta using the low frequency approx (finding the maximu, M needed to get a good approx)
+# here we use the same setup as the initial coth decomposition``
+cothpoles_M = copy.deepcopy(cothpoles)
+max_dev= 1e-3*cothpoles_M.bath.gam # max deviation
+M=1
+while True:
    delta=np.max(np.abs(Sbeta(support,'M low freq approx',M) - Sbeta(support,'exact')))
-   ax1.plot(support,Sbeta(support,'M low freq approx',M),ls='-',label=r'$S_{\beta}(\omega) M=$'+str(M)+f' (difference is {delta:.2e})')
-   ax2.plot(support,(bath.P(support,M=M)),ls='-',label=r'$P(\omega)$ M='+str(M))
-ax1.set_xlim(-100,100)
-ax2.set_xlim(-0.1,0.1)
-ax1.legend()
-ax2.legend()
+   M+=5
+   if delta>max_dev:
+      M-=5
+      break
+values = cothpoles_M.bath.P(support,M=M)
+_,_,cothpoles_M.bath.konstant,_=get_coeffs(cothpoles_M.bath,support,values,ext_fname=f'_M_{M}_low_freq_approx') 
+
+## COMMAND HERE TO GET THE AAA DECOMPOSITION OF SBETA LOW FREQ APPROX
+#  1i*imag(res(j)) ./ (xx - 1i*imag(pol(j)));
+def Sbeta_M_aprox(w):
+   '''Calculate Sbeta using the poles from the AAA decomposition of the pole function with the low frequency approx'''
+   def P_AAA_M_approx(w):
+        result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
+        for k in range(len(cothpoles_M.bath.res_original)):
+            result += 1j*np.imag(cothpoles_M.bath.res_original[k]) / (w - 1j*np.imag(cothpoles_M.bath.poles_original[k]))
+        return result
+        
+   coth_term_times_w = 2/(params.beta*params.hbar) + (4*w**2/(params.beta*params.hbar))*(P_AAA_M_approx(w)+cothpoles_M.bath.konstant)
+   Jw_over_w = params.eta*params.gam/(w**2+params.gam**2)
+   return (coth_term_times_w + w)*Jw_over_w
+
+
+
+
+fig, (ax) = plt.subplots(1,1,figsize=(8,10))
+
+ax.plot(support,Sbeta(support,'AAA coth poles'),label=r'AAA coth (imaginary) poles K='+str(cothpoles.params.mu))
+ax.plot(support,Sbeta_AAA(support).real,label=r'AAA complex poles N='+str(Xumethod.bath.mu))
+ax.plot(support,Sbeta(support,'exact'),ls='--',color='k',label=r'Exact $S_{\beta}(\omega)$')
+ax.plot(support,Sbeta_M_aprox(support).real,label=r'Low freq approx M='+str(M)+f' (difference is {delta:.2e})')
+
+# ax1.plot(support,Sbeta(support,'M low freq approx',M),ls='-',label=r'$S_{\beta}(\omega) M=$'+str(M)+f' (difference is {delta:.2e})')
+# ax1.plot(support,Sbeta(support,'exact'),ls='--',label=r'$S_{\beta}(\omega) $ exact')
+# ax2.plot(support,(bath.P(support,M=M)),ls='-',label=r'$P(\omega)$ M='+str(M))
+# ax2.plot(support,(bath.P(support)),ls='--',label=r'$P(\omega)$ exact')
+# ax1.set_xlim(-100,100)
+# ax2.set_xlim(-0.1,0.1)
+# ax1.legend()
+# ax2.legend()
 # ax.plot(support,Sbeta(support,'exact'),ls='--',color='k',label=r'Exact $S_{\beta}(\omega)$')
 ax.set_xlabel(r'Frequency $(\omega)$')
 ax.set_ylabel(r'$S_{\beta}(\omega)$')
@@ -95,7 +121,7 @@ ax.set_xlim(-100,100)
 plt.legend()
 #save teh figure
 plt.tight_layout()
-plt.savefig(f'Sbeta_comparison_beta{params.beta}_K{oldmu}.pdf')
+# plt.savefig(f'Sbeta_comparison_beta{params.beta}_K{oldmu}.pdf')
 plt.show()
 sys.exit()
 
