@@ -6,7 +6,11 @@ import Feom.baths.coth_decomp.cothAAA as cothAAA
 import Feom.baths.utils as utils
 
 # A class for the Debye bath
-''' A class to represent the Debye bath for the FEOM code, with AAA/Pade decomposition of A(w)/w
+''' A class to represent the Debye bath for the FEOM code, 
+with bathmode options:
+Pade... : Pade decomposition of A(w)/w
+AAA     : AAA decomposition of A(w)/w
+AAAmc   : AAA decomposition of A(w)/w with high frequency modes treated markovianly
 
 eta : Coupling strength
 gam : Cuttoff frequency
@@ -39,7 +43,7 @@ class Debye_cothpoles():
         #
         self.mode= params.bathmode
         ### Calculate the C_ks and gam_ks for the bath and add to the class
-        self.get_coefs()
+        self.get_coefs(params)
         # self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
 
 
@@ -79,7 +83,7 @@ class Debye_cothpoles():
             result += self.gam_i[k] / (w**2 + self.w_i[k]**2)
         return result
          
-    def get_support_and_values(self, mode='log',N_support = 50000):
+    def get_support_and_values(self, mode='log',N_support = 20000):
         ''' Generate the support and values for the AAA decomposition of the pole function'''    
         if mode=='log': # logarithmic spacing including zero
             eps=1e-4
@@ -108,7 +112,7 @@ class Debye_cothpoles():
     
     def calc_poles(self): 
         '''recluster poles from the coth function either using Pade or AAA algos'''
-        if self.bathmode=='AAA':
+        if self.bathmode[0:3]=='AAA':
             print(f'Using AAA decomposition for the bath.')
             values, support = self.get_support_and_values()
             self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,support,values)
@@ -126,7 +130,10 @@ class Debye_cothpoles():
         
         self.N_exp = self.N_nonmats + mu_tot  # total number of exponentials in the BCF 
         # for printouts or debug data
-        w = np.linspace(-250,250,20000,dtype=np.complex128) 
+        w = np.logspace(1e-10, 100, 10000,dtype=np.complex128)  # 200000 points from 1e-10 to 100
+        w = np.concatenate((-w[::-1], [0.0], w))  # support points with 0
+        w = np.concatenate([np.linspace(0,2,20000,dtype=np.complex128) ,np.linspace(2,200,500,dtype=np.complex128)])
+
         values = self.P(w)  # values of the pole function at the w points          
         if(self.plot_debug_data): 
             ### Plot the approximated function and J(w)
@@ -166,7 +173,7 @@ class Debye_cothpoles():
 
 
     # Calculate the C_ks and gam_ks
-    def get_coefs(self):
+    def get_coefs(self,params):
         self.calc_poles()  # Calculate the poles and residues from the coth function, and set the w_i and gam_i attributes
 
         d = np.zeros(self.N_exp)
@@ -197,6 +204,16 @@ class Debye_cothpoles():
 
         # Calculate the low temperature coefficient
         # self.lowTcoef=-2*self.eta*self.gam*self.k/(self.beta*self.hbar**2) 
+
+        ### REMOVE THE HIGH FREQUENCIES IF AAA
+        if self.bathmode=='AAAmc':
+            cothAAA.markovian_pole_trunc(self, max_freq=1000)
+            # Change the number of exponentials and K in the params class
+            old_N_exp = self.N_exp
+            params.K = len(self.gam_i)
+            self.N_exp = params.K + self.N_nonmats
+            print(f'{old_N_exp} exponentials before truncation, after truncation {self.N_exp}')
+            sys.exit()
 
         return 
 

@@ -38,44 +38,6 @@ function run_aaa_fromfile(K, location,filename,extension,terminate)
 
         fprintf('Calling aaa_algo...\n');
 
-        % %%% Find a an upper-bound for tolerance that will give K and K+1 poles
-        % tol = max_tol;          % Initial AAA tolerance
-        % for KK = [K, K+1] 
-        %     stepfactor = 25;          % Reset step factor for each KK
-        %     % we do not reset the tolerance after thefirst iteration as it will be lower for K+1 than for K
-
-        %     fprintf('Finding upper bound for tolerance for K=%d poles...\n', KK);
-        %     while true
-        %         [r, pol, res, zer, ~, ~, ~, errvec] = aaa_algo(F, Z, tol); %%% Run the AAA algorithm, cleaning up the poles afterwards
-        %         pol_clean = pol(imag(pol) > 1e-10);
-        %         fprintf('tol = %.1e -> %d significant poles\n', tol, numel(pol_clean));
-
-        %         if numel(pol_clean) == KK        %%% Number of poles is desired
-        %             if KK == K+1
-        %                 min_tol = tol;          % Set min tolerance to current value [as this is not necessarily the best tolerance for the given K+1]
-        %             elseif KK == K
-        %                 max_tol = tol;          % Set max tolerance to current value [as this is not necessarily the best tolerance for the given K]
-        %             end
-        %             break;  
-
-        %         elseif numel(pol_clean) > KK     %%% We have overshot
-        %             tol = tol*stepfactor;          % increase tolerance back to previous value
-        %             stepfactor = max(stepfactor / 10, 1.5);  % Reduce step factor BUT NOT THAT IT MUST ALWAYS > 1
-
-        %         elseif tol < min_tol  % Too many poles, stop if tolerance is too high
-        %             fprintf('Warning: Too many poles found with tolerance %.1e. Stopping.\n', tol);
-        %             return;
-        %         elseif tol > 100  % Too many poles, stop if tolerance is too high
-        %             fprintf('Warning: too high');
-        %             return;
-        %         else  
-        %             tol = tol / stepfactor;         % decrease tolerance to find more poles
-        %         end
-        %     end
-        % end
-
-        % fprintf('Found max tolerances: K=%d -> %.1e, K+1=%d -> %.1e\n', K, max_tol,K+1, min_tol);
-
         %%% Now do a binary search between max_tol and min_tol to find the mininum tolerance for K poles
         while true
             tol = (max_tol + min_tol) / 2;  % Start with the midpoint
@@ -96,8 +58,8 @@ function run_aaa_fromfile(K, location,filename,extension,terminate)
                 % Check if we have the desired number of poles
                 if numel(pol_clean) ~= K
                     fprintf('Warning: Final tolerance %.1e does not yield %d poles, found %d poles.\n', max_tol, K, numel(pol_clean));
-                    fprintf('Press any key to continue or Ctrl+C to stop.\n');
-                    pause;
+                    % fprintf('Press any key to continue or Ctrl+C to stop.\n');
+                    % pause;
                     return;
                 end
                 fprintf('Converged to tolerance %.5e with window %.5e\n', max_tol, tol_err);

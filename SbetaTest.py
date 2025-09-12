@@ -9,6 +9,7 @@
 from Feom.setup import Setup
 from Feom.parser import params
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import sys,os
 import numpy as np
 from Feom.baths.coth_decomp.cothAAA import get_coeffs
@@ -95,14 +96,20 @@ def Sbeta_M_aprox(w):
    return (coth_term_times_w + w)*Jw_over_w
 
 
+mpl.use("pgf")
+mpl.rcParams.update({
+    "pgf.texsystem": "pdflatex",  # or "lualatex"/"xelatex"
+    "font.family": "serif",
+    "text.usetex": True,
+    "pgf.rcfonts": False,
+})
 
-
-fig, (ax) = plt.subplots(1,1,figsize=(8,10))
+fig, ax = plt.subplots(figsize=(6.5, 4.))  # match A4 with margins
 
 ax.plot(support,Sbeta(support,'AAA coth poles'),label=r'AAA coth (imaginary) poles K='+str(cothpoles.params.mu))
 ax.plot(support,Sbeta_AAA(support).real,label=r'AAA complex poles N='+str(Xumethod.bath.mu))
 ax.plot(support,Sbeta(support,'exact'),ls='--',color='k',label=r'Exact $S_{\beta}(\omega)$')
-ax.plot(support,Sbeta_M_aprox(support).real,label=r'Low freq approx M='+str(M)+f' (difference is {delta:.2e})')
+ax.plot(support,Sbeta_M_aprox(support).real,label=r'Low freq approx M='+str(M)+', K='+str(cothpoles.params.mu)+'\n'+r' (max. diff. in $S_\beta(\omega)$. is '+f'{delta:.2e})')
 
 # ax1.plot(support,Sbeta(support,'M low freq approx',M),ls='-',label=r'$S_{\beta}(\omega) M=$'+str(M)+f' (difference is {delta:.2e})')
 # ax1.plot(support,Sbeta(support,'exact'),ls='--',label=r'$S_{\beta}(\omega) $ exact')
@@ -117,12 +124,14 @@ ax.set_xlabel(r'Frequency $(\omega)$')
 ax.set_ylabel(r'$S_{\beta}(\omega)$')
 ax.set_title(r'$S_{\beta}(\omega)$'+f' for Debye Bath with beta={params.beta}.\n Setup such that both HEOMS have the same number of ADOs indices.')
 ax.set_xlim(-100,100)
-
-plt.legend()
-#save teh figure
+plt.legend(fontsize=7)
 plt.tight_layout()
-# plt.savefig(f'Sbeta_comparison_beta{params.beta}_K{oldmu}.pdf')
-plt.show()
+
+### to save it ###
+# plt.savefig("/home/ach221/software/phd/LaTeX/Matsubara-Influence-Functional/figures/rgsmoothing.pgf")
+# plt.savefig("/home/ach221/Desktop/figure.png", dpi=300)
+
+
 sys.exit()
 
 

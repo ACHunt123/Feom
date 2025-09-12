@@ -44,8 +44,8 @@ SWITCHES:
 potname = ['harmonic','spinboson']              Potential name
 bathname = ['debye','debyeCothpoles']           Bath name
 
-bathmode = ['nbead','nmats','matsubara']        IF bathname == 'debye'
-bathmode = ['Pade[N,N]','Pade[N-1,N]','AAA']    IF bathname == 'debyeCothpoles'
+bathmode = ['nbead','nmats','matsubara']                        IF bathname == 'debye'
+bathmode = ['Pade[N,N]','Pade[N-1,N]','AAA','AAAmc']            IF bathname == 'debyeCothpoles'
 
 NOTE: nmats and nbead are if we chose n beads, then set the frequencies to be the Matsubara/RP frequencies
 this means that the c0 coefifients will contain a finute sum. The matsubara option includes all poles,
