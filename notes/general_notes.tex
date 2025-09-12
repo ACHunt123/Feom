@@ -18,7 +18,7 @@ In the notation used by FORTRAN propagation, we have
 where $\rho_{\vc{n}}(t)$ is the full set of ADOs, $\vc{n}$ is the vector of ADO indices $\{n_k\}$, (with $\vc{n}_k^{\pm}$ denoting the same set of indices, but with $n_k\pm1$).
 We use superoperator notation throughout, and define our coefficients $\{\gamma_k, c_{\rm U}, c_{\rm D}\}$ differently for each version of the HEOM used.
 \subsection{Shi/Chen scaled HEOM}
-For Shi/Chen scaled HEOM, the equations of motion are given by
+For Shi/Chen scaled HEOM~\cite{chenQuantumRateDynamics2009a}, the equations of motion are given by
 \begin{align}
     \frac{\d}{\d t}\rho_{\vc{n}}(t) = -\frac{i}{\hbar}H_s^{\cross}\rho_{\vc{n}}(t)  - \sum_k n_k\gamma_k \rho_{\vc{n}}(t) 
     -\frac{i}{\hbar} \sum_k\l( \sqrt{n_k+1}\mathcal{L}_{k-}\rho_{\vc{n}_k^+}(t) +  \sqrt{n_k}\mathcal{L}_{k+}\rho_{\vc{n}_k^-}(t)\r),
@@ -39,7 +39,7 @@ which results in the coefficients,
 \end{align}
 and $\gamma_k$ being the decay rate of the $k$'th bath mode, and $K$ modes chosen to represent the BCF. In what follows, any sums over $k$ are assumed to go from $1$ to $K$, unless otherwise specified.
 \subsection{Free-Pole HEOM}
-For Free-Pole HEOM, the bath correlation function is represented in terms of a sum of dampoed exponentials,
+For Free-Pole HEOM~\cite{xuTamingQuantumNoise2022}, the bath correlation function is represented in terms of a sum of dampoed exponentials,
 \begin{align}
     C_k = \sum_{k=1}^K d_k e^{-z_k t},
 \end{align}
@@ -69,6 +69,7 @@ are now in the same form as the Shi/Chen scaled HEOM, with the coefficients defi
     z_{k-K}^*, & k > K
     \end{cases}.
 \end{align} 
+This has not been fully implemented yet, but lives in debyeAAA module.
 \section{Bath conventions}
 In this section, we discuss the conventions used for the naming of the baths. We define the spectral density
 \begin{align}
@@ -97,22 +98,27 @@ and prefactors $\{C_k\}$, which are given by
     C_0 = \frac{\hbar\eta\gamma}{2}\l(\cot{\frac{\beta\hbar\gamma}{2}}-i\r),&
      & C_{n=k} &= -\frac{2\eta\gamma}{\beta}\frac{\omega_n}{\gamma^2-\omega_n^2}, & \forall k>0.
 \end{align}
-
+\subsection{Dealing with Matsubara poles}
+The code is so far only able to use Debye baths. It can however decompose the Matsubara terms in the BCF in many different ways:
+\begin{itemize}
+    \item \textit{nbead}: N-bead approximation to the bath, replacing the Matsubara frequencies with the Ring-Polymer ones.
+    \item \textit{nmats}: Use K Matsubara modes, with only K modes in the pre-factor (instead of the cot, which has infinite)
+    \item \textit{matsubara}: Use infinite Matsubara modes, but only include K of them in propagation (this often comes with Ishizaki-Tanimura termination of the unused modes)
+    \item \textit{Pad\'e}: Following Ref.~\cite{huPadeSpectrumDecompositions2011a} we can either use the $N/N$ or $N\!-\!1/N$ Pad\'e approximants of the hyperbolic cotangent
+    \item \textit{AAA}: Decompose the hyperbolic cotangent with AAA algorithm. This paper is under construction. It is a little hacky still, as the file must run a matlab script to do the decomposition (taken from the first AAA paper in Ref.~\cite{nakatsukasaAAAAlgorithmRational2018})
+\end{itemize}
+Though it is hard-coded for Debye baths, these implementations are relatively modular, so it shoulld be pretty eady to generalise for different spectral densities. The main thing to watch out for are the $C_k$'s, as these will contain the residues of $J(i\gamma_k)$.
 \section{Truncations}
-There are a couple ways to truncate the HEOM, so it's good to write these down. 
-The truncation falls into two categories, which I will call exponential term truncation and heirarchy truncation.
+The truncation falls into two categories, which I refer to as call exponential term truncation and depth truncation. I have not yet implemented any depth truncations, and just set the next set of ADOs to zero. This is in line with the scaling of Shi-Chen HEOM, which ensures that the norm of ADOs decreases as 
 The exponential term truncation is the approximation of the bath correlation function (BCF) by a finite number of exponentials.
 The heirarchy truncation is the removal of the dependence of the ADOs on those with a larger depth.
-\subsection{Matsubara series truncation}
-This truncation was created by Ishizaki and Tanimura in Ref.\cite{ishizakiQuantumDynamicsSystem2005a},and is switched on by the variable ``\textit{lowTcoef\_switch}''.
+\subsection{Ishizaki-Tanimura truncation}
+This truncation was created by Ishizaki and Tanimura in Ref.\cite{ishizakiQuantumDynamicsSystem2005a}.
 It is a Markovian approximation of the higher order Matsubara terms in the BCF;
 \begin{align}
     e^{-\gamma_k t} &\approx \frac{1}{\gamma_k}\delta_+(t), & \forall k &> k_c,
 \end{align}
-where $k_c$ is the cutoff in number of exponentials in the BCF\footnote{these are ordered in increasing real part, as then the approximation is more accurate for larger $k$} and $\delta_+(t)$ is a delta function defined for $t \geq 0$.
-This cutoff $k_v=M+1$ for the example of a Debye bath, wherein there is a single exponential term, and $M$ is the number of Matsubara terms retained.
-This approximation is inserted into the influence functional, allowing us to do the inner integral (over the history), 
-giving another term in the dynamics,
+where $k_c$ is the cutoff in number of exponentials in the BCF\footnote{these are ordered in increasing real part, as then the approximation is more accurate for larger $k$} and $\delta_+(t)$ is a delta function defined for $t \geq 0$. The delta functions are inserted into the influence functional, allowing us to do the inner integral over the history, yielding a new term in the dynamics,
 \begin{align}
     \Xi \rho_{\vc{n}}(t) &= \sum_{k>k_c} \frac{1}{\gamma_k} \mathcal{L}_{k-}\mathcal{L}_{k+} \rho_{\vc{n}}(t).
 \end{align}
@@ -129,6 +135,103 @@ to calculate the sum, giving us
 \begin{align}
     \Xi_{\rm debye} &=  \underbrace{\eta\l[\frac{1}{2\hbar}\l(\cot{\frac{\beta\hbar\gamma}{2}}-\frac{2}{\beta\hbar\gamma}\r)- \frac{2\gamma}{\beta\hbar^2}\sum_{n=1}^{k_c} \frac{1}{\gamma^2-\omega_n^2}\r]}_{\textit{lowTcoef}}\l(V^{\cross}\r)^2.
 \end{align}
+In the code, \textit{lowTcoef} is the name of the variable used to holed the coefficient.
+% \subsection{Fay Low-temperature correction}
+\subsection{Fay and perturbative corrections}
+Fay's Low temperature correction term is similar to that of Ishizaki-Tanimura, but is derived by projecting out the non-active ADOs. Let's first give an outline of the derivation. The EOM of all of the ADOs, which live in the product space between the Liouville space of the system and the ADO index space\footnote{i.e. the system Liouvillian $\hat{\mathcal{L}}_s$ is a linear operator and the system density matrix $\ket{\rho_s}$ is a vector of the Liouville space, the projectors between different ADOs $\ketbra{\vc{n}}{\vc{n}'}$ is a linear operator and the ADO index $\bra{\vc{n}}$ is a vector of the ADO space, and the total Hilbert space is the product space of the two, for example the system density matrix is $\ket{\rho_s}\otimes\ketbra{\vc{0}}$. }, are 
+\begin{align}
+    \frac{\d}{\d t}  \rho(t) = \mathcal{L}\rho(t)  = (\,{\underbrace{\mathcal{L}_S \otimes I_{\text{ado}} - I_S \otimes \Gamma}_{\mathlarger{\mathcal{L}_0}}} + \mathcal{V} ) \rho(t), 
+\end{align}
+where  $\mathcal{L}_s$ is the free system Liouvillian,
+\begin{align}
+\mathcal{V} = \sum_{\text{all\,}\vc{n}}\sum_{k=0}^{\infty} \left( 
+\sqrt{n_k + 1} \, \mathcal{L}_k^{-} \otimes \ketbra{\vc{n}}{\vc{n}_{k^+}} + 
+\sqrt{n_k} \, \mathcal{L}_k^{+} \otimes \ketbra{\vc{n}}{\vc{n}_{k^-}}
+\right),
+\end{align}
+which couples adjacent ADOs,
+and 
+\begin{align}
+    \Gamma = \sum_{\text{all} \,n}\l(\sum_{k=0}^{\infty}n_k\gamma_k\r)\ketbra{\vc{n}}{\vc{n}},
+\end{align}
+which is the diagonal decay of each ADO. To derive the correction, Fay defines the projector
+\begin{align}
+    \mathcal{P} &:= \sum_{\vc{n}\in N_M}\ketbra{\vc{n}}{\vc{n}}, & \mathcal{Q}&:=1-\mathcal{P}
+\end{align}
+where the set $N_M$ is all $\vc{n}$ such that $\vc{n}_{k>M}=0$ and $M$ is the cutoff for the number of exponential terms to include in the BCF. In terms of `excitations', this projector projects the ADOs into the set of ADOs with zero excitations in the exponentials beyond the cutoff $M$. Using Nakajima-Zwanzig theory,
+\begin{align}
+    \frac{\d}{\d t}\mathcal{P}\rho(t) &= \mathcal{PLP}\rho(t)
++\int_0^t\d\tau\mathcal{PLQ}e^{\mathcal{QL}\tau}\mathcal{QLP}\rho(t-\tau)\nonumber \\[6pt]
+&\approx \mathcal{PLP}\rho(t)
++\mathcal{K}\rho(t),\qquad\qquad\qquad\qquad[\mathcal{O}(\mathcal{V}^2)\text{ perturb. + Markovian approx.}] 
+\end{align}
+where 
+\begin{align}
+    \mathcal{K} = \int_0^\infty\d\tau \mathcal{PLQ}e^{\mathcal{L}_0\tau}\mathcal{QLP}.
+\end{align}
+He then calculates this integral. This is done by considering the products $\mathcal{QLP}$ and $\mathcal{PLQ}$. Inter-ADO coupling is due to $\mathcal{V}$, which couples adjacent ADOs. Since the projectors by definition do not intersect one-another in ADO space, only the states of $\vc{n}_{k>M}=0,1$ (on the boundary between projectors) will give a non-zero projection. This means that
+\begin{align}
+    \mathcal{QLP} = \sum_{\vc{n}\in N_M}\sum_{\underset{\mathclap{\mathlarger{\vphantom{\frac{\int}{}}[\!\implies \!n_k=\,0]}}}{k>M}} \mathcal{L}_k^+\otimes\ketbra{\vc{n}_{k^+}}{\vc{n}},
+\end{align}
+and 
+\begin{align}
+    \mathcal{PLQ} =\sum_{\vc{n}\in N_M}\sum_{k>M} \mathcal{L}_k^-\otimes\ketbra{\vc{n}}{\vc{n}_{k^+}}.
+\end{align}
+Finally, we diagonalize the system Liouvillian with $\Lambda_s = \Pi_s^{-1}\mathcal{L}_s\Pi_s$, giving
+\begin{align}
+    \mathcal{K} &= \!\!\int_0^\infty\!\!\! \d t\sum_{\vc{n}\in N_M}\sum_{k>M} \mathcal{L}_k^-\otimes\ketbra{\vc{n}}{\vc{n}_{k^+}}\Pi_s^{-1}\exp{(\Lambda_s\otimes I_{\rm{ado}}-I_{s}\otimes \Gamma)t}\Pi_s
+    \sum_{\vc{n}'\in N_M}\sum_{k'>M} \mathcal{L}_{k'}^+\otimes\ketbra{\vc{n}'_{k'^+}}{\vc{n}'}\nonumber \\[6pt]
+    &= \sum_{\vc{n}\in N_M}\ketbra{\vc{n}}\underbrace{\sum_{k>M} \mathcal{L}_k^-\Pi_s^{-1}\frac{1}{-\Lambda_s + \gamma_k + \sum\limits_{k'=0}^{\infty}n_k'\gamma_k'}\Pi_s\mathcal{L}_{k}^+}_{\mathlarger{\Xi_{\vc{n}}}}
+    ,
+\end{align}
+leaving us with Tom's low temperature correction, $\Xi_{\vc{n}}$, which is different for each ADO. Note that the sum over $k'$ goes to infinity, but as all $n_{k>M}=0$, this is equivalent to just using the first $M$ terms. This terminator is known as '\textit{NZ2}' in the code.
+ \\[6pt]
+One could also derive a more simple correction. We start by splitting the influence functional into the `normal part' and the Markovian part;
+\begin{align}
+    F=F_0F_M,
+\end{align}
+where $F_0$ has the low-frequency exponentials that will for the HEOM heirarchy within the projector $\mathcal{P}$, and
+\begin{align}
+    F_M= 
+    \exp{
+        -\frac{1}{\hbar^2}\sum_{n>M}d_n\int_0^t\d\tau\,y_1(\tau)\int_0^\tau\d\sigma \,y_1(\sigma)e^{-\omega_n(\tau\!-\!\sigma)}},
+    \end{align}
+where $\{d_n\}$ are the prefactors for the Matsubara terms in the correlation function\footnote{of course these frequencies needn't be Matsubara ones (see the next section)}. Note that the Ishizaki-Tanimura correction was derived previously, by approximating $A_M(\omega)$, such that the integration over the spectral density resulted in a delta function (instead of an exponential), which then allowed the integration of the integral over $\sigma$, to give the time-local correction. For Fay's correction however, we need to treat the equation perturbatively. One way to do this is the insertion of the zeroth-order approximation
+\begin{align}
+    y_1(\sigma) &\approx e^{-\mathcal{L}_{s}(\sigma-\tau)}y_1(\tau),& &\text{approximation [1]}
+\end{align}
+where $\mathcal{L}_{s}$ is the free system Liouvillian, and the minus sign is due to operators propagating in the opposite direction in time relative to the density matrix. We also give the inner integral infinite history, to give
+\begin{align}
+    F_M\approx F_M^{[1]}=&\exp{
+     -\frac{1}{\hbar^2}\sum_{n>M}d_n\int_0^t\d\tau\,y_1(\tau)\int_{-\infty}^\tau\!\!\d\sigma \,\exp{(\mathcal{L}_s-\omega_n)(\tau-\sigma)}y_1(\tau)}\nonumber
+     \\
+     =&\exp{
+     -\frac{1}{\hbar^2}\sum_{n>M}d_n\int_0^t\d\tau\,y_1(\tau)\Pi_s^{-1}\!\frac{1}{\omega_n-\Lambda_s}\Pi_s y_1(\tau)}.
+\end{align}
+This results in a terminator that is correct in the weak-coupling limit,\footnote{see appendix of Tom's paper} but does not reproduce Fay's terminator. It instead applies the same terminator $\Xi_{\vc{n}=\vc{0}}$ on all ADOs. This method is known as '\textit{PT2}' in the code. To reproduce Fay's terminator along the same lines as above, we would want apply a different approximation for each ADO. For the influence functional part of the $\vc{n}$'th ADO, we apply
+\begin{align}
+    y_1(\sigma) \approx e^{-\l(\mathcal{L}_{s}-\sum\limits_{k=0}^{\infty}n_k\gamma_k \r)(\sigma-\tau)}y_1(\tau),& &\text{approximation [2]}
+\end{align}
+where we have replaced $\mathcal{L}_s\leftarrow\bra{\vc{n}}\mathcal{L}_0\ket{\vc{n}}$. If one then follows through with the above derivation, Fay's terminator is regenerated. The Fay approximation is therefore equivalent to calculating the influence functional for the $n>M$ modes using an infinite system history generated from uncoupled dynamics of the ADOs.
+\\[6pt]
+We needen't give the ADOs infinite history though. If we do not, for the example of approximation [1], we have
+\begin{align}
+   F_M\approx  F_M^{[1]\text{non-Markov}} 
+     =&\exp{
+     -\frac{1}{\hbar^2}\sum_{n>M}d_n\int_0^t\d\tau\,y_1(\tau)\Pi_s^{-1}\frac{1-e^{(\Lambda_s-\omega_n)t}}{\omega_n-\Lambda_s}\Pi_s y_1(\tau)},
+\end{align}
+which adds a driving term into the low-temperature correction,
+\begin{align}
+    \Xi^{[1]\text{non-Markov}}(t) = \Xi_{\vc{0}} + \frac{i}{\hbar} s^{\cross}\Pi_s^{-1}\sum_{n>M}\frac{d_ne^{(\Lambda_s-\omega_n)t}}{\omega_n-\Lambda_s}\Pi_s s^{\cross},
+\end{align}
+where we have replaced $y(t)$ with the super-operator $s^{\cross}$\!, which is by definition evaluated at time $t$. The Fay-type terminator, $\Xi^{[2]\text{non-Markov}}(t)$, looks almost exactly the same, with the replacement $\Lambda_s\leftarrow\Lambda_s-\sum_k n_k\gamma_k$, and $\vc{0}\leftarrow\vc{n}$. For both of these corrections, the terminator has no effect at $t=0$, which I think is interesting. I have not implemented this one as it requires a time-dependent Liouvillian, which would make propagation difficult.
+\subsection{Important points on implementation of corrections}
+Let's say that we have approximated the BCF by some $K_{\rm tot}$-mode correlation function $C_{K_{\rm tot}}(t)$. The correction terms are then added on by decomposing the exact correlation function $C^{\rm [exact]}(t)$ as
+\begin{align}
+    C^{\rm [exact]}(t)\equiv C^{[\rm Mats]}_{{\infty}}(t) = C_{K_{\rm tot}}(t) + \underbrace{\l[C^{[\rm Mats]}_{{N}}(t)-C_{{K_{\rm tot}}}(t)\r]}_{\mathlarger{\delta C(t)}} + \underbrace{\l[C^{[\rm Mats]}_{{\infty}}(t)-C^{[\rm Mats]}_{{N}}(t)\r]}_{\mathlarger{C^{\rm [Mark]}(t)}}
+\end{align}
+We then do the Fay/peturbative correction on $\delta C(t)$. The value of $N$ used is large, but finite, such that the manual sums can be done quickly in the calculation of the terminators. The final term $C^{\rm [Mark]}(t)$ is treated Markovianally, adding on an Ishizaki-Tanimura term. The value of $N$ is chosen such that the Markovian approximation of this term is appropriate.
+\newpage
 \bibliographystyle{plain}
 \bibliography{refs}
 

@@ -73,7 +73,7 @@ def get_coeffs(params, support, values, max_accuracy=False,ext_fname=''):
     gam_i = -2*np.imag(upper_poles)*np.imag(upper_res)     # these are the new gammas
     return gam_i, w_i, konstant, len(gam_i)  # return the gammas, frequencies, constant shift k, and number of exponentials
 
-def markovian_pole_trunc(params, max_freq=1e2):
+def markovian_pole_trunc(params, max_freq=2.5e2):
     ''' Remove any poles with frequencies above max_freq  and add their contribution to the constant shift k'''
     propagate = np.abs(params.gam_ks) <= max_freq
     markovian = np.abs(params.gam_ks) > max_freq
