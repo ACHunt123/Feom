@@ -60,11 +60,11 @@ def generate_Terminator(sim):
         
         # Get the Cks and gamks for the deltaC(t)
         if bath.mode != 'matsubara':  
-            delta_Cks = np.append(-sim.bath.C_ks[:sim.bath.N_exp_prop],matsbath.C_ks)
-            delta_gamks = np.append(sim.bath.gam_ks[:sim.bath.N_exp_prop],matsbath.gam_ks)
+            delta_Cks = np.append(-sim.bath.C_ks[:sim.bath.N_exp],matsbath.C_ks)
+            delta_gamks = np.append(sim.bath.gam_ks[:sim.bath.N_exp],matsbath.gam_ks)
         else:
-            delta_Cks = matsbath.C_ks[sim.bath.N_exp_prop:]
-            delta_gamks = matsbath.gam_ks[sim.bath.N_exp_prop:]
+            delta_Cks = matsbath.C_ks[sim.bath.N_exp:]
+            delta_gamks = matsbath.gam_ks[sim.bath.N_exp:]
 
         # Get the Markovian terms from C_mats_K>Kbig(t) for the IT terminator
         mark_corr = matsbath.lowTcoef
@@ -97,7 +97,7 @@ def generate_Terminator(sim):
 
         # first get the sum of the gam_ks*n_k for this ADO
         nks = sim.ADO_index[I,:]
-        gamks = bath.gam_ks[:bath.N_exp_prop]
+        gamks = bath.gam_ks[:]
         gamma_n = np.sum(nks*gamks)  # the sum of n_k * gam_k
         # now calculate the terminator
         I_s_hilbert = np.eye(params.ns)

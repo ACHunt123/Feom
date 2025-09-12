@@ -39,11 +39,11 @@ class Debye_cothpoles():
         # Paramaters for bath indexing
         self.N_nonmats = 1                      # number of exponential modes in BCF that are NOT matsubara terms (the Temp. ind. exp.)
         self.mu = params.K                      # number of pairs of matsubara modes/ r.p. modes, each pair gives a single exponential term
-        self.N_exp_prop = self.N_nonmats + self.mu   # number of exponential terms in the BCF EXPLICITLY PROPOGATED [Temp ind. Exponential, <--- Matsubara Exponentials --->]
         #
         self.mode= params.bathmode
         ### Calculate the C_ks and gam_ks for the bath and add to the class
         self.get_coefs(params)
+        print(f'Calculated {self.N_exp} exponentials for the bath with {self.mu} coth poles')
         # self.TCF(plotme=True,ax=plt) # Calculate the TCF for the bath and plot it
 
 
@@ -129,47 +129,6 @@ class Debye_cothpoles():
             raise ValueError('Invalid type of coth decomposition specified. Use "AAA" or "Pade..." .')
         
         self.N_exp = self.N_nonmats + mu_tot  # total number of exponentials in the BCF 
-        # for printouts or debug data
-        w = np.logspace(1e-10, 100, 10000,dtype=np.complex128)  # 200000 points from 1e-10 to 100
-        w = np.concatenate((-w[::-1], [0.0], w))  # support points with 0
-        w = np.concatenate([np.linspace(0,2,20000,dtype=np.complex128) ,np.linspace(2,200,500,dtype=np.complex128)])
-
-        values = self.P(w)  # values of the pole function at the w points          
-        if(self.plot_debug_data): 
-            ### Plot the approximated function and J(w)
-            fit_fig,fit_ax=plt.subplots(figsize=(5,5))
-            fit_ax.plot(w.real, values.real, label='Original Function', color='blue')
-            fit_ax.plot(w.real, self.P_aaa_realcoeffs(w).real+self.k, label=f'{self.bathmode} Approximation, imaginary poles/residues', color='green')
-            fit_ax.plot(w.real, self.J(w).real, label='J(w)', color='orange')
-            fit_ax.set_xlabel('w')
-            fit_ax.set_ylabel('Function Value')
-            fit_ax.set_title(f'{self.mu} mode approximation of {self.bathmode} Approximation of the Pole Function')
-            fit_ax.legend()
-          
-            #save and plot the poles and the Matsubara terms if they were to be used
-            fig, pole_ax = plt.subplots(figsize=(5,5))
-            pole_ax.set_title(r'Poles and residues: $\sum_i \frac{\gamma_i}{\omega^2+\omega_i^2}$', fontsize=16)
-            pole_ax.set_xlabel(r'$\gamma_i$', fontsize=14)
-            pole_ax.set_ylabel(r'$\omega_i$', fontsize=14, rotation=0, labelpad=10)
-            pole_ax.grid(True)
-            pole_ax.plot(self.gam_i, self.w_i, 'x', label=f'AAA, N={len(self.w_i)}', color='blue')
-            pole_ax.legend()
-            plt.show()
-            
-
-        if(self.save_debug_data):
-            # save the approximatoin of the pole function
-            filename = f'{self.cleanbathmode}_Cothapproximation.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
-            data = np.column_stack((w.real, self.P_aaa_realcoeffs(w).real+self.k, values.real, self.J(w).real))
-            np.savetxt(filename, data, header='# w Re[P_approx(w)] Re[P(w)] Re[J(w)]', comments='') if self.save_debug_data else None
-            print(f'Saved the approximation plot to {filename}')
-            # save the poles and residues
-            data = np.column_stack((self.gam_i.real, self.w_i.real))
-            filename= f'{self.cleanbathmode}_poles_and_residues.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
-            np.savetxt(filename, data, header=f'# gamma_i w_i N={len(self.w_i)}', comments='') if self.save_debug_data else None
-            if self.bathmode in ['Pade[N/N]','AAA']:
-                k_filename= f'{self.cleanbathmode}_k.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
-                np.savetxt(k_filename, [self.k], header=f'# k', comments='') if self.save_debug_data else None
 
 
     # Calculate the C_ks and gam_ks
@@ -192,28 +151,56 @@ class Debye_cothpoles():
         self.C_ks[0] = (d[0] + dI*1.j)
         self.C_ks[1:] = d[1:]
 
-        #Calculate the gam_ks 
+        # Calculate the gam_ks 
         self.gam_ks = np.zeros(self.N_exp,dtype=complex)
         self.gam_ks[0] = self.gam
         self.gam_ks[1:] = self.w_i[:]
 
-        # #Reorder the C_ks and gam_ks so that the smallest gam_ks are first (helps with numerical stability)
-        # order = np.argsort(self.gam_ks.real) # sort in ascending order
-        # self.gam_ks = self.gam_ks[order]
-        # self.C_ks = self.C_ks[order]
 
-        # Calculate the low temperature coefficient
-        # self.lowTcoef=-2*self.eta*self.gam*self.k/(self.beta*self.hbar**2) 
-
-        ### REMOVE THE HIGH FREQUENCIES IF AAA
+        # Remove high frequencies if using AAAmc
         if self.bathmode=='AAAmc':
-            cothAAA.markovian_pole_trunc(self, max_freq=1000)
-            # Change the number of exponentials and K in the params class
-            old_N_exp = self.N_exp
-            params.K = len(self.gam_i)
-            self.N_exp = params.K + self.N_nonmats
-            print(f'{old_N_exp} exponentials before truncation, after truncation {self.N_exp}')
-            sys.exit()
+            cothAAA.markovian_pole_trunc(self)
+            # Update K in parameters (changed for the bath in markovian_pole_trunc)
+            params.K = self.K
+
+        # Printouts and debug data
+        w = np.logspace(1e-10, 100, 10000,dtype=np.complex128)  # 200000 points from 1e-10 to 100
+        w = np.concatenate((-w[::-1], [0.0], w))  # support points with 0
+        w = np.concatenate([np.linspace(0,2,20000,dtype=np.complex128) ,np.linspace(2,200,500,dtype=np.complex128)])
+        values = self.P(w)  # values of the pole function at the w points          
+        if(self.plot_debug_data): 
+            ### Plot the approximated function and J(w)
+            fit_fig,fit_ax=plt.subplots(figsize=(5,5))
+            fit_ax.plot(w.real, values.real, label='Original Function', color='blue')
+            fit_ax.plot(w.real, self.P_aaa_realcoeffs(w).real+self.k, label=f'{self.bathmode} Approximation, imaginary poles/residues', color='green')
+            fit_ax.plot(w.real, self.J(w).real, label='J(w)', color='orange')
+            fit_ax.set_xlabel('w')
+            fit_ax.set_ylabel('Function Value')
+            fit_ax.set_title(f'{self.mu} mode approximation of {self.bathmode} Approximation of the Pole Function')
+            fit_ax.legend()
+          
+            #save and plot the poles and the Matsubara terms if they were to be used
+            fig, pole_ax = plt.subplots(figsize=(5,5))
+            pole_ax.set_title(r'Poles and residues: $\sum_i \frac{\gamma_i}{\omega^2+\omega_i^2}$', fontsize=16)
+            pole_ax.set_xlabel(r'$\gamma_i$', fontsize=14)
+            pole_ax.set_ylabel(r'$\omega_i$', fontsize=14, rotation=0, labelpad=10)
+            pole_ax.grid(True)
+            pole_ax.plot(self.gam_i, self.w_i, 'x', label=f'AAA, N={len(self.w_i)}', color='blue')
+            pole_ax.legend()
+            plt.show()
+        if(self.save_debug_data):
+            # save the approximatoin of the pole function
+            filename = f'{self.cleanbathmode}_Cothapproximation.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
+            data = np.column_stack((w.real, self.P_aaa_realcoeffs(w).real+self.k, values.real, self.J(w).real))
+            np.savetxt(filename, data, header='# w Re[P_approx(w)] Re[P(w)] Re[J(w)]', comments='')
+            print(f'Saved the approximation plot to {filename}')
+            # save the poles and residues
+            data = np.column_stack((self.gam_i.real, self.w_i.real))
+            filename= f'{self.cleanbathmode}_poles_and_residues.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
+            np.savetxt(filename, data, header=f'# gamma_i w_i N={len(self.w_i)}', comments='') 
+            if self.bathmode in ['Pade[N/N]','AAA']:
+                k_filename= f'{self.cleanbathmode}_k.txt'.replace('[N/N]','NoN').replace('[N-1/N]','Nm1oN')
+                np.savetxt(k_filename, [self.k], header=f'# k', comments='') 
 
         return 
 
