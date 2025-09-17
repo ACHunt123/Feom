@@ -47,6 +47,7 @@ def get_coeffs(params, support, values, max_accuracy=False,ext_fname=''):
             print('AAA decomposition already done, loading results from files...')
 
     ### Load the aaa results
+    no_projective_corrections = False # if True, load the poles and residues directly without projective corrections done in the matlab script
     repoles = np.loadtxt(f'{folder}/pol_real_{ext}')
     impoles = np.loadtxt(f'{folder}/pol_imag_{ext}')
     params.poles = repoles + 1.j * impoles
@@ -56,22 +57,29 @@ def get_coeffs(params, support, values, max_accuracy=False,ext_fname=''):
     params.res = reres + 1.j * imres
     params.res_original = params.res.copy()         # save the original residues for later use
     params.poles_original = params.poles.copy()     # save the original poles for later use
-    ### Clean up the poles and residues
-    mask= np.abs(params.res)> minres_tol
-    params.res = params.res[mask]      # remove any tiny residues
-    params.poles = params.poles[mask]  # remove the corresponding poles
-    params.res = np.imag(params.res)*1.j            # remove the real parts, as by symmetry they should be zero
-    params.poles = np.imag(params.poles)*1.j
-    ### Calulate the real coefficients w_i and gamma_i from conjugate pairs of poles and residues
-    upper_poles= []; upper_res = []
-    for k in range(len(params.poles)):
-        if np.imag(params.poles[k]) > 0:
-            upper_poles.append(params.poles[k])
-            upper_res.append(params.res[k])
-    upper_poles = np.array(upper_poles,dtype=np.complex128) ; upper_res = np.array(upper_res,dtype=np.complex128)
-    w_i = np.imag(upper_poles)                             # these are the new prequencies
-    gam_i = -2*np.imag(upper_poles)*np.imag(upper_res)     # these are the new gammas
-    return gam_i, w_i, konstant, len(gam_i)  # return the gammas, frequencies, constant shift k, and number of exponentials
+    if(no_projective_corrections):
+        ### Clean up the poles and residues
+        mask= np.abs(params.res)> minres_tol
+        params.res = params.res[mask]      # remove any tiny residues
+        params.poles = params.poles[mask]  # remove the corresponding poles
+        params.res = np.imag(params.res)*1.j            # remove the real parts, as by symmetry they should be zero
+        params.poles = np.imag(params.poles)*1.j
+        ### Calulate the real coefficients w_i and gamma_i from conjugate pairs of poles and residues
+        upper_poles= []; upper_res = []
+        for k in range(len(params.poles)):
+            if np.imag(params.poles[k]) > 0:
+                upper_poles.append(params.poles[k])
+                upper_res.append(params.res[k])
+        upper_poles = np.array(upper_poles,dtype=np.complex128) ; upper_res = np.array(upper_res,dtype=np.complex128)
+        w_i = np.imag(upper_poles)                             # these are the new prequencies
+        gam_i = -2*np.imag(upper_poles)*np.imag(upper_res)     # these are the new gammas
+        return gam_i, w_i, konstant, len(gam_i)  # return the gammas, frequencies, constant shift k, and number of exponentials
+    else:
+        gam_i = np.atleast_1d(np.loadtxt(f'{folder}/gam_i_{ext}'))
+        w_i = np.atleast_1d(np.loadtxt(f'{folder}/w_i_{ext}'))
+        konstant = np.loadtxt(f'{folder}/k_{ext}')  # load the constant
+        return gam_i, w_i, konstant, len(gam_i)   # return the gammas, frequencies, constant shift k, and number of exponentials
+
 
 def markovian_pole_trunc(params, max_freq=2.5e2):
     ''' Remove any poles with frequencies above max_freq  and add their contribution to the constant shift k'''

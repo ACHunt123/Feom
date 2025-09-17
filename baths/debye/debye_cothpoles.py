@@ -70,25 +70,25 @@ class Debye_cothpoles():
         return Pw
     
     def P_aaa(self,w):
-        '''Calculate P(w) using the COMPLEX poles from the AAA decomposition of coth(x)'''
+        '''Calculate P(w) using the COMPLEX poles from the AAA decomposition of coth(x) [no k added]'''
         result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
         for k in range(len(self.res_original)):
             result += self.res_original[k] / (w - self.poles_original[k])
         return result
     
     def P_aaa_realcoeffs(self,w): 
-        ''' 'Calculate P(w) using the IMAGINAGY poles from the AAA decomposition of coth(x)'''
+        ''' 'Calculate P(w) using the IMAGINARY poles from the AAA decomposition of coth(x) [no k added]'''
         result = 0.0 if np.isscalar(w) else np.zeros_like(w,dtype=np.complex128)
         for k in range(len(self.gam_i)):
             result += self.gam_i[k] / (w**2 + self.w_i[k]**2)
         return result
          
-    def get_support_and_values(self, mode='log',N_support = 20000):
+    def get_support_and_values(self, mode='arctanh',N_support = 100000):
         ''' Generate the support and values for the AAA decomposition of the pole function'''    
         if mode=='log': # logarithmic spacing including zero
             eps=1e-4
             w_max=self.gam # start with the cuttoff frequency
-            Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
+            Jw_min_tol = 1e-4      # tolerance for the maximum frequency of the grid for the AAA decomposition
             while self.J(w_max) > Jw_min_tol: w_max += 10 # find the maximum frequency where J(w) is still non-zero
             x_pos = np.logspace(np.log10(eps), np.log10(w_max), N_support // 2)
             support = np.concatenate((-x_pos[::-1], [0.0], x_pos))
@@ -104,10 +104,18 @@ class Debye_cothpoles():
             while self.J(w_max) > Jw_min_tol: w_max += 10
             support = np.linspace(-w_max,w_max,N_support,dtype=np.complex128)
             self.support_param_str = f'uniform_N{N_support}_wmax{int(w_max)}' # save the parameters used to generate the support points
+        elif mode == 'arctanh': #NOTE - need to choose w_max carefully here
+            w_max=100
+            eps=1e-3
+            range = np.linspace(-1+eps, 1-eps, N_support)
+            x = np.arctanh(range) * w_max
+            support = x[1:-1]
+            print(support)
+            self.support_param_str = f'arctanh_N{N_support}_wmax{int(w_max)}'
         else:
             raise ValueError('Invalid mode for generating support points. Use "log", "quadrature" or "uniform".')
 
-        values= self.P(support) # values of the coth function at the support points
+        values= self.P(support) # values of the POLE function at the support points
         return values, support
     
     def calc_poles(self): 
@@ -115,7 +123,10 @@ class Debye_cothpoles():
         if self.bathmode[0:3]=='AAA':
             print(f'Using AAA decomposition for the bath.')
             values, support = self.get_support_and_values()
-            self.gam_i, self.w_i, self.k, mu_tot = cothAAA.get_coeffs(self,support,values)
+            Rg = values*(2/self.beta)   # so that we fit the Rg (not the pole function directly)
+            Rg_gam_i, self.w_i, Rg_k, mu_tot = cothAAA.get_coeffs(self,support,Rg)
+            self.gam_i = Rg_gam_i*(self.beta/2) # convert back to gam_i (as we originally fitted pole function in earlier code)
+            self.k = Rg_k*(self.beta/2)         # convert back to k
 
         elif self.bathmode[0:4]=='Pade':
             Padetype = self.bathmode[4:] # get the type of Pade decomposition
