@@ -83,7 +83,7 @@ class Debye_cothpoles():
             result += self.gam_i[k] / (w**2 + self.w_i[k]**2)
         return result
          
-    def get_support_and_values(self, mode='arctanh',N_support = 100000):
+    def get_support_and_values(self, mode='uniform',N_support = 100000):
         ''' Generate the support and values for the AAA decomposition of the pole function'''    
         if mode=='log': # logarithmic spacing including zero
             eps=1e-4
@@ -102,11 +102,12 @@ class Debye_cothpoles():
             w_max=self.gam # start with the cuttoff frequency
             Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
             while self.J(w_max) > Jw_min_tol: w_max += 10
+            w_max=200
             support = np.linspace(-w_max,w_max,N_support,dtype=np.complex128)
             self.support_param_str = f'uniform_N{N_support}_wmax{int(w_max)}' # save the parameters used to generate the support points
         elif mode == 'arctanh': #NOTE - need to choose w_max carefully here
-            w_max=100
-            eps=1e-3
+            w_max=200
+            eps=1e-5
             range = np.linspace(-1+eps, 1-eps, N_support)
             x = np.arctanh(range) * w_max
             support = x[1:-1]

@@ -1,6 +1,8 @@
 % % this file contains the function Sbeta that we will approximate
 function Sb = Sbeta(omega)
-    beta = 50000;
+    beta = 10;
+    beta = 1000000000;
+
     hbar = 1;
     m = 1;
     u = beta * hbar * omega / 2;
@@ -17,7 +19,7 @@ function Sb = Sbeta(omega)
     % Negative omega: -|ω|^s * exp(-|ω| / ω_c)
     % Jw(omega < 0) = -abs(omega(omega < 0)).^s .* exp(-abs(omega(omega < 0)) / wc);
 
-    Sb = (1 ./ (m * beta * omega.^2)) .* ((beta * hbar * omega / 2) .* coth(beta * hbar * omega / 2) - 1);
+    Sb = omega.*(1 ./ (m * beta * omega.^2)) .* ((beta * hbar * omega / 2) .* coth(beta * hbar * omega / 2) - 1);
     % Sb = Jw.*(coth(u) - 1./u);
     % Sb = Jw.*(coth(u) + 1);  
     % y=coth(omega / 2);
