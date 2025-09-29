@@ -103,7 +103,7 @@ def FORT_SWITCHES(sim):
     switches = []
     if getattr(params, 'LTCorr', None) == 'NZ2':      
         switchvalue = 2 
-    elif (getattr(params, 'LTCorr', None) in ['IT','PT2']) or (getattr(bath, 'k', 0) != 0): 
+    elif (getattr(params, 'LTCorr', None) in ['IT','viIT','iIT','PT2']) or (getattr(bath, 'k', 0) != 0): 
         switchvalue = 1
     else: 
         switchvalue = 0

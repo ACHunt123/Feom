@@ -24,7 +24,7 @@ def get_C_UDs(params):
 
 def generate_Terminator(sim):
     '''Function to generate terminator for HEOM.
-    IT - ishizaki-Tanimura terminator (same for each ADO)
+    (i)IT - (improved) ishizaki-Tanimura terminator (same for each ADO)
     PT2 - 2nd order perturbative terminator (same for each ADO)
     NZ2 - Nakajima-Zwanwig terminator (different for each ADO, more expensive)
 
@@ -54,6 +54,7 @@ def generate_Terminator(sim):
         # setup the matsubara bath object C_{mats Kbig}(t)
         matsbath_params=copy.deepcopy(sim.params)
         matsbath_params.bathmode='matsubara'
+        matsbath_params.LTCorr='IT'
         Kbig=500        # up to K=500, 
         matsbath_params.K=Kbig
         matsbath = baths.getbath('debye')(matsbath_params)
@@ -70,7 +71,7 @@ def generate_Terminator(sim):
         mark_corr = matsbath.lowTcoef
         print(f'Low temp correction term from terminated frequencies: {mark_corr}')
 
-        return delta_Cks, delta_gamks, mark_corr
+        return delta_Cks, delta_gamks, mark_corr # this is the Markovian term from C_mats_K>Kbig(t), and the Cks and gamks for deltaC(t)
 
 
 
@@ -125,6 +126,8 @@ def generate_Terminator(sim):
 
     def get_IT(params,pot,bath):
         ''' Get the Ishizaki-Tanimura terminator for the terminated frequencies
+        NOTE: this is not correct for iIT, as the Cks are different for the truncated frequencies
+        the C_ks here have 1/(omega_n^2 - gamma^2) instead of 1/omega_n^2 (as they should be for iIT)
         '''
         I = np.eye(params.ns)
         Vcross = np.kron(pot.s_mat,I) - np.kron(I,pot.s_mat.T)  # commutator superoperator for the system-bath coupling operator
@@ -149,26 +152,28 @@ def generate_Terminator(sim):
     if bath.LTCorr is None:
         pass   
 
-    elif bath.LTCorr == 'PT2':   # Second order perturbative terminator on the terminated frequencies
+    elif bath.LTCorr == 'PT2':   # Second order perturbative terminator
         Ldata = getL(params,pot)
-        Xi += get_Xi_n(sim,0,Ldata)                 # add Xi0 of tom's for each ADO
-        Xi += bath.mark_corr * Vcross @ Vcross      # add markovian term for the frequencies higher than those included in the PT2 terminator
+        Xi += get_Xi_n(sim,0,Ldata)                 # add Xi0 of tom's for each ADO for dC(t)
+        Xi += bath.mark_corr * Vcross @ Vcross      # add markovian term for C_mats_K>Kbig(t)
 
-    elif bath.LTCorr == 'IT':    # Markovian (Ishizaki-Tanimura) terminator on the terminated frequencies
-        Xi += get_IT(params,pot,bath)               # Calculate the IT terminator from the terminated frequencies
-        Xi += bath.mark_corr * Vcross @ Vcross      # add markovian term for the frequencies higher than those included in the IT terminator
+    elif bath.LTCorr == 'IT':    # Markovian (Ishizaki-Tanimura) terminator
+        Xi += get_IT(params,pot,bath)               # Calculate the IT terminator from the dC(t)
+        Xi += bath.mark_corr * Vcross @ Vcross      # add markovian term for C_mats_K>Kbig(t)
 
-    elif bath.LTCorr == 'NZ2':   # Tom Fay's Nakajima-Zwanwig terminator on the terminated frequencies
+    elif bath.LTCorr == 'NZ2':   # Tom Fay's Nakajima-Zwanwig terminator
         Xi_n = np.zeros((params.Imax,params.ns**2,params.ns**2),dtype=complex)  # one xi for EACH ADO (will overwrite Xi)
         Ldata = getL(params,pot)
         for I in range(params.Imax):
-            Xi_n[I,:,:] += get_Xi_n(sim,I,Ldata)
+            Xi_n[I,:,:] += get_Xi_n(sim,I,Ldata)             # add Xin of tom's for each ADO for dC(t)
             Xi_n[I,:,:] += Xi[0,:,:]                         # add on the contributions from the constant term k onto each Xi_n
-            Xi_n[I,:,:] += bath.mark_corr * Vcross @ Vcross  # add markovian term for the frequencies higher than those included in the NZ2 terminator
+            Xi_n[I,:,:] += bath.mark_corr * Vcross @ Vcross  # add markovian term for C_mats_K>Kbig(t)
             #NOTE: FAY does not include the Markovian term in his NZ2 terminator, but it should be there. see benchmark results (remove addition for exact agreement)
         # override Xi to be the full set of ADO-specific terminators
         Xi = Xi_n   
 
+    elif bath.LTCorr in ['iIT','viIT']:    # Improved (Ishizaki-Tanimura) terminator
+        Xi += bath.lowTcoef * Vcross @ Vcross      # Just add the low temperature correction term (different to IT)
     else:
         raise ValueError('Invalid LTCorr type')
     

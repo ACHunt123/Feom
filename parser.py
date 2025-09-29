@@ -52,6 +52,7 @@ this means that the c0 coefifients will contain a finute sum. The matsubara opti
 giving the tan() in c0. This is the one used with Ishizki-Tanimura terminator.
 
 LTCorr = ['NZ2','IT','PT2']    Whether to add Nakajima-Zwanwig, Ishizki-Tanimura or 2nd order terminator [not available for nbeads/nmats as there are no exra terms in BCF]
+LTCorr = ['iIT','viIT]  New improved Ishizaki-Tanumura terminator (v) is the version where we fit an additional k term to redistribute error in Rg
 
 --print_ADOs        Print the ADOs to file every N (hardcoded) timesteps (if present, default False)
 --noSIA             Use RK4 step instead of SIA step (used present, default False)

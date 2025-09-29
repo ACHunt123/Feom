@@ -17,7 +17,7 @@ function run_aaa_fromfile(K, location,filename,extension,terminate,fit_wRg)
     if nargin < 6
         fit_wRg = false; % if fit_wRg is true, we are in the cryogenic regime (low temperature)
     end
-    doplot=true;
+    doplot=false;
 
     % Load data: x Re(f) Im(f)
     data = readmatrix(filename, 'FileType', 'text', 'Delimiter', ' ');
@@ -189,7 +189,7 @@ function run_aaa_fromfile(K, location,filename,extension,terminate,fit_wRg)
     writematrix(real(zer), fullfile(location, ['zer_real', extension]), 'Delimiter', 'tab');
     writematrix(imag(zer), fullfile(location, ['zer_imag', extension]), 'Delimiter', 'tab');
     writematrix(errvec, fullfile(location, ['errvec', extension]), 'Delimiter', 'tab');
-    writematrix(konstant, fullfile(location, ['konstant', extension]), 'Delimiter', 'tab');
+    writematrix(real(konstant), fullfile(location, ['k', extension]), 'Delimiter', 'tab');
     % corrected (imag-only poles + projective correction)
     writematrix(w_i, fullfile(location, ['w_i', extension]), 'Delimiter', 'tab');
     writematrix(gam_i, fullfile(location, ['gam_i', extension]), 'Delimiter', 'tab');

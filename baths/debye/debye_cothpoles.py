@@ -24,8 +24,8 @@ J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(
 
 class Debye_cothpoles():
     def __init__(self,params):
-        self.save_debug_data = True
-        self.plot_debug_data = False
+        self.save_debug_data = getattr(params, 'save_debug_data', True)
+        self.plot_debug_data = getattr(params, 'plot_debug_data', False)
         self.bathmode = params.bathmode
         self.cleanbathmode = self.bathmode.replace(' ','_').replace('/','_') # clean the bath mode name for saving files
         self.L = params.L                      # max tier of the ADOs
@@ -176,8 +176,7 @@ class Debye_cothpoles():
             params.K = self.K
 
         # Printouts and debug data
-        w = np.logspace(1e-10, 100, 10000,dtype=np.complex128)  # 200000 points from 1e-10 to 100
-        w = np.concatenate((-w[::-1], [0.0], w))  # support points with 0
+        values,w = self.get_support_and_values() # Get support used for the cothpoles decomposition
         w = np.concatenate([np.linspace(0,2,20000,dtype=np.complex128) ,np.linspace(2,200,500,dtype=np.complex128)])
         values = self.P(w)  # values of the pole function at the w points          
         if(self.plot_debug_data): 

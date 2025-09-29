@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
+import sys,copy
 import Feom.baths.utils as utils
 
 # A class for the Debye bath
@@ -19,8 +19,10 @@ J(w) = (\pi/2) * \sum_{\alpha} \frac{c_\alpha^2}{m_\alpha \omega_\alpha} \delta(
 class Debye_bath():
     def __init__(self,params):
         # Bathmode and settings
+        self.LTCorr = getattr(params, 'LTCorr', None)      
         self.bathmode = params.bathmode
         self.L = params.L                      # max tier of the ADOs
+        self.K = params.K                      # number of exponential terms in the BCF
         # General parameters
         self.eta = params.eta
         self.gam = params.gam
@@ -52,7 +54,11 @@ class Debye_bath():
             d0sum = np.sum(1/(self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2))
             d[0] = (self.hbar*self.eta*self.gam/2) * (2/(self.beta*self.hbar*self.gam) + (4*self.gam/(self.beta*self.hbar))*d0sum)
         elif self.mode == 'matsubara': # give the infinite mode prefactor
-            d[0] = (self.hbar*self.eta*self.gam/2) /np.tan(self.beta*self.hbar*self.gam/2)
+            if self.LTCorr in ['iIT','viIT']:    # improved Ishizaki-Tanimura termination changes d0 (1/wn^2 instead of 1/(wn^2-gam^2))
+                d0sum = (self.gam**2)*np.sum(1/((self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2)*self.ws[1:]**2))
+                d[0] =  (self.hbar*self.eta*self.gam/2) * (2/(self.beta*self.hbar*self.gam) + (4*self.gam/(self.beta*self.hbar))*d0sum-self.gam*self.beta*self.hbar/6)
+            else: # standard ishizaki-tanimura
+                d[0] = (self.hbar*self.eta*self.gam/2) /np.tan(self.beta*self.hbar*self.gam/2)
         else:
             raise ValueError('Invalid mode')
         ### Calculate the rest of the terms (matsubara terms)
@@ -69,12 +75,53 @@ class Debye_bath():
         self.gam_ks[0] = self.gam
         self.gam_ks[1:] = self.ws[1:]
         
-        # # Calculate the low temperature coefficient  (for use in baths/utils.py)
+        # Calculate the low temperature coefficient  (for use in baths/utils.py)
         if self.mode == 'matsubara':  # The Ishizaki-Tanimura terminator coefficient
-            self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
-            self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
+            if self.LTCorr in ['iIT','viIT']:
+                fac = -2*self.gam*self.eta/(self.beta*self.hbar**2)
+                summ = np.sum(1/(self.ws[1:]**2))
+                self.lowTcoef =  fac*(self.beta**2*self.hbar**2/24 - summ)
+            else:
+                self.lowTcoef = self.eta* ((1/(2*self.hbar))* ((1/(np.tan(self.beta*self.hbar*self.gam/2))) - (2/(self.beta*self.hbar*self.gam))))  ### Terms without removing of the matsubara terms that have been included
+                self.lowTcoef = self.lowTcoef -  self.eta*(2*self.gam/(self.beta*self.hbar**2))*np.sum(1/(self.gam**2*np.ones_like(self.ws[1:]) - self.ws[1:]**2))  ### remove the Matsubara terms that have been explicitly included
+        
+        # Calculate constant term k for viIT
+        if self.mode == 'matsubara' and self.LTCorr == 'viIT':
+            ''' Calculae the variationally fitted k term for the BCF.
+            This uses the fitting of Rg function, so needs cothpoles backend.
+            Currently done in a hacky way by setting up new bath object with the same params'''
+            from Feom.baths.debye.debye_cothpoles import Debye_cothpoles
+            params=copy.deepcopy(self)
+            params.bathmode='Pade[N/N]'
+            params.LTCorr = None
+            params.save_debug_data = False
+            params.plot_debug_data = False
+            padebath = Debye_cothpoles(params)
+            Pw,support  = padebath.get_support_and_values()
+            
+            ### Calculate the Rg corresponding to the current set of matsubara frequencies
+            wns = self.ws[1:]
+            Pw_iIT=np.zeros_like(support) # Pole function for the iIT
+            for wn in wns:
+                Pw_iIT += 1/(support**2+wn**2)
+                Pw_iIT -= 1/(wn**2)  # remove from the infinite sum 1/wn^2 (below)
+            Pw_iIT += (self.beta*self.hbar)**2/24 #the infinite sum correction
 
-        return 
+            # Now calculate the k term from the difference in the two pole functions
+            diff = Pw - Pw_iIT
+            # now find the best fit constant to this difference
+            self.k = np.mean(diff)
+            if(0):
+                plt.plot(support,Pw,label='exact')
+                plt.plot(support,Pw_iIT,label='iIT')
+                plt.plot(support,diff,label='diff')
+                plt.plot(support,Pw_iIT+self.k,label='adjusted, k={:.2e}'.format(self.k))
+                plt.legend()
+                plt.show()
+            np.savetxt('iIT_k.txt',[self.k])
+
+            # add on the contribution to d0
+            self.C_ks[0]+= - 2*self.eta*self.gam**2*self.k/self.beta        
 
     # output TCF for a given set of C_ks and gam_ks
     def TCF(self,plotme=False,ax=plt,mode=None):
