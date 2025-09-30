@@ -111,6 +111,18 @@ class Debye_bath():
             diff = Pw - Pw_iIT
             # now find the best fit constant to this difference
             self.k = np.mean(diff)
+            
+            Omega_cut = 3*self.gam 
+            summ = 0
+            n=self.mu
+            while True:
+                n+=1
+                wn = 2*n*np.pi/(self.beta*self.hbar)
+                term = (2/(wn)) * np.arctan(Omega_cut/wn)
+                summ += term
+                if abs(term)<1e-10: break
+            k_Omega = (1/(self.beta*Omega_cut))*summ  + (2/self.beta)*np.sum(1/(self.ws[1:]**2)) - self.beta*self.hbar**2/12 #k term for Rg
+            self.k = (self.beta/2) * k_Omega
             if(0):
                 plt.plot(support,Pw,label='exact')
                 plt.plot(support,Pw_iIT,label='iIT')
