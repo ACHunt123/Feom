@@ -1,0 +1,68 @@
+#!/bin/bash
+### Batch run for all but the AAA mode
+
+# Import the parameters from batchparams.sh
+source batchparams.sh
+
+
+bathtypes=(
+    "--bathname debye --bathmode nbead"
+    "--bathname debye --bathmode matsubara --LTCorr IT" 
+    "--bathname debyeCothpoles --bathmode Pade[N/N]" 
+)
+
+folders=("debyeNbead" "debyeLT" "debyePadeN_N")
+
+### If I want to improve the LT scheme (putting makeing the IT go 1/wn^2 instead of 1/(wn^2-gam^2))
+# bathtypes=(
+#     "--bathname debye --bathmode matsubara --LTCorr IT" 
+# )
+# folders=("debyeLT_improved")
+
+
+### Loop over the parameters and fill the commands array
+commands=()
+for i in "${!folders[@]}"; do
+    bathtype="${bathtypes[$i]}"
+    folder="${folders[$i]}"
+    
+    
+    # Loop over Ls and Ks and dts
+    for beta in "${betas[@]}"; do
+    for eta in "${etas[@]}"; do
+    for dt in "${dts[@]}"; do
+    for L in "${Ls[@]}"; do
+    for K in "${Ks[@]}"; do
+            target_dir="${folder}/beta${beta}/eta${eta}/L${L}/K${K}/dt${dt}"
+
+            # Create the directory if it does not exist
+            if [ ! -d "$target_dir" ]; then
+                mkdir -p "$target_dir"  # make the directory
+            fi
+            
+            # Add the running command to the array if there is no output file
+            if [ ! -f "$target_dir/parameters" ]; then
+                # cmd="cd $target_dir && $script --K ${K} --L ${L} --bathname ${bathname} --bathmode ${bathmode} --eta ${eta} --dt ${dt} $HRDparams $quiet"
+                cmd="cd $target_dir && $script --K ${K} --L ${L} ${bathtype} --beta ${beta} --eta ${eta} --dt ${dt} $HRDparams $quiet"
+                commands+=("$cmd")
+            fi       
+    done
+    done
+    done
+    done
+    done
+done
+
+### Run them all in parallel using xargs
+#stop is asked
+printf "Do you want to run the following ${#commands[@]} commands in parallel with a limit of ${nparallel} processes.?\n"
+read -r -p "Press Enter to continue, or type anything to cancel: " answer
+[[ -z "$answer" ]] || { echo "Aborted."; exit 1; }
+
+
+echo "Running ${#commands[@]} Python scripts in parallel with a limit of ${nparallel} processes."
+printf "%s\n" "${commands[@]}" | xargs -P "$nparallel" -I {} bash -c '{}'
+# print out the command to terminal
+# printf "%s\n" "${commands[@]}"
+
+echo "All Python scripts completed."

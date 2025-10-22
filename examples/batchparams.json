@@ -1,0 +1,16 @@
+{
+    "Ks": [1,3,5,7,9,11],
+  "Ls": [5, 6],
+  "dts": [0.0001],
+  "etas": [1],
+  "betas": [500,1,10],
+  "HRDparams": {
+    "ns": 2,
+    "hbar": 1,
+    "tmax": 10,
+    "potname": "spinboson",
+    "Delta": 1,
+    "eps": 0,
+    "gam": 1
+  }
+}

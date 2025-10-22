@@ -19,7 +19,10 @@ function Sb = Sbeta(omega)
     % Negative omega: -|ω|^s * exp(-|ω| / ω_c)
     % Jw(omega < 0) = -abs(omega(omega < 0)).^s .* exp(-abs(omega(omega < 0)) / wc);
 
-    Sb = omega.*(1 ./ (m * beta * omega.^2)) .* ((beta * hbar * omega / 2) .* coth(beta * hbar * omega / 2) - 1);
+    % Sb = omega.*(1 ./ (m * beta * omega.^2)) .* ((beta * hbar * omega / 2) .* coth(beta * hbar * omega / 2) - 1);
+    Sb = (1 ./ (m * beta * omega.^2)) .* ((beta * hbar * omega / 2) .* coth(beta * hbar * omega / 2) - 1);
+    
+    
     % Sb = Jw.*(coth(u) - 1./u);
     % Sb = Jw.*(coth(u) + 1);  
     % y=coth(omega / 2);

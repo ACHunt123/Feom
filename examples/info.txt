@@ -1,0 +1,13 @@
+This folder contains an example batch script to:
+1) run FEOM in parrallel
+2) plot and save these runs to file
+
+It allows plotting in real time (even whilst the code is being executed)
+
+The parameters used are put in 'batchparams.json'.
+
+Then to run the simulations, either do ./RESTbatchrun (which runs automatically) or call ./AAAbatchrun, which sets up the files required for the AAA decomposition, then run the 'commands_to_run.m' file in the Feom/baths/... directory to do the AAA decomposition, then call ./AAAbatchrun again to run the HEOM. 
+
+In running the simulations, a copy of the parameters will be put in plotparams.json5. As it is json5 , it allows comments, which we use to monitor the parameters that have been run.
+
+To plot, call ./plotresults.py. Change the parameters in the json5 if needed for different plots. Also saving etc is available via argparse (read the .py for more info)

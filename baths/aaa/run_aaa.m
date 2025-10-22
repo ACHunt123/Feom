@@ -59,6 +59,8 @@ for j = 1:length(res_pos)
 end
 plot(Z, real(r_from_res), 'm-.', 'LineWidth', 1.5, 'DisplayName', 'imag res real pols');     % From residues with just the imaginary part      
 
+plot(Z, 1./(2*abs(Z)), 'b-.', 'LineWidth', 1.5, 'DisplayName', '1/2|w|');     % From residues with just the imaginary part      
+
 
 diff = F - real(r_from_res);  % The error from using imaginary-only poles
 %%% calculate the basis functions for the imaginary-only poles and project the error onto them
