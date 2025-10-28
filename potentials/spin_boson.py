@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 ### Generates the Hamiltonian matrix spin boson model in diabatic representation
 # Note adiabatic repn is without _'s and diabatic repn is with _'s on matrices
 class Spin_boson:
-    def __init__(self,params):
+    def __init__(self,params,_): # bath params not needed here as there is no renormalisation
         assert params.ns == 2, "Spin boson model is hardcoded for two levels"
         self.ns = params.ns
         self.Delta = params.Delta

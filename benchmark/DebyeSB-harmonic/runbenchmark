@@ -1,0 +1,55 @@
+#!/bin/bash
+# This script runs the benchmark for the DebyeSB model
+
+echo "Starting benchmark for DebyeSB model..."
+# command to run the matlab script (that will do all 3 benchmarks)
+# matlab -batch "addpath('$HOME/software/phd/Feom/benchmark/DebyeSB'); TFaySB" > /dev/null & 
+# # command to run the feom.py script
+ python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 2 --K 2 --ns 10 --beta 3 --hbar 1 --tmax 10.0 --dt 0.01 --potname harmonic --omega 1 --m 1740 --bathname debyeCothpoles --bathmode Pade[N-1/N] --eta 1 --gam 5 --LTCorr 'IT' #> /dev/null 
+# NOTE:  K=0 is not working for cothpoles, need to fix
+wait
+echo "Benchmark for DebyeSB model completed, plotting with gnuplot..."
+
+#plot the results using gnuplot
+ext=".out"
+
+### warn if there are more than 6 files (as we only define 6 line styles)
+if [ $(ls *${ext} | wc -l) -gt 6 ]; then
+    echo "Warning: More than 6 output files found. Adjust gnuplot styles if necessary."
+fi
+
+### Plot
+./plot_output
+### Gnuplot is currently broken, so just use the above python script to plot
+# gnuplot -persist <<EOF
+# set terminal qt
+
+# set title "DebyeSB Benchmark Results"
+# set xlabel "Time"
+# set ylabel "Expectation Value"
+# set grid
+
+# # Define line styles
+# set dashtype 10 (5,7)  # longer dash and gap
+
+# ##NOTE define more line styles if you have more than 6 files
+# set style line 1 lt 1 lw 2 dt 1  lc rgb "#0000FF"  # Blue solid
+# set style line 2 lt 1 lw 2 dt 1  lc rgb "#00FF00"  # Green solid
+# set style line 3 lt 1 lw 2 dt 1  lc rgb "#FF0000"  # Red solid
+
+# set style line 4 lt 1 lw 2 dt 5  lc rgb "#FF00FF"  # Magenta dashed
+# set style line 5 lt 1 lw 2 dt 5  lc rgb "#00FFFF"  # Cyan dashed
+# set style line 6 lt 1 lw 2 dt 5  lc rgb "#000000"  # Black dashed
+
+# plot \
+# $(i=0; for f in *${ext}; do
+#     i=$((i+1))
+#     title_f=$(echo "$f" | sed 's/_/\\_/g') # Make sure the gnuoplot doesnt break on underscores
+#     echo -n "'$f' using 1:2 with lines linestyle $i title '$title_f', "
+
+# done | sed 's/, $//')
+# EOF
+# Clean up the output files if you press enter
+read -p "Press Enter to delete output files ALL .out and .txts (or Ctrl+C to cancel)..."
+# rm *out *txt
+rm outfile* *txt  *pdf   # doesnt delete Tom fays

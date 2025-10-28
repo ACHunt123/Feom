@@ -4,10 +4,10 @@ from scipy import special
 import matplotlib.pyplot as plt
 
 
-### Generates the Hamiltonian matrix for a harmonic oscillator in the position basis
-# NEED TO ADD RENORMALISATION!!!
+### Generates the Hamiltonian matrix for a harmonic oscillator in the energy basis
+
 class Harmonic_oscillator:
-    def __init__(self,params):
+    def __init__(self,params,bathparams):
         self.m=params.m
         self.omega=params.omega
         self.beta=params.beta
@@ -17,10 +17,12 @@ class Harmonic_oscillator:
         self.dx=params.dx
         self.ns=params.ns
         self.nx = int((self.xmax-self.xmin)/self.dx) # number of x points
+        self.bathparams=bathparams #inherit the bath parameters for renormalisation
+        self.bathparams.bathname=params.bathname
+        ### Generate the position matrix in the eigenbasis
+        self.s_mat = self.pos_matrix() # this is the perturbation matrix now
         ### Generate the Hamiltonian matrix in the eigenbasis
         self.H_matrix()
-        ### Generate the position matrix in the eigenbasis
-        self.s_mat = self.pos_matrix()
         # plot the initial conditions matrix
         if(0):
             fig = plt.figure()
@@ -71,7 +73,12 @@ class Harmonic_oscillator:
     # Generates the Hamiltonian matrix in its eigenbasis
     def H_matrix(self):
         psi_ns, E_ns, x_arr = self.eigenstates()
-        self.H_mat = np.diag(E_ns)
+        H0 = np.diag(E_ns)
+        if self.bathparams.bathname in ['debye','debyeCothpoles']:
+            Hren = self.bathparams.eta*self.s_mat@self.s_mat/2.
+        else:
+            raise NotImplementedError('\nNon-Debye baths not implemented')
+        self.H_mat = H0 + Hren
         return 
 
     def pos_matrix(self):

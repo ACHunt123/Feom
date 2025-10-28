@@ -11,6 +11,7 @@ import sys
 # = 1/2 coth(x/2)
 
 def get_coeffs(mode,N,max_accuracy=False):
+    if N==0: return np.array([]), np.array([]), 0, 0
     '''
     Get the coefficients for the Pade decomposition of the coth function
     mode = '[N/N]' or '[N-1/N]' for different types of Pade decomposition

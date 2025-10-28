@@ -98,6 +98,11 @@ and prefactors $\{C_k\}$, which are given by
     C_0 = \frac{\hbar\eta\gamma}{2}\l(\cot{\frac{\beta\hbar\gamma}{2}}-i\r),&
      & C_{n=k} &= -\frac{2\eta\gamma}{\beta}\frac{\omega_n}{\gamma^2-\omega_n^2}, & \forall k>0.
 \end{align}
+For systems with bath renormalisation (such as the Harmonic oscillator), the system Hamitonian gains the term
+\begin{align}
+    H_{\rm ren} &= \frac{1}{2}\sum_{\alpha}\frac{c_\alpha^2}{m_\alpha\omega_\alpha^2}{s}^2 \nonumber \\ &= \frac{1}{2}\eta s^2,
+\end{align}
+where $s$ is the system operator that is coupled to the bath.
 \subsection{Dealing with Matsubara poles}
 The code is so far only able to use Debye baths. It can however decompose the Matsubara terms in the BCF in many different ways:
 \begin{itemize}

@@ -96,7 +96,7 @@ subroutine read_matrices(ADOs)
         close(31);close(40);close(50);close(60);close(70);close(80);close(90) !close the files
         close(100)
     end subroutine
-
+! print out the ADOs (if needed)
 subroutine ADOs_print(ADOs,Imax,ns,it)
     implicit none
     integer(4), intent(in) :: it,ns,Imax
@@ -121,5 +121,46 @@ subroutine ADOs_print(ADOs,Imax,ns,it)
     end do
     write(20,fmt) outstr(1), outstr(2:Imax+1) ! write the ADOs to the file
     close(20)
-end subroutine ADOs_print
+    end subroutine ADOs_print
+! write the system density matrix to file
+subroutine writeout(funit, time, A)
+    implicit none
+    integer, intent(in) :: funit        ! file unit number (e.g. 10)
+    real(8), intent(in) :: time         ! current time value
+    complex(8), intent(in) :: A(:,:)    ! complex matrix (ns x ns)
+
+    real(8), parameter :: tiny_cutoff = 1.0d-250
+    real(8) :: reval, imval
+    integer :: si, sj
+    integer :: ns
+
+    ns = size(A,1)
+
+    ! Start the line with time
+    write(funit,'(E30.15)', advance='no') time
+
+    ! Loop through all elements of A and write on the same line
+    do si = 1, ns
+        do sj = 1, ns
+            reval = real(A(si,sj))
+            ! Clamp small values to zero to avoid exponent issues
+            if (abs(reval) < tiny_cutoff) reval = 0.0d0
+            ! Write number to same line
+            write(funit,'(2G30.15)', advance='no') reval
+        end do
+    end do
+
+    do si = 1, ns
+        do sj = 1, ns
+            imval = aimag(A(si,sj))
+            ! Clamp small values to zero to avoid exponent issues
+            if (abs(imval) < tiny_cutoff) imval = 0.0d0
+            ! Write number to same line
+            write(funit,'(2G30.15)', advance='no')  imval
+        end do
+    end do
+    ! End the line (newline)
+    write(funit,*)
+
+    end subroutine
 end module input_output

@@ -18,7 +18,7 @@ class Setup:
 
         ### Setup bath and potential 
         self.bath = baths.getbath(self.params.bathname)(self.params)
-        self.pot = potentials.getpotential(self.params.potname)(self.params)
+        self.pot = potentials.getpotential(self.params.potname)(self.params,self.bath)
 
         ### Write the parameters to a file and filename
         params.header = printparams(self)
