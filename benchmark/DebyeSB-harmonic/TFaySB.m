@@ -20,9 +20,9 @@ addpath(genpath('/home/ach221/software/phd/HEOMLAB/heom-lab/functions'));
 omega=1;
 mass=1740;
 % debye bath parameters
-beta = 3 ;
-lambda_D = 0.5 ; % should be half of mine
-omega_D = 1.0 ; % should be the same as mine
+beta = 0.01 ;
+lambda_D = 500 ; % should be half of mine
+omega_D = 5.0 ; % should be the same as mine
 
 % dynamics information - parameters for the Short-Iterative Arnoldi
 % Integrator
@@ -31,15 +31,31 @@ n_steps = 1000 ;
 krylov_dim = 8 ;
 krylov_tol = 1e-8 ;
 % parmeters for heirarchy truncation using L/M truncation
-M_max = 3; 
+M_max = 2; 
+
+% get the basis and operators for the harmonic oscillator
+ns=10;
+dx=0.01;
+xmin=-5;
+xmax=5;
+hbar=1;
+nx = floor((xmax - xmin) / dx);
+
+
+[H0, pos_mat, x_arr, psi_ns, E_ns] = ho_matrices(mass, omega, hbar, xmin, dx, nx, ns);
 
 
 % matrices of system observable operators to be returned, 
-% sigma_z, sigma_x, sigma_y, and 1
-O_sys = {[[1,0];[0,-1]],[[0,1];[1,0]],[[0,-1.0i];[1.0i,0]],eye(2)} ;
+O_sys = {pos_mat} ;
 
 % initial state of the system
-rho_0_sys = [[1,0];[0,0]] ;
+delEs = E_ns - E_ns(1);         % energy differences from ground state
+rho_s = diag(exp(-beta * delEs));   % Boltzmann weights
+Zs = trace(rho_s);              % partition function
+rho_0_sys = (rho_s * pos_mat) / Zs;
+
+% renormalization potential (x2 as the thing is half mine, but the term added to the hamiltonian should be the same)
+Hren=lambda_D.*pos_mat*pos_mat;
 
 % two objects are supplied to the HEOM dynamics function:
 % "full_system" specifies the full Hamiltonian (system + bath) and the
@@ -51,11 +67,8 @@ rho_0_sys = [[1,0];[0,0]] ;
 % the full open quantum system
 full_system = struct ;
 % H_sys contains the system Hamiltonian
-full_system.H_sys = [[epsilon,Delta];
-                     [Delta,-epsilon]];
-
+full_system.H_sys = H0+Hren;
 full_system.beta = beta ;
-
 % a struct that contains information about the HEOM dynamics
 heom_dynamics = struct ;
 % integrator information, currently only the short iterative arnoldi is
@@ -83,22 +96,13 @@ heom_dynamics.observables.system = O_sys ;
 heom_dynamics.rho_0_sys = rho_0_sys ;
 
 %% run the dynamics LOOPING OVER DIFFERENT PARAMETER SETS
-%% OLD ONE  (containing a mistake in the pade [N/N] case)
-        % L_max_list={4,3,2,4};
-        % full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...                       
-        % struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N/N]","N_pade",M_max),    ... 
-        % struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max), ...
-        % struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max)};
-        % termination_list={"low temp correction","none","none","low temp correction NZ2"};
-        % namelist={'ITlowtemp','Pade[NoN]','Pade[N-1oN]','Pade[N-1_N]NZ2'};
-%% NEW ONE not including the pade [N/N] case)
-L_max_list={4,5,3,2};
-full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...  
-struct("V",[[1,0];[0,-1]],"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D),        ...                       
-struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max), ...
-struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max)};
-termination_list={"low temp correction","low temp correction NZ2","none","low temp correction NZ2"};
-namelist={'ITlowtemp','NZ2lowtemp','Pade[N-1oN]','Pade[N-1_N]NZ2'};
+
+L_max_list={2};
+full_system_bathslist={struct("V",pos_mat,"spectral_density","debye","omega_D",omega_D,"lambda_D",lambda_D)};
+termination_list={"low temp correction"};
+namelist={'ITlowtemp'};
+
+
 
 
 % extra terms for the NZ2 terminator 
@@ -108,7 +112,7 @@ heom_dynamics.heom_truncation.termination_k_max = 500 ; % max number of mats ter
 
 
 % loop over the different L_max values
-for i = 1:4
+for i = 1:1
     L_max = L_max_list{i};
     heom_dynamics.heom_truncation.L_max = L_max;
     full_system.baths = {full_system_bathslist{i}} ;
@@ -121,16 +125,16 @@ for i = 1:4
     %%% save results to a text file
     %make the filename 
     % Create a descriptive filename
-    filename = sprintf('TFaySB_eps%.1f_D%.1f_beta%.1f_lam%.1f_wD%.1f_dt%.0e_L%d_M%d_%s.out', ...
-    epsilon, Delta, beta, lambda_D, omega_D, dt, L_max, M_max, name);
+    filename = sprintf('TFaySB_omega%.1f_m%.1f_beta%.1f_lam%.1f_wD%.1f_dt%.0e_L%d_M%d_%s.out', ...
+    omega, mass, beta, lambda_D, omega_D, dt, L_max, M_max, name);
     outfile = fullfile(outfolder, filename);
     fileID = fopen(outfile, 'w');
 
     % write down the parameters used in the simulation
     fprintf(fileID, '## Spin Boson Model Simulation Results using Tom Fays Code\n');
     fprintf(fileID, '### Parameters:\n');
-    fprintf(fileID, '# epsilon = %f\n', epsilon);
-    fprintf(fileID, '# Delta = %f\n', Delta);
+    fprintf(fileID, '# omega = %f\n', omega);
+    fprintf(fileID, '# m = %f\n', mass);
     fprintf(fileID, '# beta = %f\n', beta);
     fprintf(fileID, '# lambda_D = %f\n', lambda_D);
     fprintf(fileID, '# omega_D = %f\n', omega_D);

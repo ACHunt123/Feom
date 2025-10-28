@@ -70,7 +70,7 @@ class Harmonic_oscillator:
         
         return psi_ns, E_ns, x_arr
 
-    # Generates the Hamiltonian matrix in its eigenbasis
+    # Generates the Hamiltonian matrix in its eigenbasis (WITH RENORMALIZATION)
     def H_matrix(self):
         psi_ns, E_ns, x_arr = self.eigenstates()
         H0 = np.diag(E_ns)
@@ -97,7 +97,7 @@ class Harmonic_oscillator:
         delEs = E_ns - E_ns[0] # the ground state is the zero of energy
         rho_s = np.diag(np.exp(-self.beta*delEs))
         Zs = np.trace(rho_s)
-        rho_s0 = rho_s@self.pos_matrix()/Zs # the intial condition is rho q 
+        rho_s0 = rho_s@self.pos_matrix()/Zs # the intial condition is rho q (HERE WE DON'T ADD RENORM.)
         # rho_s0 = rho_s/Zs # the intial condition is rho  
         return rho_s0,Zs
 
@@ -120,7 +120,7 @@ class Harmonic_oscillator:
         im_rho = data[:,1+self.ns**2:]
         rho = re_rho + 1.j*im_rho
         rho = rho.reshape((len(t),self.ns,self.ns), order='F')  # reshape the data to be a 3D array
-        # format the data to calculate <s_z>, <s_y> and <s_x> and others
+        # format the data to calculate correlation functions
         t = data[:,0]
         # calculate <q> 
         processed_data = np.zeros((len(t),5),dtype=complex)

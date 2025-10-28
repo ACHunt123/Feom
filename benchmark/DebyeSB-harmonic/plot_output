@@ -7,9 +7,8 @@ files = glob.glob('*out')
 cool_colors = ['#377eb8', '#4daf4a', "#00ffff", "#9fe400"]
 warm_colors = ['#e41a1c', '#ff7f00', "#c20d6e", "#6b0fb6"]
 
-beta=15
 
-colenamesdict={ f'outfile_L2_K2_ns10_beta3_hbar1_tmax10_dt0.01_POTharmonic_omega1_m1.74e+03_dx0.01_xmin-5_xmax5_BTHdebyeCothpoles_PadeNm1oN_eta1_gam5_LTCorrIT.out':'Pade[N-1/N] + NZ2  OFF DUE TO MARKOVIAN TERM',
+colenamesdict={ f'outfile_L2_K2_ns10_beta0.01_hbar1_tmax10_dt0.01_POTharmonic_omega1_m1.74e+03_dx0.01_xmin-5_xmax5_BTHdebye_matsubara_eta1e+03_gam5_LTCorrIT.out':'It',
 }
 nfay=0
 ncole=0
@@ -18,14 +17,17 @@ for filename in files:
     t=data[:,0]
     ct=data[:,1]
 
-    # if 'TFay' in filename:
-    #     # make the line doted, and the colr a cool one
+    if 'TFay' in filename:
+        # make the line doted, and the colr a cool one
         
-    #     plt.plot(t, ct, linestyle='--',zorder=10, color=cool_colors[nfay])
-    #     nfay+=1
-    # else:
-    plt.plot(t, ct, label=colenamesdict[filename],zorder =0, color=warm_colors[ncole])
-    ncole+=1
+        # plt.plot(t, ct, linestyle='--',zorder=10, color=cool_colors[nfay],marker='x')
+        plt.scatter(t, ct, zorder=10, color=cool_colors[nfay],marker='x')
+        nfay+=1
+    else:
+
+        plt.scatter(t, ct, label=colenamesdict[filename],zorder =0, color=warm_colors[ncole],marker='o')
+        # plt.plot(t, ct, label=colenamesdict[filename],zorder =0, color=warm_colors[ncole])
+        ncole+=1
 plt.legend()
 plt.xlabel('Time')
 plt.ylabel('Population')

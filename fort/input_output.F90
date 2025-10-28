@@ -129,7 +129,7 @@ subroutine writeout(funit, time, A)
     real(8), intent(in) :: time         ! current time value
     complex(8), intent(in) :: A(:,:)    ! complex matrix (ns x ns)
 
-    real(8), parameter :: tiny_cutoff = 1.0d-250
+    real(8), parameter :: tiny_cutoff = 1.0d-100
     real(8) :: reval, imval
     integer :: si, sj
     integer :: ns

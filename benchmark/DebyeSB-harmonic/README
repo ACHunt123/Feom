@@ -1,11 +1,6 @@
-This Benchmark folder benchmarks the Debye spin-boson model against Tom Fay's code.
+This Benchmark folder benchmarks the Debye harmonic-oscillator model against Tom Fay's code.
 
 It does the debye code, with:
 1. Matsubara + Ishizaki-Tanimura Low-T correction
-2. [N/N] Pade with no low-T correction
-3. [N-1/N] Pade with no low-T correction
-
-The results of 1 and 3 should be exactly the same as Tom's code, 
-but, due to the omission of a term, the results of 2 will differ (very) slightly.
 
 NOTE: any files with .out or .txt will be deleted when you run the benchmark (as it clears the folder).
