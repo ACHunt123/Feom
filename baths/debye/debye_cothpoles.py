@@ -137,6 +137,7 @@ class Debye_cothpoles():
             self.gam_i = eta
             self.w_i = xi/(self.beta *self.hbar)
             self.k = R_N*(self.beta*self.hbar)**2/2.
+            if(0): Rg_k=0.4; self.k = Rg_k*(self.beta/2)         # MANUALLY ADD IN k (for the HEOM positivity tests)
         else:
             raise ValueError('Invalid type of coth decomposition specified. Use "AAA" or "Pade..." .')
         
