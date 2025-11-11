@@ -162,5 +162,8 @@ subroutine writeout(funit, time, A)
     ! End the line (newline)
     write(funit,*)
 
+    ! Flush the output immediately so it can be read while running
+    call flush(funit)
+
     end subroutine
 end module input_output
