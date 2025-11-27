@@ -63,7 +63,7 @@ def run_aaa_fromfile(K=2, location='.', filename='aaa_data.txt',
     # Compute residues
     pol = r.poles()
     res = r.residues()
-    zer = r.residues()
+
     R = np.sum(res / (Z[:, None] - pol[None, :]), axis=1)
     konstant = np.mean(F - R)
 
@@ -130,8 +130,6 @@ def run_aaa_fromfile(K=2, location='.', filename='aaa_data.txt',
     np.savetxt(os.path.join(location, f'pol_imag{extension}'), np.imag(pol))
     np.savetxt(os.path.join(location, f'res_real{extension}'), np.real(res))
     np.savetxt(os.path.join(location, f'res_imag{extension}'), np.imag(res))
-    np.savetxt(os.path.join(location, f'zer_real{extension}'), np.real(zer))
-    np.savetxt(os.path.join(location, f'zer_imag{extension}'), np.imag(zer))
     np.savetxt(os.path.join(location, f'errvec{extension}'), r.errors)
     np.savetxt(os.path.join(location, f'k{extension}'), [np.real(konstant)])
     np.savetxt(os.path.join(location, f'w_i{extension}'), w_i)
