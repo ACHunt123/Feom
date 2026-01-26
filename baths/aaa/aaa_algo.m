@@ -1,3 +1,7 @@
+%Taken from
+%Y. Nakatsukasa, O. S`ete, and L. N. Trefethen, 
+% "The AAA Algorithm for Rational Approximation," 
+% SIAM J. Sci. Comput. 40, A1494–A1522 (2018).
 function [r,pol,res,zer,z,f,w,errvec] = aaa_algo(F,Z,tol,mmax)
 % aaa rational approximation of data F on set Z
 % [r,pol,res,zer,z,f,w,errvec] = aaa(F,Z,tol,mmax)

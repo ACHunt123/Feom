@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# MIT License
+# Copyright (c) 2025 Andrew Colville Hunt
+# See LICENSE file for details.
 '''
    +---------------------------------------+
    |   FEOM: Fortran heirarchical          |  
