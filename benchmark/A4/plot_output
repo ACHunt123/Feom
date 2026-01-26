@@ -7,10 +7,9 @@ files = glob.glob('*out')
 cool_colors = ['#377eb8', '#4daf4a', "#00ffff", "#9fe400"]
 warm_colors = ['#e41a1c', '#ff7f00', "#c20d6e", "#6b0fb6"]
 
-beta=15
 
 colenamesdict={ 'outfile_L20_K2_ns2_beta76.4_hbar1_tmax10_dt0.0001_POTspinboson_Delta0.942_eps0_BTHdebyeCothpoles_AAA_eta3.77_gam0.0565.out':'run',
-               'benchmark_data.out':'benchark'}
+               'benchmark_data.out':'benchmark'}
 
 for i,filename in enumerate(files):
     data = np.loadtxt(filename)
@@ -20,7 +19,7 @@ for i,filename in enumerate(files):
     if 'benchmark_data' in filename:
         # make the line doted, and the colr a cool one
         
-        plt.plot(t, ct, linestyle='--',zorder=10, color=cool_colors[i])
+        plt.plot(t, ct, linestyle='--',zorder=10, color=cool_colors[i],label='benchmark data')
 
     else:
         plt.plot(t, ct, label=colenamesdict[filename],zorder =0, color=warm_colors[i])
@@ -28,7 +27,7 @@ for i,filename in enumerate(files):
 plt.legend()
 plt.xlabel('Time')
 plt.ylabel('Population')
-plt.title('Benchmark Debye SB')
+plt.title('Benchmark A4')
 plt.tight_layout()
 plt.show()  
 # plt.savefig('DebyeSB_benchmark.pdf')
