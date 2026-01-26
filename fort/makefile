@@ -24,7 +24,7 @@
 # -------------------------------------------------------------------------
 
 
-# Default switches
+# Default switches (if not specified)
 SWITCHES?= -DLTCorr=1 -DSIA
 ### Calculate the name of the executable based on switches [replace -D with _, = with nothing, and sort alphabetically]
 NAME := propagation
