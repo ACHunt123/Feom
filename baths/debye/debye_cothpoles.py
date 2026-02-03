@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys, os
 import Feom.baths.coth_decomp.cothPade as cothPade 
-import Feom.baths.coth_decomp.cothAAA as cothAAA
+import Feom.baths.coth_decomp.cothA4 as cothA4
 import Feom.baths.utils as utils
 
 # A class for the Debye bath
@@ -83,7 +83,7 @@ class Debye_cothpoles():
             result += self.gam_i[k] / (w**2 + self.w_i[k]**2)
         return result
          
-    def get_support_and_values(self, mode='uniform',N_support = 100000):
+    def get_support_and_values(self, mode='uniform',N_support = 10000):
         ''' Generate the support and values for the AAA decomposition of the pole function'''    
         if mode=='log': # logarithmic spacing including zero
             eps=1e-4
@@ -102,7 +102,7 @@ class Debye_cothpoles():
             w_max=self.gam # start with the cuttoff frequency
             Jw_min_tol = 1e-5      # tolerance for the maximum frequency of the grid for the AAA decomposition
             while self.J(w_max) > Jw_min_tol: w_max += 10
-            w_max=200
+            w_max=10*self.gam
             support = np.linspace(-w_max,w_max,N_support,dtype=np.complex128)
             self.support_param_str = f'uniform_N{N_support}_wmax{int(w_max)}' # save the parameters used to generate the support points
         elif mode == 'arctanh': #NOTE - need to choose w_max carefully here
@@ -125,7 +125,7 @@ class Debye_cothpoles():
             print(f'Using AAA decomposition for the bath.')
             values, support = self.get_support_and_values()
             Rg = values*(2/self.beta)   # so that we fit the Rg (not the pole function directly)
-            Rg_gam_i, self.w_i, Rg_k, mu_tot = cothAAA.get_coeffs(self,support,Rg)
+            Rg_gam_i, self.w_i, Rg_k, mu_tot = cothA4.get_coeffs(self,support,Rg)
             self.gam_i = Rg_gam_i*(self.beta/2) # convert back to gam_i (as we originally fitted pole function in earlier code)
             self.k = Rg_k*(self.beta/2)         # convert back to k
 
@@ -172,13 +172,13 @@ class Debye_cothpoles():
 
         # Remove high frequencies if using AAAmc
         if self.bathmode=='AAAmc':
-            cothAAA.markovian_pole_trunc(self)
+            cothA4.markovian_pole_trunc(self)
             # Update K in parameters (changed for the bath in markovian_pole_trunc)
             params.K = self.K
 
         # Printouts and debug data
         values,w = self.get_support_and_values() # Get support used for the cothpoles decomposition
-        w = np.concatenate([np.linspace(0,2,20000,dtype=np.complex128) ,np.linspace(2,200,500,dtype=np.complex128)])
+        # w = np.concatenate([np.linspace(0,2,20000,dtype=np.complex128) ,np.linspace(2,200,500,dtype=np.complex128)])
         values = self.P(w)  # values of the pole function at the w points          
         if(self.plot_debug_data): 
             ### Plot the approximated function and J(w)
