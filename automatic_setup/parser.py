@@ -4,7 +4,7 @@
 ##############################################
 import argparse
 import numpy as np
-from Feom.utils import out_filename,printparams
+from Feom.utils.utils import out_filename,printparams
 fs = 0.02418884254 #au
 '''
 ===============================================================================================================

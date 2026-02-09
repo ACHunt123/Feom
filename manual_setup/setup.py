@@ -1,8 +1,8 @@
 import numpy as np
 import os,sys
-from Feom.hashmap import generateHashmap, total_length
+from Feom.utils.hashmap import generateHashmap, total_length
 from Feom.baths.utils import get_C_UDs,generate_Terminator
-from Feom.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
+from Feom.utils.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
 
 import shutil
 from pathlib import Path
@@ -191,7 +191,6 @@ class ManualSetup:
             print(f'  {makefile_command}\n')
             sys.exit(1)
     
-
     def go(self,extra_commands='',cleanup=True):
         # Run the executable
         quiet=[' > /dev/null ',''][1]

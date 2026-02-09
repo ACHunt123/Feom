@@ -1,8 +1,8 @@
 import numpy as np
 import os,sys
-from Feom.hashmap import generateHashmap, total_length
+from Feom.utils.hashmap import generateHashmap, total_length
 from Feom.baths.utils import get_C_UDs,generate_Terminator
-from Feom.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
+from Feom.utils.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
 import Feom.baths as baths
 import Feom.potentials as potentials
 import shutil
