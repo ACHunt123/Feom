@@ -9,8 +9,8 @@
    |           By A. C. Hunt 2025          |
    +---------------------------------------+
 '''
-from Feom.setup import Setup
-from Feom.parser import params
+from Feom.automatic_setup.setup import Setup
+from Feom.automatic_setup.parser import params
 import numpy as np
 
 
@@ -29,7 +29,7 @@ sim.generate_input_files(rho) # writes the inputfiles and fortran code to tmp/ d
 ### Go
 run_here = 1
 if(run_here): # run the fortran code in the temporary directory
-    sim.go(cleanup=True)
+    sim.go(cleanup=0)
 
 
 
