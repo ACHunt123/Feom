@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 '''
    +---------------------------------------+
@@ -29,7 +30,7 @@ sim.generate_input_files(rho) # writes the inputfiles and fortran code to tmp/ d
 ### Go
 run_here = 1
 if(run_here): # run the fortran code in the temporary directory
-    sim.go()
+    sim.go(cleanup=1)
 
 
 
