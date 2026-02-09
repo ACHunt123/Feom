@@ -9,8 +9,8 @@
    AGAINST TOM FAY'S MATLAB CODE, AND THUS FORMATS THE OUTPUT 
     TO MATCH HIS OUTPUT.
 '''
-from Feom.setup import Setup
-from Feom.parser import params
+from Feom.automatic_setup.setup import Setup
+from Feom.automatic_setup.parser import params
 import numpy as np
 
 
