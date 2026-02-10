@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from pathlib import Path
 
 
 # Some useful functions for the HEOM code
@@ -101,9 +102,9 @@ def FORT_SWITCHES(sim):
        -DSIA                Use SIA step instead of RK4 step (default)
      '''
     switches = []
-    if getattr(params, 'LTCorr', None) == 'NZ2':      
+    if getattr(params, 'LTCorr', None) in ['NZ2','different_for_each_ADO']:      
         switchvalue = 2 
-    elif (getattr(params, 'LTCorr', None) in ['IT','viIT','iIT','PT2']) or (getattr(bath, 'k', 0) != 0): 
+    elif (getattr(params, 'LTCorr', None) in ['IT','viIT','iIT','PT2','same_for_each_ADO']) or (getattr(bath, 'k', 0) != 0): 
         switchvalue = 1
     else: 
         switchvalue = 0
@@ -125,8 +126,8 @@ def FORT_SWITCHES(sim):
 def printparams(sim):
     params= sim.params
     ### Make metadata for headers in files - again this contains all the parameters
-    location = os.path.dirname(os.path.abspath(__file__))
-    runcommand = f'{location}/feom.py '
+    parent_location = Path(__file__).resolve().parent.parent
+    runcommand = f'{parent_location}/feom.py '
     metadata = "Input parameters used\n"
     metadata += "------------------------------------------------------------------------------------\n"
     for key in params.__dict__.keys():
