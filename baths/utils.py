@@ -4,13 +4,13 @@ from types import SimpleNamespace
 import Feom.baths as baths
 import sys,copy
 
-def get_C_UDs(params):
+def get_C_UDs(params,L):
     ''' Generate the coefficients C_U, c_D_LEFT, c_D_RIGHT from the C_ks for the bath (that are used in the FEOM code)'''
-    params.c_U = np.zeros((params.N_exp,params.L+1),dtype=complex)
-    params.c_D_LEFT = np.zeros((params.N_exp,params.L+1),dtype=complex)
-    params.c_D_RIGHT = np.zeros((params.N_exp,params.L+1),dtype=complex)
+    params.c_U = np.zeros((params.N_exp,L+1),dtype=complex)
+    params.c_D_LEFT = np.zeros((params.N_exp,L+1),dtype=complex)
+    params.c_D_RIGHT = np.zeros((params.N_exp,L+1),dtype=complex)
     for ki in range(params.N_exp):
-        for nk in range(params.L+1):
+        for nk in range(L+1):
             params.c_U[ki,nk] = np.sqrt((nk+1)*abs(params.C_ks[ki]))
             if abs(params.C_ks[ki]) < 1e-10:
                 params.c_D_LEFT[ki,nk] = 0.0
@@ -69,7 +69,8 @@ def generate_Terminator(sim):
 
         # Get the Markovian terms from C_mats_K>Kbig(t) for the IT terminator
         mark_corr = matsbath.lowTcoef
-        print(f'Low temp correction term from terminated frequencies: {mark_corr}')
+        if(0):
+            print(f'Low temp correction term from terminated frequencies: {mark_corr}')
 
         return delta_Cks, delta_gamks, mark_corr # this is the Markovian term from C_mats_K>Kbig(t), and the Cks and gamks for deltaC(t)
 
