@@ -236,6 +236,12 @@ Let's say that we have approximated the BCF by some $K_{\rm tot}$-mode correlati
     C^{\rm [exact]}(t)\equiv C^{[\rm Mats]}_{{\infty}}(t) = C_{K_{\rm tot}}(t) + \underbrace{\l[C^{[\rm Mats]}_{{N}}(t)-C_{{K_{\rm tot}}}(t)\r]}_{\mathlarger{\delta C(t)}} + \underbrace{\l[C^{[\rm Mats]}_{{\infty}}(t)-C^{[\rm Mats]}_{{N}}(t)\r]}_{\mathlarger{C^{\rm [Mark]}(t)}}
 \end{align}
 We then do the Fay/peturbative correction on $\delta C(t)$. The value of $N$ used is large, but finite, such that the manual sums can be done quickly in the calculation of the terminators. The final term $C^{\rm [Mark]}(t)$ is treated Markovianally, adding on an Ishizaki-Tanimura term. The value of $N$ is chosen such that the Markovian approximation of this term is appropriate.
+\section{Unit Conventions}
+Throughout the code, we set $\hbar=1$. I have not benchmarked otherwise, so need to remove $\hbar$ in general. As $[\hbar]=[{\rm E}][{\rm t}]$, we just have to make sure that the energy and time are inputted in consistent units for the correct outputs.
+Commonly used units are ${\rm cm}^{-1}$ and ${\rm fs}$ for the energy and time units respectively. To yield a correlation function as a function of time in ${\rm fs}$  we need to convert the energies to ${\rm fs}^{-1}$.
+\begin{align}
+    E_{\rm fs^{-1}} &= 2\pi \,c_{\rm cm \,fs^{-1}}\, E_{\rm cm^{-1}}.
+\end{align}
 \newpage
 \bibliographystyle{plain}
 \bibliography{refs}
