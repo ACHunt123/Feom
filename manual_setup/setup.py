@@ -19,7 +19,7 @@ from Feom.manual_setup.config import SimConfig
 # from tools import ... 
 # import baths
 
-import Feom.manual_setup.config_definitions as cfg  
+import Feom.manual_setup.config_requirements as cfg  
 
 class ManualSetup:
     def __init__(self, config: SimConfig):
@@ -40,7 +40,7 @@ class ManualSetup:
         
         ### generate the terminator
         # generate_Terminator(self)
-        self.Xi=0.0j
+        self._setup_Xi(config.terminator)
 
     def _setup_system(self, sys_dict):
         """
@@ -115,7 +115,33 @@ class ManualSetup:
         # insert compiler defaults
 
         return params_obj
-        
+    
+    def _setup_Xi(self, terminator_dict):
+        ''' Sets the terminator and gets the flags 
+            required given said terminator
+        '''   
+        if terminator_dict == None: #no terminator added
+            self.params.LTCorr = None
+            self.Xi = np.zeros((1,1,1),dtype=complex)
+        else:
+            # inherit the attributes and default the normal terminator to be same for each ADO
+            self.params.LTCorr = getattr(terminator_dict, 'correction_type', 'same_for_each_ADO') # switch for the compiler flags of FORTRAN
+
+            if  self.params.LTCorr == 'same_for_each_ADO':
+                self.Xi = np.zeros((1,self.params.ns**2,self.params.ns**2),dtype=complex) 
+                if np.shape(terminator_dict["Xi"]) != (self.params.ns**2,self.params.ns**2):
+                    raise ValueError('Shape of the terminator (one for each ADO) is incorrect')
+                self.Xi[0,:,:]=terminator_dict["Xi"]
+
+            elif  self.params.LTCorr == 'different_for_each_ADO':
+                self.Xi = np.zeros((self.params.Imax,self.params.ns**2,self.params.ns**2),dtype=complex) 
+                if np.shape(terminator_dict["Xi"]) != (self.params.Imax,self.params.ns**2,self.params.ns**2):
+                    raise ValueError('Shape of the terminator (different for each ADO) is incorrect')
+                self.Xi[0,:,:]=terminator_dict["Xi"]
+            
+            else:
+                raise ValueError('correction_type should be in [same_for_each_ADO,different_for_each_ADO]') 
+
     def _create_object_from_dict(self, input_dict, required_keys, defaults=None, obj_name="GenericObject"):
         """
         Creates an object from a dictionary, applying defaults for missing keys.
@@ -213,8 +239,7 @@ class ManualSetup:
         self.t_arr = data[:,0]
         header = "Time " + " ".join([f"{part}_{i}{j}" for part in ['Re', 'Im'] for j in range(ns) for i in range(ns)])
         raw_labels = ["Time"] + [f"{p}_{i}{j}" for p in ["Re", "Im"] for i in range(ns) for j in range(ns)]
-            
-            # 3. Pad every label to be exactly 'w' characters wide (center-aligned)
+        #Pad every label to be exactly 'w' characters wide (center-aligned)
         formatted_header = "".join([f"{label:^{25}}" for label in raw_labels])
         if save_raw: np.savetxt('raw_output.dat',data,header=formatted_header,fmt='%25.16e', delimiter='')
         #Clean up the temporary directory

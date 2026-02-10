@@ -1,5 +1,5 @@
 """
-config_definitions.py
+config_requirements.py
 
 Defines the required arguments and default structures for the HEOM solver.
 """

@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from dataclasses import dataclass
+from typing import Optional
 
 # --- 1. The Helper to handle Numpy/Complex JSON ---
 class ScientificEncoder(json.JSONEncoder):
@@ -22,6 +23,7 @@ class SimConfig:
     system: dict
     bath: dict
     params: dict
+    terminator: Optional[dict] = None
 
     def save(self, filename):
         """Saves this config to a clean JSON file."""
