@@ -30,6 +30,6 @@ REQUIRED_PARAMS_MANUAL = {
     'L',        # Hierarchy depth
 }
 DEFAULT_PARAMS_MANUAL = {
-            'noSIA': 0,         # Whether to use SIA or not
-            'print_ADOs': 0,    # Whether to output all of the ADOs (very memory intensive)
+            'noSIA': False,         # Whether to use SIA or not
+            'print_ADOs': False,    # Whether to output all of the ADOs (very memory intensive)
         }

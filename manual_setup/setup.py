@@ -15,33 +15,29 @@ npF = np.asfortranarray # Aliasing to make the code more legible
 import sys
 import os
 import numpy as np
+from Feom.manual_setup.config import SimConfig
 # from tools import ... 
 # import baths
 
 import Feom.manual_setup.config_definitions as cfg  
 
 class ManualSetup:
-    def __init__(self, sys_dict, bath_dict, params_dict):
+    def __init__(self, config: SimConfig):
+        # save the input configuration before we do anything to it
+        config.save('config.json')
+        # Unpack the configuration (either inputted through dicts or from a previous json)
+        self.pot = self._setup_system(config.system)
+        self.bath = self._setup_bath(config.bath)
+        self.params = self._setup_params(config.params)
         
-
-        # build the objects from the dictionaries
-        self.pot    = self._setup_system(sys_dict)  #calling it pot for now (as the other code uses that)
-        self.bath   = self._setup_bath(bath_dict)      
-        self.params = self._setup_params(params_dict)  
-
-
-#         ### Write the parameters to a file and filename
-#         params.header = printparams(self)
-#         params.out_name = out_filename(self)
-        
-        ### Calculate the C_U, c_D_LEFT, c_D_RIGHT coefficients for the bath (that are used in the FEOM code)
+        # Calculate the C_U, c_D_LEFT, c_D_RIGHT coefficients for the bath (that are used in the FEOM code)
         get_C_UDs(self.bath,self.params.L)
 
-        ### Calculate Hashmaps for indexing ADOs
+        # Calculate Hashmaps for indexing ADOs
         self.ADO_index, self.I0s = generateHashmap(self.bath.K,self.params.L,self.bath.N_nonmats) #hash map from the index of the ADO to the index of the BCF
         self.params.Imax = total_length(self.bath.K,self.params.L,self.bath.N_nonmats)     # the total number of ADOs
         print(f'Total number of ADOs: {self.params.Imax}')
-
+        
         ### generate the terminator
         # generate_Terminator(self)
         self.Xi=0.0j
@@ -147,11 +143,25 @@ class ManualSetup:
 
         return DynamicContainer(**final_data)
     
-    def generate_input_files(self,x0):
+    def set_initial_ADOs(self,x_in,mode='0th'):
+        ''' Setup the initial state of the ADOs
+            works with either the entire set, or the 0th'''
+        self.x0 = np.zeros((self.params.ns, self.params.ns, self.params.Imax), dtype=complex)
+        if mode == '0th': #just set the initial system one
+            self.x0[:,:,0]=x_in
+        elif mode =='all': #set the entire set 
+            self.x0=x_in
+        else:
+            raise ValueError(f"Unknown mode '{mode}'. Use '0th' or 'all'.")
+        self._ADOs_loaded=True
+
+    def generate_input_files(self):
+        # Check that everything has been initialized
+        if not hasattr(self,"_ADOs_loaded"): raise RuntimeError("ADOs have not been loaded yet")
         # Format all of the data
         x0fort =np.zeros((self.params.Imax,self.params.ns,self.params.ns),dtype=complex,order='F')
         for I in range(self.params.Imax):
-            x0fort[I,:,:] = npF(x0[:,:,I])
+            x0fort[I,:,:] = npF(self.x0[:,:,I])
         # Write the data to the files
         writeZ('Fortrho',x0fort)
         writeI('FortADO_index',npF(self.ADO_index)) 
@@ -168,8 +178,6 @@ class ManualSetup:
         writeParams('Fortparams',self)
         
     def insert_executable(self):
-        # get the switches and name of the makefile
-
         makefile_command, self.executable_suffix = FORT_SWITCHES(self)
         self.executable_name=f'propagation{self.executable_suffix}'
         # Copy the correct fortran executable to the temporary directory
@@ -183,7 +191,6 @@ class ManualSetup:
         dest_file = dest_dir / self.executable_name
         # copy to destination if it exists
         if exe_source.exists():
-            # shutil is Python's standard tool for copying files
             shutil.copy2(exe_source, dest_file) 
         else: # Construct the make command 
             print(f'\n[Error] Executable not found at:\n{exe_source}\n')
@@ -191,19 +198,42 @@ class ManualSetup:
             print(f'  {makefile_command}\n')
             sys.exit(1)
     
-    def go(self,extra_commands='',cleanup=True):
+    def go(self,extra_commands='',cleanup=True,save_raw=True):
         # Run the executable
         quiet=[' > /dev/null ',''][1]
         os.system(f'cd tmp/; {extra_commands} ./propagation* {quiet}')
-        #Load the data and format it
+        #Load the data and format it and attach it to the simulation object
         data= np.loadtxt('tmp/output')
-        formatted_data, self.params.header = self.pot.format_output(data,self.params.header)
-        #Save it with nice filename and header
-        np.savetxt(self.params.out_name,formatted_data.real,header=self.params.header)
+        t= data[:,0]
+        ns= self.params.ns
+        re_rho = data[:,1:1+ns**2]
+        im_rho = data[:,1+ns**2:]
+        rho = re_rho + 1.j*im_rho
+        self.rho = rho.reshape((len(t),ns,ns), order='C')  # reshape the data to be a 3D array
+        self.t_arr = data[:,0]
+        header = "Time " + " ".join([f"{part}_{i}{j}" for part in ['Re', 'Im'] for j in range(ns) for i in range(ns)])
+        raw_labels = ["Time"] + [f"{p}_{i}{j}" for p in ["Re", "Im"] for i in range(ns) for j in range(ns)]
+            
+            # 3. Pad every label to be exactly 'w' characters wide (center-aligned)
+        formatted_header = "".join([f"{label:^{25}}" for label in raw_labels])
+        if save_raw: np.savetxt('raw_output.dat',data,header=formatted_header,fmt='%25.16e', delimiter='')
         #Clean up the temporary directory
         os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
-        if cleanup: os.system('rm -r tmp/ -f') #clean up the temporary directory
+        if cleanup: self._safe_cleanup("tmp/") #clean up the temporary directory
         return 
+    
+    def _safe_cleanup(self,path):
+        ''' Safer cleaning up of the tmp directory '''
+        if os.path.exists(path) and os.path.isdir(path):
+            try:
+                shutil.rmtree(path)
+                print(f"Successfully cleaned up {path}")
+            except OSError as e:
+                print(f"Error: {e.strerror}")
+        else:
+            print(f"Path {path} does not exist or is not a directory.")
+
+
 
     
 
