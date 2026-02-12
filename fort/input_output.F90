@@ -97,31 +97,22 @@ subroutine read_matrices(ADOs)
         close(100)
     end subroutine
 ! print out the ADOs (if needed)
-subroutine ADOs_print(ADOs,Imax,ns,it)
+subroutine ADOs_print(ADOs,Imax,ns,time)
     implicit none
-    integer(4), intent(in) :: it,ns,Imax
+    integer(4), intent(in) :: ns,Imax
+    real(8), intent(in) :: time
     complex(8), intent(in) :: ADOs(Imax,ns,ns)
-    real(8) :: outstr(Imax+1)
-    integer(4) :: I!,si
-    character(len=100) :: fmt ! format string for the output
-    write(fmt, '(A,I0,A)') '(E25.15,', Imax, 'E25.15)' 
+    integer(4) :: n
+    integer(4), parameter :: funit = 11
 
-    ! Open the file for writing
-    open(20, file='ADOs.out', status='unknown', action='write', position='append')
-
-    ! Write the ADOs to the file
-    outstr(:) = 0.d0 ! initialize the output array
-    outstr(1)=real(it)
-    ! print *, 'Writing ADOs to file at timestep', it
-    do I = 1, Imax
-        ! do si = 1,ns
-        !     outstr(I+1) = outstr(I+1) + real(ADOs(I,si,si)) ! trace calculation
-        ! end do  
-        outstr(I+1) = sum(abs(ADOs(I,:,:))) ! sum over all elements of the ADO
+    ! open outfile
+    open(unit=funit, file='ADOs.dat', status='unknown', action='write', position='append')
+    do n = 1, Imax
+        call writeout(funit, time, ADOs(n, :, :))
     end do
-    write(20,fmt) outstr(1), outstr(2:Imax+1) ! write the ADOs to the file
-    close(20)
+    close(funit)
     end subroutine ADOs_print
+
 ! write the system density matrix to file
 subroutine writeout(funit, time, A)
     implicit none

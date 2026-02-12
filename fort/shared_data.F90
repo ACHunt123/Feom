@@ -4,8 +4,6 @@ module shared_data
     integer(4) :: Imax, Ktot, ns, L, Ntot, hbar
     real(8) :: dt
     real(8), parameter :: epsilon = 1.0d-12 ! epsilon for real comparisons
-    ! Parameter for ADO printouts
-    integer(4) :: nprint_ADOs = 100 ! how often to print the ADOs (every nprint_ADOs steps)
     ! Global parameter arrays
     complex(8), allocatable :: gam_ks(:), c_U(:,:), c_D_LEFT(:,:), c_D_RIGHT(:,:)
     integer(4), allocatable :: I0s(:), lengths(:,:), ADO_index(:,:)

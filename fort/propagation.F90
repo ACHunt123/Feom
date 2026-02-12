@@ -9,7 +9,7 @@ program main
     complex(8), allocatable :: ADOs(:,:,:) ! we have not made this global for clarity
     ! Local variables
     real(8) :: time, ADOnorm
-    integer(4) :: stat,it,nttot,ni,ntout
+    integer(4) :: stat,it,nttot,ni,ntout,ntprint_ADOs
     integer(8) :: nk,ki
     logical :: printData
 
@@ -48,7 +48,7 @@ program main
     end do 
     ! Print out the hashmap for the ADO printout
     #ifdef Print_ADOs
-        open(20, file='ADO_index.out', status='unknown', action='write')
+        open(20, file='ADO_index.dat', status='unknown', action='write')
         do ni = 1,Imax
             write(20,'(I10, 5I10)') ni, ADO_index(ni,:)
         end do
@@ -64,6 +64,7 @@ program main
 
     !!! PROPAGATION !!!
     ntout = int(max(nttot / 1000,1)) ! how often to print the output
+    ntprint_ADOs = int(max(nttot / 100,1)) ! how often to print all of the ADOs (if needed)
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 0, nttot
@@ -79,7 +80,7 @@ program main
             call writeout(10, time, ADOS(1,:,:))  ! write density matrix to file
         endif
         #ifdef Print_ADOs
-        if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
+        if( mod(it,ntprint_ADOs).eq.0) call ADOs_print(ADOs,Imax,ns,time)         ! Print the ADOs to file
         #endif
 
         !!! verlet step
