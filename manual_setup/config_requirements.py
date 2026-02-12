@@ -18,7 +18,6 @@ REQUIRED_SYS_MANUAL = {
 REQUIRED_BATH_MANUAL = {
     'C_ks',      # the coefficients behind the exponential terms
     'gam_ks',   # the exponential decay terms
-    'zeta',     # the coeficient behind the delta function
 }
 
 # -----------------------------------------------------------------------------
