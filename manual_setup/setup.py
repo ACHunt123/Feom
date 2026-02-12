@@ -1,5 +1,5 @@
 import numpy as np
-import os,sys
+import os,sys,glob
 from Feom.utils.hashmap import generateHashmap, total_length
 from Feom.baths.utils import get_C_UDs,generate_Terminator
 from Feom.utils.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
@@ -242,8 +242,9 @@ class ManualSetup:
         #Pad every label to be exactly 'w' characters wide (center-aligned)
         formatted_header = "".join([f"{label:^{25}}" for label in raw_labels])
         if save_raw: np.savetxt('raw_output.dat',data,header=formatted_header,fmt='%25.16e', delimiter='')
-        #Clean up the temporary directory
-        os.system('mv tmp/*.out .') if os.path.exists('tmp/*.out') else None  # move the output files to the parent directory [only for if we print the ADOs]
+        #Clean up the temporary directory, and move misc outfiles away
+        for file in glob.glob('tmp/*.dat'):
+            shutil.move(file, '.')
         if cleanup: self._safe_cleanup("tmp/") #clean up the temporary directory
         return 
     
