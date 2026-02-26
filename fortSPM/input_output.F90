@@ -2,74 +2,30 @@ module input_output
     implicit none
     contains
 
-! Read the matrices from the files
-subroutine read_matrix()
+! Read a vectorized complex matrix from a file
+subroutine read_Zvec(filename, vec)
         implicit none
-        
+        ! Arguments
+        character(len=*), intent(in) :: filename  
+        complex(8), allocatable, intent(out)      :: vec(:)
         ! Local variables
-        real(8) :: z_real, z_imag ! real and imaginary parts of the complex number
-        integer :: Ii, Ij, si, sj
-
-        ! Open the files, skipping first line
-        ! small matrices
-        open(11, file='Fortc_U', status='old', action='read');read(11,*)
-        open(21, file='Fortc_D_LEFT', status='old', action='read');read(21,*)
-        open(31, file='Fortc_D_RIGHT', status='old', action='read');read(31,*)
-        open(40, file='Fortgam_ks', status='old', action='read');read(40,*)
-        open(50, file='FortI0s', status='old', action='read');read(50,*)
-        ! large matrices
-        open(60, file='FortH_mat', status='old', action='read');read(60,*)
-        open(70, file='Fortrho', status='old', action='read');read(70,*)
-        open(80, file='Forts_mat', status='old', action='read');read(80,*)
-        open(90, file='FortADO_index', status='old', action='read');read(90,*)
-
-        ! read the large matrices
-        do Ii = 1, Imax
-            do Ij = 1, Ktot
-                read(90,'(I10)') ADO_index(Ii,Ij)
-            end do
-        do si = 1, ns
-        do sj = 1, ns
-            read(70,'(D22.15)') z_real
-            read(70,'(D22.15)') z_imag
-            ADOs(Ii,si,sj) = dcmplx(z_real, z_imag)
-            if (Ii==1) then
-                read(60,'(D22.15)') z_real
-                read(60,'(D22.15)') z_imag
-                iH_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives H)
-                read(80,'(D22.15)') z_real
-                read(80,'(D22.15)') z_imag
-                is_mat(si,sj) = dcmplx(z_real, z_imag)*dcmplx(0.d0,1.d0) !multiply by i (as input file gives s)
-            end if
-        end do; end do; end do
-
-        ! read the small matrices
-        do Ii = 1,Ktot
-            read(40,'(D22.15)') z_real
-            read(40,'(D22.15)') z_imag
-            gam_ks(Ii) = dcmplx(z_real, z_imag)
+        integer :: n_total   
+        real(8) :: z_real, z_imag 
+        integer :: i
+        ! Open the file
+        open(70, file=filename, status='old', action='read')
+        read(70, *) ! Skip the first line (header)
+        read(70, *) n_total ! Read the length
+        allocate(vec(n_total))
+        ! Read the data
+        do i = 1, n_total
+            read(70, '(D22.15)') z_real
+            read(70, '(D22.15)') z_imag
+            vec(i) = dcmplx(z_real, z_imag)
         end do
-        do Ii = 0,L+1
-            read(50,'(I10)') I0s(Ii)
-        end do
-
-        !read the superoperator terms
-        do Ii = 1,Ktot
-            do Ij = 0,L
-                read(11,'(D22.15)') z_real
-                read(11,'(D22.15)') z_imag
-                c_U(Ii,Ij) = dcmplx(z_real, z_imag)
-                read(21,'(D22.15)') z_real
-                read(21,'(D22.15)') z_imag
-                c_D_LEFT(Ii,Ij) = dcmplx(z_real, z_imag)
-                read(31,'(D22.15)') z_real
-                read(31,'(D22.15)') z_imag
-                c_D_RIGHT(Ii,Ij) = dcmplx(z_real, z_imag)
-            end do
-        end do
-        close(11);close(21) !close the small files
-        close(31);close(40);close(50);close(60);close(70);close(80);close(90) !close the files
-    end subroutine
+        ! Close the file
+        close(70)
+    end subroutine read_Zvec
 
 subroutine ADOs_print(ADOs,Imax,ns,it)
     implicit none
