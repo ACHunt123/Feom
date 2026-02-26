@@ -38,38 +38,38 @@ which results in the coefficients,
     c_{\rm U}(k,n_k) &= \sqrt{n_k+1}\l|C_k\r|, & c_{\rm D_{LEFT}}(k,n_k) &= -\sqrt{\frac{n_k}{{|C_k|}}}C_k, & c_{\rm D_{RIGHT}}(k,n_k) &= \sqrt{\frac{n_k}{{|C_k|}}}C_k^*,
 \end{align}
 and $\gamma_k$ being the decay rate of the $k$'th bath mode, and $K$ modes chosen to represent the BCF. In what follows, any sums over $k$ are assumed to go from $1$ to $K$, unless otherwise specified.
-\subsection{Free-Pole HEOM}
-For Free-Pole HEOM~\cite{xuTamingQuantumNoise2022}, the bath correlation function is represented in terms of a sum of dampoed exponentials,
-\begin{align}
-    C_k = \sum_{k=1}^K d_k e^{-z_k t},
-\end{align}
-with $d_k\,,\, z_k \in \mathbbm{C}$.
-the equations of motion are given by
-\begin{align}
-    &\frac{\d}{\d t}\rho_{\vc{m},\vc{l}}(t) = -\frac{i}{\hbar}H_s^{\cross}\rho_{\vc{m},\vc{l}}(t)  - \l(\sum_k m_k z_k + l_kz_k^*\r)\rho_{\vc{m},\vc{l}}(t) -\frac{i}{\hbar}\sum_k \sqrt{(m_k+1)d_k}V^{\cross}\rho_{\vc{m}_k^+,\vc{l}}(t)\nonumber \\[6pt]
-&-\frac{i}{\hbar}\sum_k \sqrt{(l_k+1)d_k^*}V^{\cross}\rho_{\vc{m},\vc{l}_k^+}(t) - \frac{i}{\hbar}\sum_k \sqrt{m_k d_k}V^{L}\rho_{\vc{m}_k^-,\vc{l}}(t) + \frac{i}{\hbar}\sum_k \sqrt{l_k d_k^*}V^{R}\rho_{\vc{m},\vc{l}_k^-}(t).
-\end{align}
-We can combine the two ADO intices (there are two of them due to the forward and back paths being separated out in the influence functional) into a single vector $\vc{n} = \{\vc{m}, \vc{l}\}$, such that the EOM
-are now in the same form as the Shi/Chen scaled HEOM, with the coefficients defined as
-\begin{align}
-    c_{\rm U}(k,n_k) &= \begin{cases}
-    \sqrt{(n_k+1)d_k}, & k \leq K, \\[6pt]
-     \sqrt{(n_k+1)d_{k-K}^*}, & k > K
-    \end{cases}, 
-    & c_{\rm D_{LEFT}}(k,n_k) &= \begin{cases}
-    -\sqrt{n_kd_k}, & k \leq K, \\[6pt]
-     0, & k > K
-    \end{cases}
-     \\[8pt]
-       c_{\rm D_{RIGHT}}(k,n_k)  &= \begin{cases}
-       0, & k \leq K, \\[6pt]
-         \sqrt{n_kd_{k-K}^*}, & k > K
-    \end{cases}, & \gamma_k &= \begin{cases}
-    z_k, & k \leq K, \\[6pt]
-    z_{k-K}^*, & k > K
-    \end{cases}.
-\end{align} 
-This has not been fully implemented yet, but lives in debyeAAA module.
+% \subsection{Free-Pole HEOM}
+% For Free-Pole HEOM~\cite{xuTamingQuantumNoise2022}, the bath correlation function is represented in terms of a sum of dampoed exponentials,
+% \begin{align}
+%     C_k = \sum_{k=1}^K d_k e^{-z_k t},
+% \end{align}
+% with $d_k\,,\, z_k \in \mathbbm{C}$.
+% the equations of motion are given by
+% \begin{align}
+%     &\frac{\d}{\d t}\rho_{\vc{m},\vc{l}}(t) = -\frac{i}{\hbar}H_s^{\cross}\rho_{\vc{m},\vc{l}}(t)  - \l(\sum_k m_k z_k + l_kz_k^*\r)\rho_{\vc{m},\vc{l}}(t) -\frac{i}{\hbar}\sum_k \sqrt{(m_k+1)d_k}V^{\cross}\rho_{\vc{m}_k^+,\vc{l}}(t)\nonumber \\[6pt]
+% &-\frac{i}{\hbar}\sum_k \sqrt{(l_k+1)d_k^*}V^{\cross}\rho_{\vc{m},\vc{l}_k^+}(t) - \frac{i}{\hbar}\sum_k \sqrt{m_k d_k}V^{L}\rho_{\vc{m}_k^-,\vc{l}}(t) + \frac{i}{\hbar}\sum_k \sqrt{l_k d_k^*}V^{R}\rho_{\vc{m},\vc{l}_k^-}(t).
+% \end{align}
+% We can combine the two ADO intices (there are two of them due to the forward and back paths being separated out in the influence functional) into a single vector $\vc{n} = \{\vc{m}, \vc{l}\}$, such that the EOM
+% are now in the same form as the Shi/Chen scaled HEOM, with the coefficients defined as
+% \begin{align}
+%     c_{\rm U}(k,n_k) &= \begin{cases}
+%     \sqrt{(n_k+1)d_k}, & k \leq K, \\[6pt]
+%      \sqrt{(n_k+1)d_{k-K}^*}, & k > K
+%     \end{cases}, 
+%     & c_{\rm D_{LEFT}}(k,n_k) &= \begin{cases}
+%     -\sqrt{n_kd_k}, & k \leq K, \\[6pt]
+%      0, & k > K
+%     \end{cases}
+%      \\[8pt]
+%        c_{\rm D_{RIGHT}}(k,n_k)  &= \begin{cases}
+%        0, & k \leq K, \\[6pt]
+%          \sqrt{n_kd_{k-K}^*}, & k > K
+%     \end{cases}, & \gamma_k &= \begin{cases}
+%     z_k, & k \leq K, \\[6pt]
+%     z_{k-K}^*, & k > K
+%     \end{cases}.
+% \end{align} 
+% This has not been fully implemented yet, but lives in debyeAAA module.
 \section{Bath conventions}
 In this section, we discuss the conventions used for the naming of the baths. We define the spectral density
 \begin{align}
