@@ -4,7 +4,6 @@ module input_output
 
 ! Read the matrices from the files
 subroutine read_matrix()
-    use mkl_spblas
         implicit none
         
         ! Local variables
