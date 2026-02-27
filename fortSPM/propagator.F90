@@ -64,8 +64,8 @@ contains
 ! rk4 propagation of HEOM for one step
 subroutine RK4step(ADOs)
     implicit none
-    complex(8), intent(inout) :: ADOs(Imax,ns,ns)
-    if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
+    complex(8), intent(inout) :: ADOs(Ntot)
+    ! if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
     ! Precomputation of constants
     dto2 = dt/(2.d0,0.d0)               ! half the time step, used for the gradient calculation
     dto6 = dt/(6.d0,0.d0)               ! 1/6 the time step, used for the gradient calculation
@@ -219,7 +219,7 @@ subroutine SIAstep(ADOs)
         complex(8), intent(in) :: ADOs(Ntot) ! the ADOs in the Krylov basis
         integer(4) :: j,k,ni,nj
         real(8) :: ADOnorm,beta
-        complex(8) :: Phi(Imax,ns,ns) ! work vector
+        complex(8) :: Phi(Ntot) ! work vector
         
         !Get the zeroth Krylov vector
         L_mat = (0.d0,0.d0)
@@ -232,14 +232,14 @@ subroutine SIAstep(ADOs)
         do k = 1, Krylov_dim
             ! calculate the (non-orthonormalised) Krylov vector of the i+1 th order
             ! |phi_{k+1}> =  L|Krylov_vecs(k,:)>
-            call get_gradient(reshape(Krylov_vecs(k,:),[Imax,ns,ns]),Phi) 
+            call get_gradient(Krylov_vecs(k,:),Phi) 
 
             ! |phi_{k+1}> ==Gram-Schmidt Orthogonalisation==> |Krylov_vecs(k+1,:)>
             do j = 1, k
                 ! calculate the inner product of the Krylov vector with the previous Krylov vectors
-                beta = innerprod(Krylov_vecs(j,:),reshape(Phi,[Ntot]), Ntot) ! L_mat(i,j) = <Krylov_vecs(j,:),Phi>
+                beta = innerprod(Krylov_vecs(j,:),Phi, Ntot) ! L_mat(i,j) = <Krylov_vecs(j,:),Phi>
                 ! remove the component of the Krylov vector that is in the direction of the previous Krylov vectors
-                Phi = Phi - beta*reshape(Krylov_vecs(j,:),[Imax,ns,ns])
+                Phi = Phi - beta*Krylov_vecs(j,:)
                 ! store the inner product in the Liouvillian matrix
                 L_mat(j,k) = beta   ! L_mat(j,k) = <Krylov_vecs(j,:)|L|Krylov_vecs(k,:)>
                 
@@ -252,7 +252,7 @@ subroutine SIAstep(ADOs)
                 if (abs(ADOnorm).lt.1d-20) then 
                     Krylov_vecs(k+1,:) =(0.d0,0.d0) ! if the norm is too small, set the Krylov vector to zero
                 else
-                    Krylov_vecs(k+1,:) = reshape(Phi,[Ntot])/ADOnorm ! normalise the Krylov vector
+                    Krylov_vecs(k+1,:) = Phi/ADOnorm ! normalise the Krylov vector
                 end if
             endif
         !!!

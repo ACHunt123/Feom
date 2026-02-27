@@ -14,7 +14,7 @@ import sys
 import os
 import numpy as np
 from Feom.fortSPM.manual_setup.config import SimConfig
-from Feom.fortSPM.pythonsparse.writeSPMtofile import write_sparse,write_Zvec
+from Feom.fortSPM.pythonsparse.writeSPMtofile import write_sparse,write_Zvec,writeParams
 from Feom.fortSPM.hierarchy.real_exponential import generate_liouvillian
 
 
@@ -197,6 +197,7 @@ class ManualSetup:
         ## write them all to files
         write_sparse(f"{tmp_folder}/FortLiouvillian.dat",self.Liouvillian)
         write_Zvec(f"{tmp_folder}/Fortrho.dat", rho_matrix)
+        writeParams(f"{tmp_folder}/Fortparams.dat", self)
         print('matrices written, now will do the product')
 
         # Flatten rho exactly as the text file writer does (Column-major / Fortran order)
@@ -216,10 +217,10 @@ class ManualSetup:
     def insert_executable(self):
         if not hasattr(self,"_input_files_generated"): raise RuntimeError("Input files have not been generated yet")
 
-        # makefile_command, self.executable_suffix = FORT_SWITCHES(self)
-        # self.executable_name=f'propagation{self.executable_suffix}'
-        makefile_command, self.executable_suffix = None,None
-        self.executable_name=f'main'
+        makefile_command, self.executable_suffix = FORT_SWITCHES(self)
+        self.executable_name=f'propagation{self.executable_suffix}'
+        # makefile_command, self.executable_suffix = None,None
+        # self.executable_name=f'main'
         # Copy the correct fortran executable to the temporary directory
         print(f'\n Copying the fortran executable {self.executable_name} to the tmp/ directory\n')
         # get the repo root

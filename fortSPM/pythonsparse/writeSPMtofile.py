@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from scipy.sparse import csr_matrix
 
 def write_sparse(filename,A):
@@ -47,6 +48,17 @@ def write_Zvec(filename, matrix):
             
             f.write(f"{real_str}\n")
             f.write(f"{imag_str}\n")
+
+def writeParams(filename,sim): # Writes small parameters into file
+    params=sim.params
+    bath=sim.bath
+    nttot =int(params.tmax/params.dt)+1 # calculate the total number of time steps
+    if not os.path.exists(f"tmp/"): os.makedirs(f"tmp/")
+    with open(f"{filename}", "w") as f:
+        f.write("ns,dt,nttot\n")
+        f.write(f"{params.ns:10d} {params.dt:22.15e} {nttot:10d}\n".replace('e','d'))
+        f.write("/\n")
+    return
 
 
 if __name__=='__main__':

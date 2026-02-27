@@ -3,8 +3,8 @@ import numpy as np
 
 def generate_liouvillian(sim):
     
-    N_sys=2
-    N_liouv = N_sys**2
+    K = len(sim.bath.C_ks)
+    N_liouv = sim.params.ns**2
 
     # for now just put in a placeholder
     # ==========================================
