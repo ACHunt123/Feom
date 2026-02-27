@@ -28,15 +28,15 @@ class ManualSetup:
         self.pot = self._setup_system(config.system)
         self.bath = self._setup_bath(config.bath)
         self.params = self._setup_params(config.params)
+        self._setup_Xi(config.terminator)
         
         ### Generate the sparse matrix Liouvillian
         generate_liouvillian(self)
         print('liouvillian generated')
-        self.params.Imax=1
+
         
         ### generate the terminator
         # generate_Terminator(self)
-        # self._setup_Xi(config.terminator)
 
     def _setup_system(self, sys_dict):
         """
@@ -118,16 +118,16 @@ class ManualSetup:
         '''   
         if terminator_dict == None: #no terminator added
             self.params.LTCorr = None
-            self.Xi = np.zeros((1,1,1),dtype=complex)
+            self.Xi = 0+0.j
         else:
             # inherit the attributes and default the normal terminator to be same for each ADO
             self.params.LTCorr = getattr(terminator_dict, 'correction_type', 'same_for_each_ADO') # switch for the compiler flags of FORTRAN
 
             if  self.params.LTCorr == 'same_for_each_ADO':
-                self.Xi = np.zeros((1,self.params.ns**2,self.params.ns**2),dtype=complex) 
+                self.Xi = np.zeros((self.params.ns**2,self.params.ns**2),dtype=complex) 
                 if np.shape(terminator_dict["Xi"]) != (self.params.ns**2,self.params.ns**2):
                     raise ValueError('Shape of the terminator (one for each ADO) is incorrect')
-                self.Xi[0,:,:]=terminator_dict["Xi"]
+                self.Xi[:,:]=terminator_dict["Xi"]
 
             elif  self.params.LTCorr == 'different_for_each_ADO':
                 self.Xi = np.zeros((self.params.Imax,self.params.ns**2,self.params.ns**2),dtype=complex) 
@@ -167,15 +167,18 @@ class ManualSetup:
     
     def set_initial_ADOs(self,x_in,mode='0th'):
         ''' Setup the initial state of the ADOs
-            works with either the entire set, or the 0th'''
-        self.x0 = np.zeros((self.params.ns, self.params.ns, self.params.Imax), dtype=complex)
-        if mode == '0th': #just set the initial system one
-            self.x0[:,:,0]=x_in
+            works with either the entire set, or the 0th
+            vectorizes the rho as well with FORTRAN ordering'''
+        x_in_flat=x_in.flatten(order='F')
+        self.ADOs = np.zeros(self.params.Ntot, dtype=complex)
+        if mode == '0th':  #just set the initial system one
+            if len(x_in_flat)!= self.params.ns**2: raise RuntimeError(f"0th ADO has shape {x_in.shape} but should be {self.params.ns}*{self.params.ns}")
+            self.ADOs[:len(x_in_flat)] = x_in_flat
         elif mode =='all': #set the entire set 
-            self.x0=x_in
+            if len(x_in_flat)!= self.params.Ntot: raise RuntimeError(f"all ADOs have length {len(x_in_flat)} but should be {self.params.Ntot}")
+            self.ADOs = x_in_flat
         else:
             raise ValueError(f"Unknown mode '{mode}'. Use '0th' or 'all'.")
-        self.ADOs = x_in
         self._ADOs_loaded=True
 
     def generate_input_files(self):
@@ -187,24 +190,11 @@ class ManualSetup:
         self.dest_dir = Path.cwd() / tmp_folder
         self.dest_dir.mkdir(parents=True, exist_ok=True) # make the tmp if it doesnt exist
 
-
         ## write them all to files
         write_sparse(f"{tmp_folder}/FortLiouvillian.inp",self.Liouvillian)
         write_Zvec(f"{tmp_folder}/Fortrho.inp", self.ADOs)
         writeParams(f"{tmp_folder}/Fortparams.inp", self)
-        print('matrices written, now will do the product')
 
-        # Flatten rho exactly as the text file writer does (Column-major / Fortran order)
-        rho_vec = self.ADOs.flatten(order='F')
-
-        # Perform the matrix-vector multiplication
-        result_vec = self.Liouvillian.dot(rho_vec)
-
-        print("==========================================")
-        print(" Python Result Vector (A * rho):")
-        for i, val in enumerate(result_vec):
-            print(f" [{i+1}] {val.real:15.5f}  + {val.imag:15.5f}j")
-        print("==========================================")
         self._input_files_generated =True
 
 
