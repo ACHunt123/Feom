@@ -2,6 +2,10 @@ import numpy as np
 import os
 from scipy.sparse import csr_matrix
 
+# Some useful functions for the HEOM code
+# including reade-write functions and naming for FORTRAN executables
+
+
 def write_sparse(filename,A):
     # Use 1-based indexing for Fortran
     row_ptr = A.indptr + 1
@@ -59,6 +63,30 @@ def writeParams(filename,sim): # Writes small parameters into file
         f.write(f"{params.ns:10d}{params.dt:22.15e}{nttot:10d}\n".replace('e','d'))
         f.write("/\n")
     return
+
+
+
+
+def FORT_SWITCHES(sim):
+    params = sim.params
+    bath = sim.bath
+    ''' Supported compile-time switches (SWITCHES):
+       -DPrint_ADOs         Print the ADOs to file every N timesteps
+       -DSIA                Use SIA step instead of RK4 step (default)
+     '''
+    switches = []
+    if params.print_ADOs:
+        switches.append('Print_ADOs')
+    if not params.noSIA:
+        switches.append('SIA')
+    # sort the switches to be alphabetical
+    switches.sort()
+    makefile_command= f'SWITCHES=" -D{" -D".join(switches)}"'
+    executable_suffix='_'+'_'.join(switches)
+    if len(switches) == 0:
+        executable_suffix = ''
+        makefile_command = 'SWITCHES=""'    
+    return makefile_command, executable_suffix
 
 
 if __name__=='__main__':

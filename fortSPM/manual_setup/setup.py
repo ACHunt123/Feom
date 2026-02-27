@@ -1,25 +1,14 @@
 import numpy as np
 import os,sys,glob
-from Feom.utils.utils import FORT_SWITCHES
-from scipy.sparse import csr_matrix
-
 import shutil
 from pathlib import Path
-npF = np.asfortranarray # Aliasing to make the code more legible
-
+from Feom.fortSPM.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams
+from Feom.fortSPM.manual_setup.config import SimConfig
+import Feom.fortSPM.manual_setup.config_requirements as cfg  
+from Feom.fortSPM.hierarchy.real_exps import generate_liouvillian
 #
 #   Setup class for the FEOM integrator with sparse matrices
 #
-import sys
-import os
-import numpy as np
-from Feom.fortSPM.manual_setup.config import SimConfig
-from Feom.fortSPM.pythonsparse.writeSPMtofile import write_sparse,write_Zvec,writeParams
-from Feom.fortSPM.hierarchy.real_exps import generate_liouvillian
-
-
-import Feom.fortSPM.manual_setup.config_requirements as cfg  
-
 class ManualSetup:
     def __init__(self, config: SimConfig):
         # save the input configuration before we do anything to it
@@ -196,7 +185,7 @@ class ManualSetup:
 
     def insert_executable(self):
         if not hasattr(self,"_input_files_generated"): raise RuntimeError("Input files have not been generated yet")
-
+        self.params.LTCorr=None
         makefile_command, self.executable_suffix = FORT_SWITCHES(self)
         self.executable_name=f'propagation{self.executable_suffix}'
         # makefile_command, self.executable_suffix = None,None
