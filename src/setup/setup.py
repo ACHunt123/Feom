@@ -1,46 +1,31 @@
 import numpy as np
 import os,sys,glob
-from Feom.utils.hashmap import generateHashmap, total_length
-from Feom.baths.utils import get_C_UDs,generate_Terminator
-from Feom.utils.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
-
 import shutil
 from pathlib import Path
-npF = np.asfortranarray # Aliasing to make the code more legible
-
+from Feom.src.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams
+from Feom.src.setup.config import SimConfig
+import Feom.src.setup.config_requirements as cfg  
+from Feom.src.hierarchy.real_exps import generate_liouvillian
 #
-#   Setup class for the FEOM integrator
+#   Setup class for the FEOM integrator with sparse matrices
 #
-
-import sys
-import os
-import numpy as np
-from Feom.manual_setup.config import SimConfig
-# from tools import ... 
-# import baths
-
-import Feom.manual_setup.config_requirements as cfg  
-
-class ManualSetup:
+class Setup:
     def __init__(self, config: SimConfig):
         # save the input configuration before we do anything to it
-        config.save('config.json')
+        # config.save('config.json')
         # Unpack the configuration (either inputted through dicts or from a previous json)
         self.pot = self._setup_system(config.system)
         self.bath = self._setup_bath(config.bath)
         self.params = self._setup_params(config.params)
+        self._setup_Xi(config.terminator)
         
-        # Calculate the C_U, c_D_LEFT, c_D_RIGHT coefficients for the bath (that are used in the FEOM code)
-        get_C_UDs(self.bath,self.params.L)
+        ### Generate the sparse matrix Liouvillian
+        generate_liouvillian(self)
+        print('liouvillian generated')
 
-        # Calculate Hashmaps for indexing ADOs
-        self.ADO_index, self.I0s = generateHashmap(self.bath.K,self.params.L,self.bath.N_nonmats) #hash map from the index of the ADO to the index of the BCF
-        self.params.Imax = total_length(self.bath.K,self.params.L,self.bath.N_nonmats)     # the total number of ADOs
-        print(f'Total number of ADOs: {self.params.Imax}')
         
         ### generate the terminator
         # generate_Terminator(self)
-        self._setup_Xi(config.terminator)
 
     def _setup_system(self, sys_dict):
         """
@@ -79,8 +64,6 @@ class ManualSetup:
         # Checks
         self._validate_bath(bath_obj)
         # Calculate derived quantities
-        bath_obj.N_exp = len(bath_obj.C_ks)
-        bath_obj.N_nonmats = 0
         bath_obj.K = len(bath_obj.C_ks)
     
         return bath_obj
@@ -109,10 +92,8 @@ class ManualSetup:
             defaults=cfg.DEFAULT_PARAMS_MANUAL,
             obj_name="ManualParams")
         # calculate derived quantities and imports from other objects
-        params_obj.hbar=1
         params_obj.ns=self.pot.ns
         params_obj.K=self.bath.K
-        # insert compiler defaults
 
         return params_obj
     
@@ -122,16 +103,16 @@ class ManualSetup:
         '''   
         if terminator_dict == None: #no terminator added
             self.params.LTCorr = None
-            self.Xi = np.zeros((1,1,1),dtype=complex)
+            self.Xi = 0+0.j
         else:
             # inherit the attributes and default the normal terminator to be same for each ADO
             self.params.LTCorr = getattr(terminator_dict, 'correction_type', 'same_for_each_ADO') # switch for the compiler flags of FORTRAN
 
             if  self.params.LTCorr == 'same_for_each_ADO':
-                self.Xi = np.zeros((1,self.params.ns**2,self.params.ns**2),dtype=complex) 
+                self.Xi = np.zeros((self.params.ns**2,self.params.ns**2),dtype=complex) 
                 if np.shape(terminator_dict["Xi"]) != (self.params.ns**2,self.params.ns**2):
                     raise ValueError('Shape of the terminator (one for each ADO) is incorrect')
-                self.Xi[0,:,:]=terminator_dict["Xi"]
+                self.Xi[:,:]=terminator_dict["Xi"]
 
             elif  self.params.LTCorr == 'different_for_each_ADO':
                 self.Xi = np.zeros((self.params.Imax,self.params.ns**2,self.params.ns**2),dtype=complex) 
@@ -171,12 +152,16 @@ class ManualSetup:
     
     def set_initial_ADOs(self,x_in,mode='0th'):
         ''' Setup the initial state of the ADOs
-            works with either the entire set, or the 0th'''
-        self.x0 = np.zeros((self.params.ns, self.params.ns, self.params.Imax), dtype=complex)
-        if mode == '0th': #just set the initial system one
-            self.x0[:,:,0]=x_in
+            works with either the entire set, or the 0th
+            vectorizes the rho as well with FORTRAN ordering'''
+        x_in_flat=x_in.flatten(order='F')
+        self.ADOs = np.zeros(self.params.Ntot, dtype=complex)
+        if mode == '0th':  #just set the initial system one
+            if len(x_in_flat)!= self.params.ns**2: raise RuntimeError(f"0th ADO has shape {x_in.shape} but should be {self.params.ns}*{self.params.ns}")
+            self.ADOs[:len(x_in_flat)] = x_in_flat
         elif mode =='all': #set the entire set 
-            self.x0=x_in
+            if len(x_in_flat)!= self.params.Ntot: raise RuntimeError(f"all ADOs have length {len(x_in_flat)} but should be {self.params.Ntot}")
+            self.ADOs = x_in_flat
         else:
             raise ValueError(f"Unknown mode '{mode}'. Use '0th' or 'all'.")
         self._ADOs_loaded=True
@@ -184,37 +169,35 @@ class ManualSetup:
     def generate_input_files(self):
         # Check that everything has been initialized
         if not hasattr(self,"_ADOs_loaded"): raise RuntimeError("ADOs have not been loaded yet")
-        # Format all of the data
-        x0fort =np.zeros((self.params.Imax,self.params.ns,self.params.ns),dtype=complex,order='F')
-        for I in range(self.params.Imax):
-            x0fort[I,:,:] = npF(self.x0[:,:,I])
-        # Write the data to the files
-        writeZ('Fortrho',x0fort)
-        writeI('FortADO_index',npF(self.ADO_index)) 
-        writeI('FortI0s',npF(self.I0s)+1) # +1 because fortran is 1 indexed (not 0 indexed like in python)
-        writeZ('Fortgam_ks',npF(self.bath.gam_ks))
-        writeZ('FortC_ks',npF(self.bath.C_ks))
-        writeZ('Fortc_U',npF(self.bath.c_U))
-        writeZ('Fortc_D_LEFT',npF(self.bath.c_D_LEFT))
-        writeZ('Fortc_D_RIGHT',npF(self.bath.c_D_RIGHT))
-        writeZ('FortH_mat',npF(self.pot.H_mat))
-        writeZ('Forts_mat',npF(self.pot.s_mat))
-        writeZ('FortTerminator',npF(self.Xi))
-        # Write the parameters to the file
-        writeParams('Fortparams',self)
         
+        # Put the files in a temporary folder
+        tmp_folder='tmp'
+        self.dest_dir = Path.cwd() / tmp_folder
+        self.dest_dir.mkdir(parents=True, exist_ok=True) # make the tmp if it doesnt exist
+
+        ## write them all to files
+        write_sparse(f"{tmp_folder}/FortLiouvillian.inp",self.Liouvillian)
+        write_Zvec(f"{tmp_folder}/Fortrho.inp", self.ADOs)
+        writeParams(f"{tmp_folder}/Fortparams.inp", self)
+
+        self._input_files_generated =True
+
+
     def insert_executable(self):
+        if not hasattr(self,"_input_files_generated"): raise RuntimeError("Input files have not been generated yet")
+        self.params.LTCorr=None
         makefile_command, self.executable_suffix = FORT_SWITCHES(self)
         self.executable_name=f'propagation{self.executable_suffix}'
+        # makefile_command, self.executable_suffix = None,None
+        # self.executable_name=f'main'
         # Copy the correct fortran executable to the temporary directory
         print(f'\n Copying the fortran executable {self.executable_name} to the tmp/ directory\n')
         # get the repo root
-        repo_root = Path(__file__).resolve().parent.parent  
+        repo_root = Path(__file__).resolve().parent.parent
         # get the executable source code
         exe_source = repo_root / 'fort' / 'executables' / self.executable_name
         # destination directory (tmp folder in current working directory)
-        dest_dir = Path.cwd() / 'tmp'
-        dest_file = dest_dir / self.executable_name
+        dest_file = self.dest_dir / self.executable_name
         # copy to destination if it exists
         if exe_source.exists():
             shutil.copy2(exe_source, dest_file) 
