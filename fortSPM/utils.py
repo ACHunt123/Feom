@@ -5,7 +5,6 @@ from scipy.sparse import csr_matrix
 # Some useful functions for the HEOM code
 # including reade-write functions and naming for FORTRAN executables
 
-
 def write_sparse(filename,A):
     # Use 1-based indexing for Fortran
     row_ptr = A.indptr + 1
@@ -24,8 +23,6 @@ def write_sparse(filename,A):
         for val in values:
             f.write(f"{val.real:22.15e}\n".replace('e','d'))
             f.write(f"{val.imag:22.15e}\n".replace('e','d'))
-
-import numpy as np
 
 def write_Zvec(filename, matrix):
     """
@@ -64,12 +61,8 @@ def writeParams(filename,sim): # Writes small parameters into file
         f.write("/\n")
     return
 
-
-
-
 def FORT_SWITCHES(sim):
     params = sim.params
-    bath = sim.bath
     ''' Supported compile-time switches (SWITCHES):
        -DPrint_ADOs         Print the ADOs to file every N timesteps
        -DSIA                Use SIA step instead of RK4 step (default)

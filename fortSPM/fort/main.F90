@@ -56,7 +56,8 @@ program main
             call writeout(10,time,ADOs(1:ns**2))
         endif
         #ifdef Print_ADOs
-        if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
+        time = it * dt
+        if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,ns,Ntot,time)         ! Print the ADOs to file
         #endif
 
         !!! verlet step

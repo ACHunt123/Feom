@@ -2,4 +2,6 @@
 make clean
 # make fast SWITCHES="-DSIA"
 make fast SWITCHES="-DSIA"
+make fast SWITCHES="-DPrint_ADOs"
+make fast SWITCHES="-DPrint_ADOs -DSIA"
 make fast SWITCHES=""

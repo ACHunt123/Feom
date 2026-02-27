@@ -27,31 +27,24 @@ subroutine read_Zvec(filename, vec)
         close(70)
     end subroutine read_Zvec
 
-subroutine ADOs_print(ADOs,Imax,ns,it)
+subroutine ADOs_print(ADOs, ns, Ntot, time)
     implicit none
-    integer(4), intent(in) :: it,ns,Imax
-    complex(8), intent(in) :: ADOs(Imax,ns,ns)
-    real(8) :: outstr(Imax+1)
-    integer(4) :: I!,si
-    character(len=100) :: fmt ! format string for the output
-    write(fmt, '(A,I0,A)') '(E25.15,', Imax, 'E25.15)' 
-
-    ! Open the file for writing
-    open(20, file='ADOs.out', status='unknown', action='write', position='append')
-
-    ! Write the ADOs to the file
-    outstr(:) = 0.d0 ! initialize the output array
-    outstr(1)=real(it)
-    ! print *, 'Writing ADOs to file at timestep', it
-    do I = 1, Imax
-        ! do si = 1,ns
-        !     outstr(I+1) = outstr(I+1) + real(ADOs(I,si,si)) ! trace calculation
-        ! end do  
-        outstr(I+1) = sum(abs(ADOs(I,:,:))) ! sum over all elements of the ADO
+    integer(4), intent(in) :: ns,Ntot
+    real(8), intent(in) :: time
+    complex(8), intent(in) :: ADOs(Ntot) 
+    integer(4) :: n, Nados, start_idx, end_idx
+    integer(4), parameter :: funit = 11
+    
+    Nados = Ntot / (ns**2) ! get the number of ADOs
+    open(unit=funit, file='ADOs.dat', status='unknown', action='write', position='append')
+    ! print out each ADO sequentially
+    do n = 1, Nados
+        start_idx = (n-1) * (ns**2) + 1
+        end_idx   = n * (ns**2)
+        call writeout(funit, time, ADOs(start_idx:end_idx))
     end do
-    write(20,fmt) outstr(1), outstr(2:Imax+1) ! write the ADOs to the file
-    close(20)
-end subroutine ADOs_print
+    close(funit)
+    end subroutine ADOs_print
 
 ! write the system density matrix to file
 subroutine writeout(funit, time, A)
