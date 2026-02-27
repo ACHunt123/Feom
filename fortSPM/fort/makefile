@@ -5,15 +5,13 @@
 #   make [target] [SWITCHES="..."]
 #
 # If SWITCHES are not specified, defaults to:
-#   SWITCHES = -DLowTCorr
+#   SWITCHES = -DSIA
 #
 # Supported compile-time switches (SWITCHES):
-#   -DLowTCorr      Enable low-temperature correction via double commutator
 #   -DPrint_ADOs    Print the ADOs to file every N timesteps
-#   -DPrune         Prune the ADOs dynamically during propagation
 #
 # Example:
-#   make fast SWITCHES="-DLowTCorr -DPrint_ADOs"
+#   make fast SWITCHES=" -DPrint_ADOs"
 #
 # Targets:
 #   fast            Optimized build
@@ -25,7 +23,7 @@
 
 
 # Default switches (if not specified)
-SWITCHES?= -DLTCorr=1 -DSIA
+SWITCHES?= -DSIA
 ### Calculate the name of the executable based on switches [replace -D with _, = with nothing, and sort alphabetically]
 NAME := propagation
 SWITCH_SUFFIX := $(strip $(shell echo $(SWITCHES) | tr ' ' '\n' | sort | sed 's/-D//g; s/=//g' | paste -sd_ -))
@@ -38,7 +36,7 @@ endif
 FC = ifx             # Intel Fortran Compiler (can switch to gfortran if needed)
 F90FLAGS = -g -O3 -funroll-loops  -heap-arrays  ${SWITCHES} 
 F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 ${SWITCHES}			# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
-FILES = complex_sparse_linalg.F90 utils.F90 shared_data.F90 input_output.F90 gradient.F90 propagator.F90 main.F90 -qmkl 
+FILES = complex_sparse_linalg.F90 utils.F90 shared_data.F90 input_output.F90 gradient.F90 integrator.F90 main.F90 -qmkl 
 
 # Directories
 EXEC_DIR = executables

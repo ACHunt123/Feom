@@ -1,7 +1,7 @@
 program main
     use input_output
-    use prop_subroutines, only: RK4step, k1, k2, k3, k4, ktmp!, ADOs_tmp, temp_grad
-    use prop_subroutines, only: Krylov_vecs, SIAstep, Krylov_dim,L_mat,default_Krylov_dim, Recalculate_ADOs,ADOs_Krylov
+    use integrator, only: RK4step, k1, k2, k3, k4, ktmp!, ADOs_tmp, temp_grad
+    use integrator, only: Krylov_vecs, SIAstep, Krylov_dim,L_mat,default_Krylov_dim, Recalculate_ADOs,ADOs_Krylov
     use shared_data
     use utils, only: norm
     use complex_sparse_linalg, only: destroy_matrix

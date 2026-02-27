@@ -1,5 +1,0 @@
-#!/bin/bash
-make clean
-# make fast SWITCHES="-DSIA"
-make debug SWITCHES="-DLTCorr1 -DSIA"
-make debug SWITCHES="-DLTCorr1"

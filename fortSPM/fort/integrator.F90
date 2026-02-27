@@ -1,5 +1,5 @@
 ! Fortran module to propagate the HEOM code
-module prop_subroutines
+module integrator
 use shared_data
 use gradient, only: get_gradient
 use utils, only: innerprod,norm, check_condition_number
@@ -260,4 +260,4 @@ subroutine SIAstep(ADOs)
         end subroutine generate_krylov_vecs
 
     end subroutine SIAstep
-end module prop_subroutines
+end module integrator

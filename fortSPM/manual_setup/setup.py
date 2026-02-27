@@ -15,7 +15,7 @@ import os
 import numpy as np
 from Feom.fortSPM.manual_setup.config import SimConfig
 from Feom.fortSPM.pythonsparse.writeSPMtofile import write_sparse,write_Zvec,writeParams
-from Feom.fortSPM.hierarchy.real_exponential import generate_liouvillian
+from Feom.fortSPM.hierarchy.real_exps import generate_liouvillian
 
 
 import Feom.fortSPM.manual_setup.config_requirements as cfg  
@@ -75,8 +75,6 @@ class ManualSetup:
         # Checks
         self._validate_bath(bath_obj)
         # Calculate derived quantities
-        bath_obj.N_exp = len(bath_obj.C_ks)
-        bath_obj.N_nonmats = 0
         bath_obj.K = len(bath_obj.C_ks)
     
         return bath_obj
@@ -105,10 +103,8 @@ class ManualSetup:
             defaults=cfg.DEFAULT_PARAMS_MANUAL,
             obj_name="ManualParams")
         # calculate derived quantities and imports from other objects
-        params_obj.hbar=1
         params_obj.ns=self.pot.ns
         params_obj.K=self.bath.K
-        # insert compiler defaults
 
         return params_obj
     
@@ -208,10 +204,9 @@ class ManualSetup:
         # Copy the correct fortran executable to the temporary directory
         print(f'\n Copying the fortran executable {self.executable_name} to the tmp/ directory\n')
         # get the repo root
-        repo_root = Path(__file__).resolve().parent.parent.parent
+        repo_root = Path(__file__).resolve().parent.parent
         # get the executable source code
-        # exe_source = repo_root / 'fort' / 'executables' / self.executable_name
-        exe_source = repo_root / 'fortSPM' / 'executables' / self.executable_name
+        exe_source = repo_root / 'fort' / 'executables' / self.executable_name
         # destination directory (tmp folder in current working directory)
         dest_file = self.dest_dir / self.executable_name
         # copy to destination if it exists
