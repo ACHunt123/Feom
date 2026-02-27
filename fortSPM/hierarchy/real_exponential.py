@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.sparse import csr_matrix, eye, kron
 from scipy.sparse import coo_matrix
+from types import SimpleNamespace
 
 
 def generate_ado_raising_lowering_ops(K,L):
@@ -33,7 +34,11 @@ def generate_ado_raising_lowering_ops(K,L):
                 A_rows[k].append(old_id)
                 A_cols[k].append(new_id)
                 A_data[k].append(val)
-                    
+                # This way, for the example of one dim
+                # <n| A \sum_n' \rho_n' |n'> 
+                #  = \sum_n' \rho_n' <n| A |n'> 
+                #  = \sum_n' \rho_n' delta_{n n'-1} 
+                #  = rho_n+1 
         old_indices_dict = new_indices_dict.copy()
 
     # Compile into perfectly square K distinct sparse matrices
@@ -43,19 +48,9 @@ def generate_ado_raising_lowering_ops(K,L):
     AdagA = [Adag[k] @ A[k] for k in range(K)]
 
 
-    if(0):
-        print(f"Total ADOs generated: {Nados}")
-        # print(f"indices dict: {indices_dict}\n")
-
-        for k in range(K):
-            print(f"--- Adag Matrix for Mode k={k} ---")
-            print(np.round(Adag[k].toarray(), 3))
-            print(np.round(AdagA[k].toarray(), 3))
-            print()
-        exit()
-
-
-    return A,Adag,AdagA,indices_dict
+    # Package and send out the operators
+    ADO_ops = SimpleNamespace(A=A,Adag=Adag,AdagA=AdagA)
+    return ADO_ops,indices_dict
 
 
 def generate_liouvillian(sim):
@@ -64,7 +59,10 @@ def generate_liouvillian(sim):
     L = sim.params.L
 
     # Raising/Lowering and number operators in the ADO space
-    A, Adag, AdagA, indices_dict = generate_ado_raising_lowering_ops(K,L)
+    ADO_ops,indices_dict = generate_ado_raising_lowering_ops(K,L)
+    A = ADO_ops.A
+    Adag = ADO_ops.Adag
+    AdagA = ADO_ops.AdagA
     Nados = len(indices_dict)
 
     # Identity matrices
@@ -96,9 +94,8 @@ def generate_liouvillian(sim):
         Adagk=Adag[ki]
         Lk_plus = -(1.j/np.sqrt(np.abs(Ck)))*(Ck*VL-Ck.conj()*VR)
         Lk_minus = -1.j*np.sqrt(np.abs(Ck))*Vx
-
-        L += kron(Ak, Lk_plus, format='csr')
-        L += kron(Adagk, Lk_minus, format='csr')
+        L += kron(Adagk, Lk_plus, format='csr')
+        L += kron(Ak, Lk_minus, format='csr')
 
     # Add on the diagonal damping
     for ki in range(K):
@@ -111,3 +108,56 @@ def generate_liouvillian(sim):
     sim.Liouvillian = L
     sim.params.Nados=Nados
     sim.params.Ntot=sim.params.Nados*sim.params.ns**2
+    
+
+if __name__=='__main__':
+    # test for the A and the A daggers
+    ns = 2
+    K=4
+    L=3
+
+    # get the superoperators
+    I_sys = eye(ns**2, format='csr', dtype=np.complex128)
+    ADO_ops,indices_dict = generate_ado_raising_lowering_ops(K,L)
+    Nados = len(indices_dict)
+
+    
+    I_ado = eye(Nados, format='csr', dtype=np.complex128)
+
+    A = ADO_ops.A
+    Adag = ADO_ops.Adag
+    AdagA = ADO_ops.AdagA
+    Nados = len(indices_dict)
+
+    rho0 = np.zeros(Nados*ns**2,dtype=complex)
+
+    #set the 0th ado to nonzeros
+    print('setting one of the rho100... to the identity and the others to 0')
+    rho0[ns**2:2*ns**2]=(np.identity(ns)).flatten(order='F')
+
+    # calculate the lowering and raising superoperator (summed over k)
+    Aks = kron(I_ado, I_sys, format='csr')*0+0.j
+    Adagks = kron(I_ado, I_sys, format='csr')*0+0.j
+    AdagAks = kron(I_ado, I_sys, format='csr')*0+0.j
+    for ki in range(K):
+        Adagk=Adag[ki]
+        AdagAk=AdagA[ki]
+        Ak=A[ki]
+        Aks += kron(Ak, I_sys, format='csr')
+        Adagks += kron(Adagk, I_sys, format='csr')
+        AdagAks += kron(AdagAk, I_sys, format='csr')
+
+    print('original rho000...')
+    print(rho0[:ns**2].reshape((ns,ns),order='F'))
+    for k in range(K+3):
+        # rho0 =Adagks.dot(rho0)
+        # rho0 =AdagAks.dot(rho0)
+        rho0 =Aks.dot(rho0)
+        print(f'Ak ^{k+1}rho000...')
+        print(rho0[:ns**2].reshape((ns,ns),order='F'))
+        # print(rho0[ns**2:2*ns**2].reshape((ns,ns),order='F'))
+        
+        print('the whole matrix is zero?',np.allclose(rho0 , 0))
+
+    # this shows that the Ak will bring down the rho_n ->rho_n-1
+    # meaning that rho_n will interact with rho_n+1
