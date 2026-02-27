@@ -7,8 +7,8 @@ program test_main
     complex(8), allocatable :: vec(:),y(:)
     integer :: i
     ! Read in sparse matrix and dense vector (both complex(8))
-    call read_matrix('matrices/csr_matrix_fortran.txt', A)
-    call read_Zvec("matrices/Fortrho_matrix.txt", vec)
+    call read_matrix('FortLiouvillian.dat', A)
+    call read_Zvec("Fortrho.dat", vec)
     ! Check all the dimensions etc.
     print *, "Checking dimensions..."
     if (size(vec) /= A%n_cols) then

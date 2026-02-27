@@ -1,25 +1,24 @@
 import numpy as np
 import os,sys,glob
-from Feom.utils.hashmap import generateHashmap, total_length
-from Feom.baths.utils import get_C_UDs,generate_Terminator
-from Feom.utils.utils import writeZ,writeI,writeParams,FORT_SWITCHES,out_filename,printparams
+from Feom.utils.utils import FORT_SWITCHES
+from scipy.sparse import csr_matrix
 
 import shutil
 from pathlib import Path
 npF = np.asfortranarray # Aliasing to make the code more legible
 
 #
-#   Setup class for the FEOM integrator
+#   Setup class for the FEOM integrator with sparse matrices
 #
-
 import sys
 import os
 import numpy as np
-from Feom.manual_setup.config import SimConfig
-# from tools import ... 
-# import baths
+from Feom.fortSPM.manual_setup.config import SimConfig
+from Feom.fortSPM.pythonsparse.writeSPMtofile import write_sparse,write_Zvec
+from Feom.fortSPM.hierarchy.real_exponential import generate_liouvillian
 
-import Feom.manual_setup.config_requirements as cfg  
+
+import Feom.fortSPM.manual_setup.config_requirements as cfg  
 
 class ManualSetup:
     def __init__(self, config: SimConfig):
@@ -30,17 +29,14 @@ class ManualSetup:
         self.bath = self._setup_bath(config.bath)
         self.params = self._setup_params(config.params)
         
-        # Calculate the C_U, c_D_LEFT, c_D_RIGHT coefficients for the bath (that are used in the FEOM code)
-        get_C_UDs(self.bath,self.params.L)
-
-        # Calculate Hashmaps for indexing ADOs
-        self.ADO_index, self.I0s = generateHashmap(self.bath.K,self.params.L,self.bath.N_nonmats) #hash map from the index of the ADO to the index of the BCF
-        self.params.Imax = total_length(self.bath.K,self.params.L,self.bath.N_nonmats)     # the total number of ADOs
-        print(f'Total number of ADOs: {self.params.Imax}')
+        ### Generate the sparse matrix Liouvillian
+        generate_liouvillian(self)
+        print('liouvillian generated')
+        self.params.Imax=1
         
         ### generate the terminator
         # generate_Terminator(self)
-        self._setup_Xi(config.terminator)
+        # self._setup_Xi(config.terminator)
 
     def _setup_system(self, sys_dict):
         """
@@ -184,37 +180,55 @@ class ManualSetup:
     def generate_input_files(self):
         # Check that everything has been initialized
         if not hasattr(self,"_ADOs_loaded"): raise RuntimeError("ADOs have not been loaded yet")
-        # Format all of the data
-        x0fort =np.zeros((self.params.Imax,self.params.ns,self.params.ns),dtype=complex,order='F')
-        for I in range(self.params.Imax):
-            x0fort[I,:,:] = npF(self.x0[:,:,I])
-        # Write the data to the files
-        writeZ('Fortrho',x0fort)
-        writeI('FortADO_index',npF(self.ADO_index)) 
-        writeI('FortI0s',npF(self.I0s)+1) # +1 because fortran is 1 indexed (not 0 indexed like in python)
-        writeZ('Fortgam_ks',npF(self.bath.gam_ks))
-        writeZ('FortC_ks',npF(self.bath.C_ks))
-        writeZ('Fortc_U',npF(self.bath.c_U))
-        writeZ('Fortc_D_LEFT',npF(self.bath.c_D_LEFT))
-        writeZ('Fortc_D_RIGHT',npF(self.bath.c_D_RIGHT))
-        writeZ('FortH_mat',npF(self.pot.H_mat))
-        writeZ('Forts_mat',npF(self.pot.s_mat))
-        writeZ('FortTerminator',npF(self.Xi))
-        # Write the parameters to the file
-        writeParams('Fortparams',self)
         
+            # Define system size (2x2 density matrix means a 4x4 superoperator)
+        N_sys = 2
+        # Generate random real and imaginary parts between 0.0 and 1.0
+        rho_real = np.random.rand(N_sys, N_sys)
+        rho_imag = np.random.rand(N_sys, N_sys)
+        rho_matrix = rho_real + 1j * rho_imag
+
+        # Put the files in a temporary folder
+        tmp_folder='tmp'
+        self.dest_dir = Path.cwd() / tmp_folder
+        self.dest_dir.mkdir(parents=True, exist_ok=True) # make the tmp if it doesnt exist
+
+
+        ## write them all to files
+        write_sparse(f"{tmp_folder}/FortLiouvillian.dat",self.Liouvillian)
+        write_Zvec(f"{tmp_folder}/Fortrho.dat", rho_matrix)
+        print('matrices written, now will do the product')
+
+        # Flatten rho exactly as the text file writer does (Column-major / Fortran order)
+        rho_vec = rho_matrix.flatten(order='F')
+
+        # Perform the matrix-vector multiplication
+        result_vec = self.Liouvillian.dot(rho_vec)
+
+        print("==========================================")
+        print(" Python Result Vector (A * rho):")
+        for i, val in enumerate(result_vec):
+            print(f" [{i+1}] {val.real:15.5f}  + {val.imag:15.5f}j")
+        print("==========================================")
+        self._input_files_generated =True
+
+
     def insert_executable(self):
-        makefile_command, self.executable_suffix = FORT_SWITCHES(self)
-        self.executable_name=f'propagation{self.executable_suffix}'
+        if not hasattr(self,"_input_files_generated"): raise RuntimeError("Input files have not been generated yet")
+
+        # makefile_command, self.executable_suffix = FORT_SWITCHES(self)
+        # self.executable_name=f'propagation{self.executable_suffix}'
+        makefile_command, self.executable_suffix = None,None
+        self.executable_name=f'main'
         # Copy the correct fortran executable to the temporary directory
         print(f'\n Copying the fortran executable {self.executable_name} to the tmp/ directory\n')
         # get the repo root
-        repo_root = Path(__file__).resolve().parent.parent  
+        repo_root = Path(__file__).resolve().parent.parent.parent
         # get the executable source code
-        exe_source = repo_root / 'fort' / 'executables' / self.executable_name
+        # exe_source = repo_root / 'fort' / 'executables' / self.executable_name
+        exe_source = repo_root / 'fortSPM' / 'executables' / self.executable_name
         # destination directory (tmp folder in current working directory)
-        dest_dir = Path.cwd() / 'tmp'
-        dest_file = dest_dir / self.executable_name
+        dest_file = self.dest_dir / self.executable_name
         # copy to destination if it exists
         if exe_source.exists():
             shutil.copy2(exe_source, dest_file) 
