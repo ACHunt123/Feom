@@ -1,39 +1,37 @@
 program main
     use input_output
-    use prop_subroutines, only: RK4step, k1, k2, k3, k4, ktmp, ADOs_tmp, temp_grad
-    use prop_subroutines, only: Krylov_vecs, SIAstep, Krylov_dim, Recalculate_ADOs,ADOs_Krylov
+    use prop_subroutines, only: RK4step, k1, k2, k3, k4, ktmp!, ADOs_tmp, temp_grad
+    use prop_subroutines, only: Krylov_vecs, SIAstep, Krylov_dim,L_mat,default_Krylov_dim, Recalculate_ADOs,ADOs_Krylov
     use shared_data
     use utils, only: norm
     use complex_sparse_linalg
     implicit none
-    type(complex_csr_matrix) :: Liouvillian
+    
     complex(8), allocatable :: ADOs(:) ! we have not made this global for clarity
     ! Local variables
     real(8) :: hbar,time, ADOnorm
     integer(4) :: stat,it,ki,nk,nttot,ni,ntout
+
     logical :: printData
 
     !!! LOAD PARAMETERS AND MATRICIES !!!
     ! read the parameters from the input file
-    open(10, file='Fortparams.dat', status='old', action='read', iostat=stat); read(10,*)
+    open(10, file='Fortparams.inp', status='old', action='read', iostat=stat); read(10,*)
     read(10,'(I10, D22.15, I10)') ns, dt, nttot
     close(10)
-    call read_matrix('FortLiouvillian.dat', Liouvillian)
-    call read_Zvec("Fortrho.dat", ADOs)
+    call read_matrix('FortLiouvillian.inp', Liouvillian)
+    call read_Zvec("Fortrho.inp", ADOs)
     Ntot = size(ADOs)
-    
-    ! Print out the hashmap for the ADO printout
-    ! #ifdef Print_ADOs
-    !     open(20, file='ADO_index.out', status='unknown', action='write')
-    !     do ni = 1,Imax
-    !         write(20,'(I10, 5I10)') ni, ADO_index(ni,:)
-    !     end do
-    !     close(20)
-    ! #endif
 
+    
+    !!! Allocations
+    allocate(k1(Ntot), k2(Ntot), k3(Ntot), k4(Ntot), ktmp(Ntot))!,temp_grad(Ntot)
+    
+    ! Calculate the safe Krylov dimension
+    Krylov_dim = min(default_Krylov_dim, Ntot)
+    allocate(Krylov_vecs(Krylov_dim,Ntot), ADOs_Krylov(Krylov_dim), L_mat(Krylov_dim,Krylov_dim))           ! ADOs in the Krylov basis
 
     !!! Initialise SIA (such that the basis is recaluclated at the first timestep)
-    allocate(Krylov_vecs(Krylov_dim,Ntot))
     ADOnorm = norm(ADOs,Ntot)
     ADOs_Krylov(:) = (1.0d0,0.0d0)*ADOnorm  ! initialise the ADOs in the Krylov basis (made to trigger recalculation initially)
     Krylov_vecs(:,:) = (0.0d0,0.0d0)        ! initialise the Krylov vectors
@@ -54,11 +52,7 @@ program main
             
             !!! Write output and message to screen
             print*, it,'/',nttot           ! Update the screen output
-            ! write(10,'(5E25.15)') time, &                             ! Print output to file
-            ! real(ADOs(1,1,1)), real(ADOs(1,2,2)), real(ADOs(1,1,2)), aimag(ADOs(1,1,2))
-            write(10,'(5000E25.15)') time, &
-                real(ADOS(1:ns**2)), &
-                aimag(ADOS(1:ns**2))
+            call writeout(10,time,ADOs(1:ns**2))
         endif
         #ifdef Print_ADOs
         if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,Imax,ns,it)         ! Print the ADOs to file
@@ -72,7 +66,7 @@ program main
         #endif
 
         !!! Check for divergence
-        if (abs(ADOs(1)).gt.2.d0) stop 'Density matrix has diverged'
+        ! if (abs(ADOs(1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
 
     close(10)

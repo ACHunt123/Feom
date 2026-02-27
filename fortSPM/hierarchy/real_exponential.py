@@ -2,23 +2,17 @@ from scipy.sparse import csr_matrix
 import numpy as np
 
 def generate_liouvillian(sim):
+
+
+    H= sim.pot.H_mat
+    S= sim.pot.s_mat
+    I=np.eye(sim.params.ns)
+
+    Vcross = np.kron(S,I) - np.kron(I,S.T)  # commutator superoperator for the system-bath coupling operator
+    Xi= -2 * (1/2) * Vcross @ Vcross # Add on the terminator contribution from the delta function in BCF
+
     
-    K = len(sim.bath.C_ks)
-    N_liouv = sim.params.ns**2
-
-    # for now just put in a placeholder
-    # ==========================================
-    # 2. Random Complex Sparse Matrix (A)
-    # ==========================================
-    # Generate a 4x4 dense random complex matrix first
-    A_real = np.random.rand(N_liouv, N_liouv)
-    A_imag = np.random.rand(N_liouv, N_liouv)
-    A_dense = A_real + 1j * A_imag
-
-    # Introduce sparsity by randomly setting ~50% of the elements to exactly zero
-    # (This step makes it a "true" sparse matrix for testing)
-    sparsity_mask = np.random.rand(N_liouv, N_liouv) > 0.5
-    A_dense[sparsity_mask] = 0.0 + 0.0j
+    A_dense = -1.j*(np.kron(H,I) - np.kron(I,H.T)) + Xi
 
     # Convert the masked dense matrix into a Scipy CSR matrix
     A = csr_matrix(A_dense, dtype=np.complex128)

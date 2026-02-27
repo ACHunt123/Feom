@@ -9,14 +9,14 @@ private
 ! Temporary arrays for RK4 propagation, and constants
 complex(8), parameter :: twothirds = 2.d0/3.d0 *(1.d0,0.d0)     ! two thirds, used for the gradient calculation
 complex(8), parameter :: third = 1.d0/3.d0* (1.d0,0.d0)         ! third, used for the gradient calculation
-complex(8), public, allocatable :: k1(:,:,:), k2(:,:,:), k3(:,:,:), k4(:,:,:), ktmp(:,:,:),ADOs_tmp(:,:,:), temp_grad(:,:,:)
+complex(8), public, allocatable :: k1(:), k2(:), k3(:), k4(:), ktmp(:)!, temp_grad(:)
 complex(8) :: dto2,dto6                                         ! half and 1/6 time step, used for the gradient calculation
 ! Temporary variables for Short Iterative Arnoldi method
-integer(4), public, parameter :: Krylov_dim = 8         ! dimension of the Krylov subspace
+integer(4), public, parameter :: default_Krylov_dim = 8         ! default dimension of the Krylov subspace
+integer(4), public :: Krylov_dim          ! dimension of the Krylov subspace
 real(8), parameter  :: Krylov_tol = 1.d-8               ! tolerance for the Krylov subspace
-complex(8) :: L_mat(Krylov_dim,Krylov_dim)              ! Liouvillian matrix for the Krylov subspace
 complex(8), public, allocatable :: Krylov_vecs(:,:)     ! Krylov subspace vectors
-complex(8), public :: ADOs_Krylov(Krylov_dim)           ! ADOs in the Krylov basis
+complex(8), public, allocatable :: ADOs_Krylov(:),L_mat(:,:)       ! ADOs in the Krylov basis
 ! Expose some of the subroutines
 public :: RK4step, SIAstep, Recalculate_ADOs
 ! Interfaces for the LAPACK routines

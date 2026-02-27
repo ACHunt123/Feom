@@ -1,4 +1,5 @@
 module shared_data
+    use complex_sparse_linalg
     implicit none
     ! Global parameters
     integer(4) :: ns, Ntot
@@ -9,4 +10,6 @@ module shared_data
     ! other crap
     integer(4) :: Ktot, Imax,  L, lowTcoef_switch
     real(8)::  lowTcoef
+    ! Liouvillian
+    type(complex_csr_matrix) :: Liouvillian
 end module shared_data

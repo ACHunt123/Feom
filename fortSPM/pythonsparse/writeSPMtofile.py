@@ -56,7 +56,7 @@ def writeParams(filename,sim): # Writes small parameters into file
     if not os.path.exists(f"tmp/"): os.makedirs(f"tmp/")
     with open(f"{filename}", "w") as f:
         f.write("ns,dt,nttot\n")
-        f.write(f"{params.ns:10d} {params.dt:22.15e} {nttot:10d}\n".replace('e','d'))
+        f.write(f"{params.ns:10d}{params.dt:22.15e}{nttot:10d}\n".replace('e','d'))
         f.write("/\n")
     return
 

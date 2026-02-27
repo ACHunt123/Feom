@@ -175,19 +175,13 @@ class ManualSetup:
             self.x0=x_in
         else:
             raise ValueError(f"Unknown mode '{mode}'. Use '0th' or 'all'.")
+        self.ADOs = x_in
         self._ADOs_loaded=True
 
     def generate_input_files(self):
         # Check that everything has been initialized
         if not hasattr(self,"_ADOs_loaded"): raise RuntimeError("ADOs have not been loaded yet")
         
-            # Define system size (2x2 density matrix means a 4x4 superoperator)
-        N_sys = 2
-        # Generate random real and imaginary parts between 0.0 and 1.0
-        rho_real = np.random.rand(N_sys, N_sys)
-        rho_imag = np.random.rand(N_sys, N_sys)
-        rho_matrix = rho_real + 1j * rho_imag
-
         # Put the files in a temporary folder
         tmp_folder='tmp'
         self.dest_dir = Path.cwd() / tmp_folder
@@ -195,13 +189,13 @@ class ManualSetup:
 
 
         ## write them all to files
-        write_sparse(f"{tmp_folder}/FortLiouvillian.dat",self.Liouvillian)
-        write_Zvec(f"{tmp_folder}/Fortrho.dat", rho_matrix)
-        writeParams(f"{tmp_folder}/Fortparams.dat", self)
+        write_sparse(f"{tmp_folder}/FortLiouvillian.inp",self.Liouvillian)
+        write_Zvec(f"{tmp_folder}/Fortrho.inp", self.ADOs)
+        writeParams(f"{tmp_folder}/Fortparams.inp", self)
         print('matrices written, now will do the product')
 
         # Flatten rho exactly as the text file writer does (Column-major / Fortran order)
-        rho_vec = rho_matrix.flatten(order='F')
+        rho_vec = self.ADOs.flatten(order='F')
 
         # Perform the matrix-vector multiplication
         result_vec = self.Liouvillian.dot(rho_vec)

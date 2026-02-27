@@ -52,4 +52,44 @@ subroutine ADOs_print(ADOs,Imax,ns,it)
     write(20,fmt) outstr(1), outstr(2:Imax+1) ! write the ADOs to the file
     close(20)
 end subroutine ADOs_print
+
+! write the system density matrix to file
+subroutine writeout(funit, time, A)
+    implicit none
+    integer, intent(in) :: funit        ! file unit number (e.g. 10)
+    real(8), intent(in) :: time         ! current time value
+    complex(8), intent(in) :: A(:)      ! complex 1D array of unknown length
+
+    real(8), parameter :: tiny_cutoff = 1.0d-100
+    real(8) :: reval, imval
+    integer :: i
+    integer :: n
+
+    ! Get the length of the 1D array
+    n = size(A)
+    ! Start the line with time
+    write(funit,'(E30.15E3)', advance='no') time
+    ! Loop through all elements of A and write real parts on the same line
+    do i = 1, n
+        reval = real(A(i))
+        ! Clamp small values to zero to avoid exponent issues
+        if (abs(reval) < tiny_cutoff) reval = 0.0d0
+        ! Write number to same line (Fixed format from 2G to G)
+        write(funit,'(G30.15E3)', advance='no') reval
+    end do
+    ! Loop through all elements of A and write imaginary parts on the same line
+    do i = 1, n
+        imval = aimag(A(i))
+        ! Clamp small values to zero to avoid exponent issues
+        if (abs(imval) < tiny_cutoff) imval = 0.0d0
+        ! Write number to same line (Fixed format from 2G to G)
+        write(funit,'(G30.15E3)', advance='no') imval
+    end do
+    ! End the line (newline)
+    write(funit,*)
+    ! Flush the output immediately so it can be read while running
+    call flush(funit)
+end subroutine writeout
+
+
 end module input_output
