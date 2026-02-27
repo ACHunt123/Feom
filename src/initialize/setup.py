@@ -3,8 +3,8 @@ import os,sys,glob
 import shutil
 from pathlib import Path
 from Feom.src.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams
-from Feom.src.setup.config import SimConfig
-import Feom.src.setup.config_requirements as cfg  
+from Feom.src.initialize.config import SimConfig
+import Feom.src.initialize.config_requirements as cfg  
 from Feom.src.hierarchy.real_exps import generate_liouvillian
 #
 #   Setup class for the FEOM integrator with sparse matrices
