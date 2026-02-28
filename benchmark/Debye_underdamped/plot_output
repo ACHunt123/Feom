@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+import matplotlib.pyplot as plt
+import numpy as np
+import glob
+# Data for plotting
+files = np.concatenate([glob.glob('*out'),glob.glob('Fay/*out')])
+cool_colors = ['#377eb8', '#4daf4a', "#00ffff", "#9fe400"]
+warm_colors = ['#e41a1c', '#ff7f00', "#c20d6e", "#6b0fb6"]
+
+beta=15
+
+colenamesdict={ f'outfile_L2_K3_ns2_beta{beta}_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebyeCothpoles_PadeNm1oN_eta2_gam1_LTCorrNZ2.out':'Pade[N-1/N] + NZ2  OFF DUE TO MARKOVIAN TERM',
+ f'outfile_L3_K3_ns2_beta{beta}_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebyeCothpoles_PadeNm1oN_eta2_gam1.out':'Pade[N-1/N]',
+ f'outfile_L4_K3_ns2_beta{beta}_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebye_matsubara_eta2_gam1_LTCorrIT.out':'Matsubara + IT',
+ f'outfile_L5_K3_ns2_beta{beta}_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebye_matsubara_eta2_gam1_LTCorrNZ2.out':'Matubara + NZ2.',}
+
+colenamesdict={
+ f'IT_test.out':'Matsubara + IT',}
+#  f'PadeNm1oN_test.out':'Pade[N-1/N]',}
+
+nfay=0
+ncole=0
+for filename in files:
+    data = np.loadtxt(filename)
+    t=data[:,0]
+    ct=data[:,1]
+    print(filename)
+    if 'UBO' in filename:
+        # make the line doted, and the colr a cool one
+        
+        plt.plot(t, ct, linestyle='--',zorder=10, color=cool_colors[nfay])
+        nfay+=1
+    else:
+        plt.plot(t, ct, label=colenamesdict[filename],zorder =0, color=warm_colors[ncole])
+        ncole+=1
+plt.legend()
+plt.xlabel('Time')
+plt.ylabel('Population')
+plt.title('Benchmark Debye SB')
+plt.tight_layout()
+plt.show()  
+plt.savefig('DebyeSB_benchmark.pdf')
