@@ -94,11 +94,11 @@ heom_dynamics.rho_0_sys = rho_0_sys ;
 % struct("V",[[1,0];[0,-1]],"spectral_density","debye (pade)","omega_D",omega_D,"lambda_D",lambda_D,"approximant_type","[N-1/N]","N_pade",M_max)};
 % termination_list={"low temp correction","low temp correction NZ2","none","low temp correction NZ2"};
 % namelist={'ITlowtemp','NZ2lowtemp','Pade[N-1oN]','Pade[N-1_N]NZ2'};
-L_max_list={4};
-full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","UBO","Omega",Omega_UBO,"lambda",lambda_UBO,"gamma",gamma_UBO)};
-% termination_list={"low temp correction"};
-termination_list={"none"};
-namelist={'ITlowtemp'};
+L_max_list={4,2};
+full_system_bathslist={struct("V",[[1,0];[0,-1]],"spectral_density","UBO","Omega",Omega_UBO,"lambda",lambda_UBO,"gamma",gamma_UBO),
+struct("V",[[1,0];[0,-1]],"spectral_density","UBO","Omega",Omega_UBO,"lambda",lambda_UBO,"gamma",gamma_UBO)};
+termination_list={"none","low temp correction"};
+namelist={'noIT','ITlowtemp'};
 
 
 % extra terms for the NZ2 terminator 
@@ -108,7 +108,7 @@ heom_dynamics.heom_truncation.termination_k_max = 500 ; % max number of mats ter
 
 
 % loop over the different L_max values
-for i = 1:1
+for i = 1:2
     L_max = L_max_list{i};
     heom_dynamics.heom_truncation.L_max = L_max;
     full_system.baths = {full_system_bathslist{i}} ;

@@ -72,7 +72,8 @@ class Harmonic_oscillator:
 
     # Generates the Hamiltonian matrix in its eigenbasis (WITH RENORMALIZATION)
     def H_matrix(self):
-        psi_ns, E_ns, x_arr = self.eigenstates()
+        # psi_ns, E_ns, x_arr = self.eigenstates() #if one uses DVR
+        E_ns=(np.arange(self.ns)+0.5)*self.hbar*self.omega #exact
         H0 = np.diag(E_ns)
         if self.bathparams.bathname in ['debye','debyeCothpoles']:
             Hren = self.bathparams.eta*self.s_mat@self.s_mat/2.
@@ -82,12 +83,18 @@ class Harmonic_oscillator:
         return 
 
     def pos_matrix(self):
-        psi_ns, E_ns, x_arr = self.eigenstates()
-        # Generate the position matrix in energy basis
-        pos_matrix = np.zeros((self.ns,self.ns),dtype=complex)                   
+        # psi_ns, E_ns, x_arr = self.eigenstates()
+        # # Generate the position matrix in energy basis
+        # pos_matrix = np.zeros((self.ns,self.ns),dtype=complex)                   
+        # for m in range(0,self.ns):
+        #     for n in range(0,self.ns):
+        #         pos_matrix[m,n] = np.sum(x_arr[:]*np.conj(psi_ns[:,m])*psi_ns[:,n]*self.dx)
+        pos_matrix = np.zeros((self.ns,self.ns),dtype=complex)  
+        def delta(i,j): return 1 if i==j else 0                 
         for m in range(0,self.ns):
             for n in range(0,self.ns):
-                pos_matrix[m,n] = np.sum(x_arr[:]*np.conj(psi_ns[:,m])*psi_ns[:,n]*self.dx)
+                pos_matrix[m,n] = np.sqrt(self.hbar/(2*self.m*self.omega))*(np.sqrt(n+1)*delta(m,n+1)+np.sqrt(n)*delta(m,n-1))
+
         return pos_matrix
 
     # Generates the initial system density matrix and the partition function
@@ -97,8 +104,11 @@ class Harmonic_oscillator:
         delEs = E_ns - E_ns[0] # the ground state is the zero of energy
         rho_s = np.diag(np.exp(-self.beta*delEs))
         Zs = np.trace(rho_s)
-        rho_s0 = rho_s@self.pos_matrix()/Zs # the intial condition is rho q (HERE WE DON'T ADD RENORM.)
+        # rho_s0 = rho_s@self.pos_matrix()/Zs # the intial condition is rho q (HERE WE DON'T ADD RENORM.)
         # rho_s0 = rho_s/Zs # the intial condition is rho  
+        rho_s0=np.zeros_like(self.pos_matrix())
+        rho_s0[1,1]=1 #start with all of the population in the first excited state
+        # rho_s0[0,0]=1 #start with all of the population in the ground state
         return rho_s0,Zs
 
     # Generate the correlation function (this is hardcoded)
@@ -126,7 +136,11 @@ class Harmonic_oscillator:
         processed_data = np.zeros((len(t),5),dtype=complex)
 
         processed_data[:,0] = t
-        processed_data[:,1] = np.einsum('inm,mn->i', rho,self.s_mat)
+        # processed_data[:,1] = np.einsum('inm,ml,ln->i', rho,self.s_mat,self.s_mat)
+        # processed_data[it,1] = np.min(np.diagonal(rho[it,:,:])) for i in range(len(t)) # monitor the population of the first excited state
+        for it in range(len(t)):
+            processed_data[it, 1] = np.min(np.diagonal(rho[it, :, :]))
+        # processed_data[:,1] = rho[:,0,0] # monitor the population of the first excited state
         for it in range(len(t)):
             processed_data[it,2] = np.min(np.diagonal(rho[it,:,:]))  # min diagonal element
             processed_data[it,3] = np.sum(np.diagonal(rho[it,:,:]))  # trace of the density matrix

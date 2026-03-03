@@ -15,7 +15,8 @@ colenamesdict={ f'outfile_L2_K3_ns2_beta{beta}_hbar1_tmax10_dt0.01_POTspinboson_
  f'outfile_L5_K3_ns2_beta{beta}_hbar1_tmax10_dt0.01_POTspinboson_Delta2_eps1_BTHdebye_matsubara_eta2_gam1_LTCorrNZ2.out':'Matubara + NZ2.',}
 
 colenamesdict={
- f'IT_test.out':'Matsubara + IT',}
+ f'IT_test.out':'Matsubara + IT',
+ f'mats_test.out':'Matsubara no IT',}
 #  f'PadeNm1oN_test.out':'Pade[N-1/N]',}
 
 nfay=0
@@ -38,5 +39,5 @@ plt.xlabel('Time')
 plt.ylabel('Population')
 plt.title('Benchmark Debye SB')
 plt.tight_layout()
-plt.show()  
 plt.savefig('DebyeSB_benchmark.pdf')
+plt.show()  

@@ -31,6 +31,10 @@ def organize_exponents(gam_ks,tol=1e-6):
     k_decay_inds = np.flatnonzero(np.abs(np.imag(gam_ks)) <= tol)
     k_plus_inds  = np.flatnonzero(np.imag(gam_ks) >= tol)
     k_minus_inds = np.flatnonzero(np.imag(gam_ks) <= -tol)
+
+    # exit early if all of the exponentials are pure damped
+    if np.array_equal(np.sort(np.concatenate([k_decay_inds])),np.arange(len(gam_ks))):
+        return k_decay_inds, np.empty((0, 2), dtype=int)
     # check that the masks are containing all of the elements
     if not np.array_equal(np.sort(np.concatenate([k_decay_inds,k_plus_inds,k_minus_inds])),np.arange(len(gam_ks))):
         raise ValueError("Index masks do not cover all poles exactly once.")
@@ -97,66 +101,51 @@ def generate_liouvillian(sim):
     k_decay_inds, k_oscil_inds = organize_exponents(sim.bath.gam_ks)
     ## pure decay modes first
     for ki in k_decay_inds:
-        # Add on the off-diagonal (nk+ and nk-) coupling
+        # get the coefficients
         Ck=sim.bath.C_ks[ki]
-        Ak=A[ki]
-        Adagk=Adag[ki]
+        gamk=sim.bath.gam_ks[ki]
+        # Add on the off-diagonal (nk+ and nk-) coupling
         Lk_dn = -(1.j/np.sqrt(np.abs(Ck)))*(Ck*VL-Ck.conj()*VR) #coupling to ados lower in excitation
         Lk_up = -1.j*np.sqrt(np.abs(Ck))*Vx                     #coupling to ados higher in excitation
-        L += kron(Adagk, Lk_dn, format='csr')
-        L += kron(Ak, Lk_up, format='csr')
+        L += kron(Adag[ki], Lk_dn, format='csr')
+        L += kron(A[ki], Lk_up, format='csr')
         # Add on the diagonal (-n gamma) damping
-        gamk=sim.bath.gam_ks[ki]
-        AdagAk=AdagA[ki]
-        L += -gamk*kron(AdagAk, I_sys, format='csr')    
+        L += -gamk*kron(AdagA[ki], I_sys, format='csr')    
 
     ## oscilitory modes now
-    # we assume the forward-backward path separation
-    # such that we have VL and VR terms in the Liouvillian
-    # generalization (to get the commutator/anticommutator) is a orthogonal basis transformation in the +- ado space
-    # and could be put in here
+    # we assume sum-difference expansion from of the IF expansion
+    # generalization to the forward/backward path separation is
+    # a simple rotation in creation annihilation operators of ADOs
+    # and is a simple couple extra lines of code
     for k_plus,k_minus in k_oscil_inds:
 
-        # Add on the off-diagonal (nk+ and nk-) coupling
+        # get the coefficients
         Ck_plus=sim.bath.C_ks[k_plus]
         Ck_minus=sim.bath.C_ks[k_minus]
-
-        Ak_plus=A[k_plus]
-        Adagk_plus=Adag[k_plus]
-        Ak_minus=A[k_minus]
-        Adagk_minus=Adag[k_minus]
-
-        Lk_up_plus = -1.j * np.sqrt(np.abs(Ck_plus)) * Vx
-        Lk_up_minus = -1.j * np.sqrt(np.abs(Ck_minus)) * Vx
-
-        # Lowering operators (shallower in the hierarchy)
-        # Notice how the VR term crosses over to use the conjugate of the OTHER mode in the pair
-        Lk_dn_plus = -(1.j / np.sqrt(np.abs(Ck_plus))) * (Ck_plus * VL - np.conj(Ck_minus) * VR)
-        Lk_dn_minus = -(1.j / np.sqrt(np.abs(Ck_minus))) * (Ck_minus * VL - np.conj(Ck_plus) * VR)
-
-        #     # (-1.0i*c_jk_coup*sqrt(abs(c_jk_coup)))
-        # print(-(1.j / np.sqrt(np.abs(Ck_plus))) * (Ck_plus ),-(1.j / np.sqrt(np.abs(Ck_plus)))* - np.conj(Ck_minus))
-        # print(-(1.j / np.sqrt(np.abs(Ck_minus))) * (Ck_minus ),-(1.j / np.sqrt(np.abs(Ck_minus)))*- np.conj(Ck_plus) )
-
-
-        # Add raising terms to the Liouvillian
-        L += kron(Ak_plus, Lk_up_plus, format='csr')
-        L += kron(Ak_minus, Lk_up_minus, format='csr')
-
-        # Add lowering terms to the Liouvillian
-        L += kron(Adagk_plus, Lk_dn_plus, format='csr')
-        L += kron(Adagk_minus, Lk_dn_minus, format='csr')
-
-
-
-        # Add on the diagonal (-n gamma) damping
         gamk_plus=sim.bath.gam_ks[k_plus]
         gamk_minus=sim.bath.gam_ks[k_minus]
-        AdagAk_plus=AdagA[k_plus]
-        AdagAk_minus=AdagA[k_minus]
         
-        L += -gamk_plus*kron(AdagAk_plus, I_sys, format='csr')  
-        L += -gamk_minus*kron(AdagAk_minus, I_sys, format='csr')  
+        ## Add on the off-diagonal (nk+ and nk-) coupling
+        # Calculate the average weighting for the pairs of modes
+        Wk=(np.sqrt(np.abs(Ck_plus))+np.sqrt(np.abs(Ck_minus)))/2.
+        # Lk_up_plus = -1.j * np.sqrt(np.abs(Ck_plus)) * Vx
+        # Lk_up_minus = -1.j * np.sqrt(np.abs(Ck_minus)) * Vx
+        # Lk_dn_plus = -(1.j / np.sqrt(np.abs(Ck_plus))) * (Ck_plus * VL - np.conj(Ck_minus) * VR)
+        # Lk_dn_minus = -(1.j / np.sqrt(np.abs(Ck_minus))) * (Ck_minus * VL - np.conj(Ck_plus) * VR)
+        Lk_up_plus = -1.j * Wk * Vx
+        Lk_up_minus = -1.j * Wk * Vx
+        Lk_dn_plus = -(1.j / Wk) * (Ck_plus * VL - np.conj(Ck_minus) * VR)
+        Lk_dn_minus = -(1.j / Wk) * (Ck_minus * VL - np.conj(Ck_plus) * VR)
+        # Add raising terms to the Liouvillian
+        L += kron(A[k_plus], Lk_up_plus, format='csr')
+        L += kron(A[k_minus], Lk_up_minus, format='csr')
+        # Add lowering terms to the Liouvillian
+        L += kron(Adag[k_plus], Lk_dn_plus, format='csr')
+        L += kron(Adag[k_minus], Lk_dn_minus, format='csr')
+
+        ## Add on the diagonal (-n gamma) damping
+        L += -gamk_plus*kron(AdagA[k_plus], I_sys, format='csr')  
+        L += -gamk_minus*kron(AdagA[k_minus], I_sys, format='csr')  
 
     # set the outputs
     sim.Liouvillian = L

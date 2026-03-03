@@ -6,7 +6,7 @@ from Feom.potentials.spin_boson import Spin_boson
 from types import SimpleNamespace
 
 # general params
-L=2
+L=4
 K=3
 ns=2
 beta=10
@@ -26,72 +26,24 @@ lambda_UBO = 0.5
 Omega_D = Omega_UBO
 gamma_D = gamma_UBO/2
 lambda_D = lambda_UBO
-Xi_D = np.sqrt(Omega_D**2 - gamma_D**2)
 
 ### Setup the system
 pot = Spin_boson(SimpleNamespace(ns=ns, Delta=Delta, eps=eps), None)
 
-if(0): # do it the old way
-    ### Setup the bath
-    Jw_pos_poles = [Xi_D + 1.j * gamma_D,  -Xi_D + 1.j * gamma_D   ]
-    res_val = (0.5* lambda_D * Omega_D**2) / (1.j * Xi_D)
-    Jw_pos_residues= [res_val, -res_val]
-
-    # generate the BCF
-    bcf = BoseBCF(beta=beta)
-    bcf.set_Jw(Jw_pos_poles, Jw_pos_residues)
-    C_ks,gam_ks,zeta = bcf.compute_mats_infin_bcf(K)
-    print(C_ks)
-    print(gam_ks)
-    print(zeta)
-
-elif(0):    ### new one with analytically contindued debye baths
-    gam1_DL = 1.j*(Xi_D - 1.j*gamma_D)
-    gam2_DL = 1.j*(-Xi_D - 1.j*gamma_D)
-
-    eta1_DL =1.j*(lambda_D*Omega_D**2/(2*Xi_D*gam1_DL))
-    eta2_DL =-1.j*(lambda_D*Omega_D**2/(2*Xi_D*gam2_DL))
+### Setup the bath
+Xi_d = np.sqrt(Omega_D**2 - gamma_D**2)
+Jw_pos_poles = [Xi_d + 1.j * gamma_D,  -Xi_d + 1.j * gamma_D   ]
+res_val = (0.5* lambda_D * Omega_D**2) / (1.j * Xi_d)
+Jw_pos_residues= [res_val, -res_val]
 
 
-    Jw_pos_residues = [eta1_DL*gam1_DL,eta2_DL*gam2_DL]
-    Jw_pos_poles=[1.j*gam1_DL,1.j*gam2_DL]
-    bcf = BoseBCF(beta=beta)
-    bcf.set_Jw(Jw_pos_poles, Jw_pos_residues)
-    C_ks,gam_ks,zeta = bcf.compute_mats_infin_bcf(K)
 
 
-else:    ### TWO separate analytically contindued debye baths
-    gam1_DL = 1.j*(Xi_D - 1.j*gamma_D)
-    gam2_DL = 1.j*(-Xi_D - 1.j*gamma_D)
-
-    eta1_DL =1.j*(lambda_D*Omega_D**2/(2*Xi_D*gam1_DL))
-    eta2_DL =-1.j*(lambda_D*Omega_D**2/(2*Xi_D*gam2_DL))
-
-    Jw_pos_residues1 = [eta1_DL*gam1_DL]
-    Jw_pos_poles1=[1.j*gam1_DL]
-    Jw_pos_residues2 = [eta2_DL*gam2_DL]
-    Jw_pos_poles2=[1.j*gam2_DL]
-
-    bcf1 = BoseBCF(beta=beta)
-    bcf1.set_Jw(Jw_pos_poles1, Jw_pos_residues1)
-    C1_ks,gam1_ks,zeta1 = bcf1.compute_mats_infin_bcf(K)
-
-    bcf2 = BoseBCF(beta=beta)
-    bcf2.set_Jw(Jw_pos_poles2, Jw_pos_residues2)
-    C2_ks,gam2_ks,zeta2 = bcf2.compute_mats_infin_bcf(K)
-
-    # calculate them from the others
-    zeta=zeta1+zeta2
-    C_ks=np.zeros((K+2),dtype=complex)
-    gam_ks=np.zeros((K+2),dtype=complex)
-    gam_ks[0]=gam1_ks[0]
-    gam_ks[1]=gam2_ks[0]
-    gam_ks[2:]=gam2_ks[1:]
-
-    C_ks[0]=C1_ks[0]
-    C_ks[1]=C2_ks[0]
-    C_ks[2:]=C2_ks[1:]+C1_ks[1:]
-
+# generate the BCF
+bcf = BoseBCF(beta=beta)
+bcf.set_Jw(Jw_pos_poles, Jw_pos_residues)
+C_ks,gam_ks,zeta = bcf.compute_mats_infin_bcf(K)
+zeta=0 #set to 0
 
 if(0):#plot the J(w)
     import matplotlib.pyplot as plt
@@ -116,8 +68,11 @@ if(0):#plot the J(w)
 I = np.eye(ns)
 Vcross = np.kron(pot.s_mat,I) - np.kron(I,pot.s_mat.T)  # commutator superoperator for the system-bath coupling operator
 Xi= -1 * (zeta/2) * Vcross @ Vcross # Add on the terminator contribution from the delta function in BCF
-# Xi/=16
-# LOOKS LIKE MY TERMINATOR IS 16 times LARGER THASNK TOMS
+
+# print(zeta/32)
+# print(zeta)
+# exit()
+# LOOKS LIKE MY TERMINATOR COEFF IS 8 times LARGER THASNK TOMS
 
 ### Build the dictionaries
 sys_args = {
@@ -168,7 +123,7 @@ processed_data[:,3] = (rho10 + rho01)  # <s_x>
 processed_data[:,4] = rho11 # Site 1 population
 data_labels = '\n,Time /a.u. <s_z> <s_y> <s_x> P11'
 
-np.savetxt('IT_test.out',processed_data.real,header=data_labels)
+np.savetxt('mats_test.out',processed_data.real,header=data_labels)
 
 
 

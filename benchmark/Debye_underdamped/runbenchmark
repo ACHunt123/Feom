@@ -7,6 +7,7 @@ echo "Starting benchmark for DebyeSB model..."
 # # command to run the feom.py script
 #  python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 4 --K 3 --ns 2 --beta 15 --hbar 1 --tmax 10.0 --dt 0.01 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --LTCorr 'IT' > /dev/null 
 python3 benchmark_IT.py
+python3 benchmark_mats.py
 #  python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 5 --K 3 --ns 2 --beta 15 --hbar 1 --tmax 10.0 --dt 0.01 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debye --bathmode matsubara --eta 2 --gam 1 --LTCorr 'NZ2' > /dev/null 
 #### python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 6 --K 3 --ns 2 --beta 15 --hbar 1 --tmax 10.0 --dt 0.01 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debyeCothpoles --bathmode Pade[N/N] --eta 2 --gam 1  > /dev/null 
 #  python3 ~/software/phd/Feom/benchmark/DebyeSB/Bench_feom.py --L 3 --K 3 --ns 2 --beta 15 --hbar 1 --tmax 10.0 --dt 0.01 --potname spinboson --Delta 2.0 --eps 1.0 --bathname debyeCothpoles --bathmode Pade[N-1/N] --eta 2 --gam 1 > /dev/null 
