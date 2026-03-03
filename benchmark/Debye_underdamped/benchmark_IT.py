@@ -2,8 +2,6 @@
 import numpy as np
 from Feom.src.initialize.setup import Setup,SimConfig
 from pyA4.Bose_BCF import BoseBCF
-from Feom.potentials.spin_boson import Spin_boson
-from types import SimpleNamespace
 
 # general params
 L=2
@@ -29,7 +27,15 @@ lambda_D = lambda_UBO
 Xi_D = np.sqrt(Omega_D**2 - gamma_D**2)
 
 ### Setup the system
-pot = Spin_boson(SimpleNamespace(ns=ns, Delta=Delta, eps=eps), None)
+H_mat = np.zeros((ns,ns),dtype=complex)
+H_mat[0,0] = -eps
+H_mat[1,1] = eps
+H_mat[1,0] = Delta
+H_mat[0,1] = Delta
+# perturbation matrix
+q_mat = np.zeros((ns,ns),dtype=complex)
+q_mat[0,0] = -1
+q_mat[1,1] = 1
 
 if(0): # do it the old way
     ### Setup the bath
@@ -114,15 +120,15 @@ if(0):#plot the J(w)
 
 ### Setup the terminator
 I = np.eye(ns)
-Vcross = np.kron(pot.s_mat,I) - np.kron(I,pot.s_mat.T)  # commutator superoperator for the system-bath coupling operator
+Vcross = np.kron(q_mat,I) - np.kron(I,q_mat.T)  # commutator superoperator for the system-bath coupling operator
 Xi= -1 * (zeta/2) * Vcross @ Vcross # Add on the terminator contribution from the delta function in BCF
 # Xi/=16
 # LOOKS LIKE MY TERMINATOR IS 16 times LARGER THASNK TOMS
 
 ### Build the dictionaries
 sys_args = {
-    's_mat': pot.s_mat,
-    'H_mat': pot.H_mat,}
+    's_mat': q_mat,
+    'H_mat': H_mat,}
 
 bath_args = {
     'C_ks':C_ks,

@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-#!/usr/bin/env python3
 import numpy as np
 from Feom.src.initialize.setup import Setup,SimConfig
 from pyA4.Bose_BCF import BoseBCF
-from Feom.potentials.spin_boson import Spin_boson
-from types import SimpleNamespace
-
+from pyA4.PyA4 import  A4Decomposition
 # general params
 L=4
 K=3
@@ -22,24 +19,38 @@ gam_DL=1
 
 
 ### Setup the system
-pot = Spin_boson(SimpleNamespace(ns=ns, Delta=Delta, eps=eps), None)
+H_mat = np.zeros((ns,ns),dtype=complex)
+H_mat[0,0] = -eps
+H_mat[1,1] = eps
+H_mat[1,0] = Delta
+H_mat[0,1] = Delta
+# perturbation matrix
+q_mat = np.zeros((ns,ns),dtype=complex)
+q_mat[0,0] = -1
+q_mat[1,1] = 1
 
 ### Setup the bath
 Jw_pos_residues = [eta_DL*gam_DL/2]
 Jw_pos_poles=[1.j*gam_DL]
 bcf = BoseBCF(beta=beta)
+# do the A4
+A4decomp=A4Decomposition(beta=beta,K=K,distribution='Bose',N_support=10000,rational_decomposition_type='AAA')
+eta_n,k_n = A4decomp.compute(doplot=True)
+# set the Rg and Jw poles/residues
 bcf.set_Jw(Jw_pos_poles, Jw_pos_residues)
-C_ks,gam_ks,zeta = bcf.compute_mats_infin_bcf(K)
+bcf.set_Rg_lorentzian_form(eta_n,k_n)
+# compute 
+C_ks,gam_ks,zeta = bcf.compute_bcf()
 
 ### Setup the terminator
 I = np.eye(ns)
-Vcross = np.kron(pot.s_mat,I) - np.kron(I,pot.s_mat.T)  # commutator superoperator for the system-bath coupling operator
+Vcross = np.kron(q_mat,I) - np.kron(I,q_mat.T)  # commutator superoperator for the system-bath coupling operator
 Xi= -1 * (zeta/2) * Vcross @ Vcross # Add on the terminator contribution from the delta function in BCF
 
 ### Build the dictionaries
 sys_args = {
-    's_mat': pot.s_mat,
-    'H_mat': pot.H_mat,}
+    's_mat': q_mat,
+    'H_mat': H_mat,}
 
 bath_args = {
     'C_ks':C_ks,
