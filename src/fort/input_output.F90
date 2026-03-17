@@ -27,6 +27,30 @@ subroutine read_Zvec(filename, vec)
         close(70)
     end subroutine read_Zvec
 
+subroutine write_Zvec(filename, vec)
+        implicit none
+        ! Arguments
+        character(len=*), intent(in) :: filename  
+        complex(8), intent(in)       :: vec(:)
+        ! Local variables
+        integer :: n_total   
+        integer :: i
+        ! Determine the length of the vector
+        n_total = size(vec)
+        ! Open the file for writing (using 'replace' to overwrite if it exists)
+        open(70, file=filename, status='replace', action='write')
+        ! Write the header and the length
+        write(70, *) "Final data (written in by FORTRAN)" ! Arbitrary header text
+        write(70, *) n_total
+        ! Write the data (real and imaginary parts on separate lines)
+        do i = 1, n_total
+            write(70, '(D22.15)') dble(vec(i))  ! Extracts the real part
+            write(70, '(D22.15)') dimag(vec(i)) ! Extracts the imaginary part
+        end do
+        ! Close the file
+        close(70)
+    end subroutine write_Zvec
+
 subroutine ADOs_print(ADOs, ns, Ntot, time)
     implicit none
     integer(4), intent(in) :: ns,Ntot

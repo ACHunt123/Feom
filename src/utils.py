@@ -50,11 +50,31 @@ def write_Zvec(filename, matrix):
             f.write(f"{real_str}\n")
             f.write(f"{imag_str}\n")
 
+def read_Zvec(filename, size=None):
+    with open(filename, "r") as f:
+        f.readline()  # Skip the text header line
+        n_elements = int(f.readline().strip()) # Read the total number of complex elements
+        # Read the numeric data
+        content = f.read().replace('D', 'e').split() # .replace('D', 'e') handles the Fortran double precision format
+        
+    # Convert to complex array
+    data = np.array(content, dtype=float)
+    # Check if we have the expected number of lines (2 per complex element)
+    if len(data) != 2 * n_elements:
+        raise ValueError(f"Data mismatch: Expected {2*n_elements} lines, found {len(data)}")
+    # Slice Real (indices 0, 2, 4...) and Imag (indices 1, 3, 5...)
+    complex_vec = data[0::2] + 1j * data[1::2]
+    # Reshape if we know the system size (ns)
+    if size is not None and (np.prod(size) == n_elements):
+        if isinstance(size, int): # If size is just an int, wrap it in a tuple
+            size = (size,)
+        return complex_vec.reshape(size, order='F')
+    return complex_vec
+
 def writeParams(filename,sim): # Writes small parameters into file
     params=sim.params
     bath=sim.bath
-    nttot =int(params.tmax/params.dt)+1 # calculate the total number of time steps
-    if not os.path.exists(f"tmp/"): os.makedirs(f"tmp/")
+    nttot = round(params.tmax / params.dt) # calculate the total number of time steps
     with open(f"{filename}", "w") as f:
         f.write("ns,dt,nttot\n")
         f.write(f"{params.ns:10d}{params.dt:22.15e}{nttot:10d}\n".replace('e','d'))

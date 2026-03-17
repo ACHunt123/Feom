@@ -41,6 +41,7 @@ program main
 
     !!! PROPAGATION !!!
     ntout = int(max(nttot / 1000,1)) ! how often to print the output
+    nttot = (nttot / ntout) * ntout  ! force the last timestep to be printed out
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system
     do it = 0, nttot
@@ -60,18 +61,21 @@ program main
         if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,ns,Ntot,time)         ! Print the ADOs to file
         #endif
 
-        !!! verlet step
-        #ifdef SIA
-        call SIAstep(ADOs)
-        #else
-        call RK4step(ADOs)
-        #endif
-
+        !!! verlet step (skipping last one)
+        if (it < nttot) then
+            #ifdef SIA
+            call SIAstep(ADOs)
+            #else
+            call RK4step(ADOs)
+            #endif
+        endif
         !!! Check for divergence
         if (abs(ADOs(1)).gt.2.d0) stop 'Density matrix has diverged'
     end do
 
     close(10)
+    !!! Write final state to file
+    call write_Zvec("Fortrho.oup", ADOs)
 
     !!! Deallocations 
     deallocate(ADOs)

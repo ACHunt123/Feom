@@ -2,7 +2,7 @@ import numpy as np
 import os,sys,glob
 import shutil
 from pathlib import Path
-from Feom.src.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams
+from Feom.src.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams,read_Zvec
 from Feom.src.initialize.config import SimConfig
 import Feom.src.initialize.config_requirements as cfg  
 from Feom.src.hierarchy.complex_exps import generate_liouvillian #works for all BCFs
@@ -166,19 +166,24 @@ class Setup:
             raise ValueError(f"Unknown mode '{mode}'. Use '0th' or 'all'.")
         self._ADOs_loaded=True
 
-    def generate_input_files(self):
+    def read_final_ADOs(self):
+        ADOs=read_Zvec(f"{self.tmp_folder}/Fortrho.oup", size=(self.params.ns,self.params.ns,self.params.Nados))
+        return ADOs
+
+
+    def generate_input_files(self,tmp_folder='tmp'):
         # Check that everything has been initialized
         if not hasattr(self,"_ADOs_loaded"): raise RuntimeError("ADOs have not been loaded yet")
         
         # Put the files in a temporary folder
-        tmp_folder='tmp'
-        self.dest_dir = Path.cwd() / tmp_folder
+        self.tmp_folder = tmp_folder
+        self.dest_dir = Path.cwd() / self.tmp_folder
         self.dest_dir.mkdir(parents=True, exist_ok=True) # make the tmp if it doesnt exist
 
         ## write them all to files
-        write_sparse(f"{tmp_folder}/FortLiouvillian.inp",self.Liouvillian)
-        write_Zvec(f"{tmp_folder}/Fortrho.inp", self.ADOs)
-        writeParams(f"{tmp_folder}/Fortparams.inp", self)
+        write_sparse(f"{self.tmp_folder}/FortLiouvillian.inp",self.Liouvillian)
+        write_Zvec(f"{self.tmp_folder}/Fortrho.inp", self.ADOs)
+        writeParams(f"{self.tmp_folder}/Fortparams.inp", self)
 
         self._input_files_generated =True
 
@@ -191,7 +196,7 @@ class Setup:
         # makefile_command, self.executable_suffix = None,None
         # self.executable_name=f'main'
         # Copy the correct fortran executable to the temporary directory
-        print(f'\n Copying the fortran executable {self.executable_name} to the tmp/ directory\n')
+        print(f'\n Copying the fortran executable {self.executable_name} to the "{self.tmp_folder}" directory\n')
         # get the repo root
         repo_root = Path(__file__).resolve().parent.parent
         # get the executable source code
@@ -207,12 +212,12 @@ class Setup:
             print(f'  {makefile_command}\n')
             sys.exit(1)
     
-    def go(self,extra_commands='',cleanup=True,save_raw=True):
+    def go(self,extra_commands='',cleanup=True,save_raw=False):
         # Run the executable
         quiet=[' > /dev/null ',''][1]
-        os.system(f'cd tmp/; {extra_commands} ./propagation* {quiet}')
+        os.system(f'cd {self.tmp_folder}/; {extra_commands} ./propagation* {quiet}')
         #Load the data and format it and attach it to the simulation object
-        data= np.loadtxt('tmp/output')
+        data= np.loadtxt(f'{self.tmp_folder}/output')
         t= data[:,0]
         ns= self.params.ns
         re_rho = data[:,1:1+ns**2]
@@ -220,19 +225,20 @@ class Setup:
         rho = re_rho + 1.j*im_rho
         self.rho = rho.reshape((len(t),ns,ns), order='C')  # reshape the data to be a 3D array
         self.t_arr = data[:,0]
-        header = "Time " + " ".join([f"{part}_{i}{j}" for part in ['Re', 'Im'] for j in range(ns) for i in range(ns)])
         raw_labels = ["Time"] + [f"{p}_{i}{j}" for p in ["Re", "Im"] for i in range(ns) for j in range(ns)]
         #Pad every label to be exactly 'w' characters wide (center-aligned)
         formatted_header = "".join([f"{label:^{25}}" for label in raw_labels])
         if save_raw: np.savetxt('raw_output.dat',data,header=formatted_header,fmt='%25.16e', delimiter='')
         #Clean up the temporary directory, and move misc outfiles away
-        for file in glob.glob('tmp/*.dat'):
+        for file in glob.glob(f'{self.tmp_folder}/*.dat'):
             shutil.move(file, '.')
-        if cleanup: self._safe_cleanup("tmp/") #clean up the temporary directory
+        if cleanup: self.safe_cleanup() #clean up the temporary directory
         return 
     
-    def _safe_cleanup(self,path):
+    def safe_cleanup(self,path=None):
         ''' Safer cleaning up of the tmp directory '''
+        if path == None: #default to cleaning up the temporary folder
+            path=f"{self.tmp_folder}/"
         if os.path.exists(path) and os.path.isdir(path):
             try:
                 shutil.rmtree(path)
