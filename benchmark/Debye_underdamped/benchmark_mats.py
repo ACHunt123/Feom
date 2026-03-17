@@ -2,8 +2,6 @@
 import numpy as np
 from Feom.src.initialize.setup import Setup,SimConfig
 from pyA4.Bose_BCF import BoseBCF
-from Feom.potentials.spin_boson import Spin_boson
-from types import SimpleNamespace
 
 # general params
 L=4
