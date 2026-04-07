@@ -160,7 +160,7 @@ subroutine SIAstep(ADOs)
         !!! Exponentiate eigenvalues with dt to get the eigenvalues of the propagator
         L_evals = zexp(L_evals*dt) ! exponentiate the eigenvalues with the time step
 
-        if (0) then !Tests: BIORTHOGONALITY, CONDITION NUMBER, EIGENVALUES
+        if (.false.) then !Tests: BIORTHOGONALITY, CONDITION NUMBER, EIGENVALUES
             ! eigenvalues and eigenvectors are correct
             do i = 1,Krylov_dim
                 vec_R=U_Krylov_R(:,i)

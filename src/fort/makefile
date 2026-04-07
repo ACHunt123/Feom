@@ -32,12 +32,24 @@ ifeq ($(SWITCH_SUFFIX),)
 else
     EXENAME := $(NAME)_$(SWITCH_SUFFIX)
 endif
-# Compiler and flags
-FC = ifx             # Intel Fortran Compiler (can switch to gfortran if needed)
-F90FLAGS = -g -O3 -funroll-loops  -heap-arrays  ${SWITCHES} 
-F90DEBUGFLAGS = -g -traceback -check bounds -warn all -O0 ${SWITCHES}			# -ftrapuv -heap-arrays -Debug inline-Debug-info -O0 ### WAY TOO SLOW
-FILES = complex_sparse_linalg.F90 utils.F90 shared_data.F90 input_output.F90 gradient.F90 integrator.F90 main.F90 -qmkl 
 
+### Compiler Selection: ('gfortran' or 'ifx')
+FC = ifx
+# Intel (ifx) Flags 
+ifeq ($(FC), ifx)
+    F90FLAGS = -g -O3 -funroll-loops -heap-arrays ${SWITCHES}
+    F90DEBUGFLAGS = -g -traceback -check all -warn all -O0 ${SWITCHES}
+    LIBS = -qmkl
+# GNU (gfortran) Flags
+else ifeq ($(FC), gfortran)
+    # -fno-stack-arrays is the equivalent of -heap-arrays
+    F90FLAGS = -g -O3 -funroll-loops -fno-stack-arrays -ffree-line-length-none -cpp ${SWITCHES}
+    F90DEBUGFLAGS = -g -fbacktrace -fcheck=all -Wall -O0 -ffree-line-length-none -cpp ${SWITCHES}
+    # gfortran usually links MKL via explicit paths or -lblas -llapack
+    LIBS = -L${MKLROOT}/lib/intel64 -lmkl_rt 
+endif
+FILES = complex_sparse_linalg.F90 utils.F90 shared_data.F90 \
+        input_output.F90 gradient.F90 integrator.F90 main.F90 $(LIBS)
 # Directories
 EXEC_DIR = executables
 

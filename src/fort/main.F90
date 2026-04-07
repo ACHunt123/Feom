@@ -23,20 +23,19 @@ program main
 
     
     !!! Allocations for work matrices
-    #ifdef SIA
+#ifdef SIA
         ! Allocations exclusively for SIA
         Krylov_dim = min(default_Krylov_dim, Ntot) 
         allocate(Krylov_vecs(Krylov_dim,Ntot), ADOs_Krylov(Krylov_dim), L_mat(Krylov_dim,Krylov_dim))
-    #else
+        !!! Initialise SIA (such that the basis is recaluclated at the first timestep)
+        ADOnorm = norm(ADOs,Ntot)
+        ADOs_Krylov(:) = (1.0d0,0.0d0)*ADOnorm  ! initialise the ADOs in the Krylov basis (made to trigger recalculation initially)
+        Krylov_vecs(:,:) = (0.0d0,0.0d0)        ! initialise the Krylov vectors
+        Krylov_vecs(1,:) = ADOs/ADOnorm ! set the first Krylov vector top be the ADOs
+#else
         ! Allocations exclusively for RK4
         allocate(k1(Ntot), k2(Ntot), k3(Ntot), k4(Ntot), ktmp(Ntot))
-    #endif
-    
-    !!! Initialise SIA (such that the basis is recaluclated at the first timestep)
-    ADOnorm = norm(ADOs,Ntot)
-    ADOs_Krylov(:) = (1.0d0,0.0d0)*ADOnorm  ! initialise the ADOs in the Krylov basis (made to trigger recalculation initially)
-    Krylov_vecs(:,:) = (0.0d0,0.0d0)        ! initialise the Krylov vectors
-    Krylov_vecs(1,:) = ADOs/ADOnorm ! set the first Krylov vector top be the ADOs
+#endif
 
 
     !!! PROPAGATION !!!
@@ -48,26 +47,26 @@ program main
         printData = mod(it,ntout).eq.0
         if (printData)  then
             time = it * dt
-            #ifdef SIA 
+#ifdef SIA 
             call Recalculate_ADOs(ADOs) ! Recalculate the ADOs from the Krylov subspace
-            #endif
+#endif
             
             !!! Write output and message to screen
             print*, it,'/',nttot           ! Update the screen output
             call writeout(10,time,ADOs(1:ns**2))
         endif
-        #ifdef Print_ADOs
+#ifdef Print_ADOs
         time = it * dt
         if( mod(it,nprint_ADOs).eq.0) call ADOs_print(ADOs,ns,Ntot,time)         ! Print the ADOs to file
-        #endif
+#endif
 
         !!! verlet step (skipping last one)
         if (it < nttot) then
-            #ifdef SIA
+#ifdef SIA
             call SIAstep(ADOs)
-            #else
+#else
             call RK4step(ADOs)
-            #endif
+#endif
         endif
         !!! Check for divergence
         if (abs(ADOs(1)).gt.2.d0) stop 'Density matrix has diverged'
@@ -80,11 +79,11 @@ program main
     !!! Deallocations 
     deallocate(ADOs)
     call destroy_matrix(Liouvillian)
-    #ifdef SIA
+#ifdef SIA
         deallocate(Krylov_vecs, ADOs_Krylov, L_mat)
-    #else
+#else
         deallocate(k1,k2,k3,k4,ktmp)
-    #endif
+#endif
 end program main
 
 
