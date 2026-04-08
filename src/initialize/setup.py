@@ -200,14 +200,17 @@ class Setup:
         # We check the python_environments site-packages directly if the local path fails.
         if not exe_source.exists():
             import site
-            for sp in site.getsitepackages():
+            # Combine system/venv packages WITH the user packages (~/.local/...)
+            all_sites = site.getsitepackages()
+            all_sites.append(site.getusersitepackages()) 
+            for sp in all_sites:
                 candidate = Path(sp) / 'Feom' / 'src' / 'fort' / 'executables' / self.executable_name
                 if candidate.exists():
                     exe_source = candidate
-                    break
+                    break       
         if not exe_source.exists():
             print(f"\n[Error] binary '{self.executable_name}' not found.")
-            print(f"Verified paths:\n - {pkg_dir}/executables/\n - Environment site-packages")
+            print(f"Verified paths:\n - {pkg_dir}/executables/\n - Environment and User site-packages")
             print("\nTo fix, run: pip install .\n")
             sys.exit(1)
         # copy the executable to the run folder
