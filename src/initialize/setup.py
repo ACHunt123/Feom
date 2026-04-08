@@ -2,6 +2,7 @@ import numpy as np
 import os,sys,glob
 import shutil
 from pathlib import Path
+import Feom.src.fort as fort_pkg
 from Feom.src.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams,read_Zvec
 from Feom.src.initialize.config import SimConfig
 import Feom.src.initialize.config_requirements as cfg  
@@ -189,6 +190,33 @@ class Setup:
 
 
     def insert_executable(self):
+        """Fetches the executable installed in the python environment (compiled using pip install .)"""
+        if not hasattr(self,"_input_files_generated"): raise RuntimeError("Input files have not been generated yet")
+        _, self.executable_suffix = FORT_SWITCHES(self)
+        self.executable_name=f'propagation{self.executable_suffix}'
+        # Get the directory of the imported fort package
+        pkg_dir = Path(fort_pkg.__file__).resolve().parent
+        exe_source = pkg_dir / 'executables' / self.executable_name
+        # We check the python_environments site-packages directly if the local path fails.
+        if not exe_source.exists():
+            import site
+            for sp in site.getsitepackages():
+                candidate = Path(sp) / 'Feom' / 'src' / 'fort' / 'executables' / self.executable_name
+                if candidate.exists():
+                    exe_source = candidate
+                    break
+        if not exe_source.exists():
+            print(f"\n[Error] binary '{self.executable_name}' not found.")
+            print(f"Verified paths:\n - {pkg_dir}/executables/\n - Environment site-packages")
+            print("\nTo fix, run: pip install .\n")
+            sys.exit(1)
+        # copy the executable to the run folder
+        dest_file = self.dest_dir / self.executable_name
+        shutil.copy2(exe_source, dest_file)
+        
+
+    def insert_executable_manually(self):
+        """Fetches the executable generated locally via 'make'."""
         if not hasattr(self,"_input_files_generated"): raise RuntimeError("Input files have not been generated yet")
         self.params.LTCorr=None
         makefile_command, self.executable_suffix = FORT_SWITCHES(self)
@@ -211,11 +239,13 @@ class Setup:
             print(f'Please compile the fortran code from the repo root:')
             print(f'  {makefile_command}\n')
             sys.exit(1)
-    
+
     def go(self,extra_commands='',cleanup=True,save_raw=False):
         # Run the executable
-        quiet=[' > /dev/null ',''][1]
-        os.system(f'cd {self.tmp_folder}/; {extra_commands} ./propagation* {quiet}')
+        quiet=[' > /dev/null ',''][1] # whether to print out stuff or not
+        run_cmd = f'cd {self.tmp_folder}/; {extra_commands} ./{self.executable_name} {quiet}'
+        os.system(run_cmd)
+        
         #Load the data and format it and attach it to the simulation object
         data= np.loadtxt(f'{self.tmp_folder}/output')
         t= data[:,0]
@@ -233,7 +263,7 @@ class Setup:
         for file in glob.glob(f'{self.tmp_folder}/*.dat'):
             shutil.move(file, '.')
         if cleanup: self.safe_cleanup() #clean up the temporary directory
-        return 
+        return
     
     def safe_cleanup(self,path=None):
         ''' Safer cleaning up of the tmp directory '''
