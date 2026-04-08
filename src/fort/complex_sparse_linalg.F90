@@ -54,10 +54,7 @@ contains
         integer                              :: i, j
         complex(8)                           :: row_sum ! Changed to complex(8)
         
-        ! Initialization is fast, but we can still parallelize it
-        !$omp parallel workshare
-        y = dcmplx(0.0d0, 0.0d0)  ! Initialize to complex zero
-        !$omp end parallel workshare
+
         
         ! Parallelize over the rows. 
         ! 'guided' scheduling prevents load imbalance if row lengths vary wildly.

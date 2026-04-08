@@ -2,35 +2,29 @@
 module integrator
 use shared_data
 use gradient, only: get_gradient
-use utils, only: innerprod,norm, check_condition_number
+use utils, only: innerprod, norm, check_condition_number
 implicit none
 ! Default everything to private
 private
 ! Temporary arrays for RK4 propagation, and constants
 complex(8), parameter :: twothirds = 2.d0/3.d0 *(1.d0,0.d0)     ! two thirds, used for the gradient calculation
 complex(8), parameter :: third = 1.d0/3.d0* (1.d0,0.d0)         ! third, used for the gradient calculation
-complex(8), public, allocatable :: k1(:), k2(:), k3(:), k4(:), ktmp(:)!, temp_grad(:)
-complex(8) :: dto2,dto6                                         ! half and 1/6 time step, used for the gradient calculation
-! Temporary variables for Short Iterative Arnoldi method
-integer(4), public, parameter :: default_Krylov_dim = 8         ! default dimension of the Krylov subspace
-integer(4), public :: Krylov_dim          ! dimension of the Krylov subspace
-real(8), parameter  :: Krylov_tol = 1.d-8               ! tolerance for the Krylov subspace
-complex(8), public, allocatable :: Krylov_vecs(:,:)     ! Krylov subspace vectors
-complex(8), public, allocatable :: ADOs_Krylov(:),L_mat(:,:)       ! ADOs in the Krylov basis
+complex(8), allocatable, save :: k1(:), k2(:), k3(:), k4(:), ktmp(:)
+complex(8),save :: dto2,dto6                                    ! half and 1/6 time step, used for the gradient calculation
+! Temporary variables/Parameters for Short Iterative Arnoldi method
+integer(4), parameter :: default_Krylov_dim = 8                 ! default dimension of the Krylov subspace
+integer(4), save :: Krylov_dim                                  ! dimension of the Krylov subspace
+real(8), parameter  :: Krylov_tol = 1.d-8                       ! tolerance for the Krylov subspace
+complex(8), allocatable, save :: Krylov_vecs(:,:)               ! Krylov subspace vectors
+complex(8), allocatable, save :: ADOs_Krylov(:),L_mat(:,:)      ! ADOs in the Krylov basis
+! Persistent, but private variables for the diagonalization in Arnoldi
+complex(8), allocatable, save :: work(:)
+real(8), allocatable, save    :: rwork(:)
+integer, save                 :: lwork
 ! Expose some of the subroutines
-public :: RK4step, SIAstep, Recalculate_ADOs
-! Interfaces for the LAPACK routines
+public :: step_forward, Recalculate_ADOs, init_integrator, cleanup_integrator
+! Interface for the matrix diagonalization
 interface
-        double precision function dznrm2(n, x, incx)
-        integer, intent(in) :: n, incx
-        complex*16, intent(in) :: x(*)
-        end function dznrm2
-
-        complex*16 function zdotc(n, x, incx, y, incy)
-        integer, intent(in) :: n, incx, incy
-        complex*16, intent(in) :: x(*), y(*)
-        end function zdotc
-
         subroutine zgeev(jobvl, jobvr, n, a, lda, w, vl, ldvl, vr, ldvr, work, lwork, rwork, info)
         character(len=1), intent(in) :: jobvl, jobvr
         integer, intent(in) :: n, lda, ldvl, ldvr, lwork
@@ -39,89 +33,114 @@ interface
         double precision, intent(out) :: rwork(*)
         integer, intent(out) :: info
         end subroutine zgeev
-
-        subroutine zcopy(n, x, incx, y, incy)
-        integer, intent(in) :: n, incx, incy
-        complex(8), intent(in) :: x(*)
-        complex(8), intent(out) :: y(*)
-        end subroutine zcopy
-
-        subroutine zaxpy(n, alpha, x, incx, y, incy)
-        integer, intent(in) :: n, incx, incy
-        complex(8), intent(in) :: alpha, x(*)
-        complex(8), intent(inout) :: y(*)
-        end subroutine zaxpy
-
-        subroutine zscal(n, alpha, x, incx)
-        integer, intent(in) :: n, incx
-        complex(8), intent(in) :: alpha
-        complex(8), intent(inout) :: x(*)
-        end subroutine zscal
 end interface
 contains
+!!! Initialization of integrators
+subroutine init_integrator(ADOs_in)
+    complex(8), intent(in) :: ADOs_in(:)
+    real(8) :: ADOnorm
+    
+    Ntot = size(ADOs_in)
+#ifdef SIA
+    Krylov_dim = min(default_Krylov_dim, Ntot) 
+    allocate(Krylov_vecs(Ntot, Krylov_dim)) 
+    allocate(ADOs_Krylov(Krylov_dim))
+    allocate(L_mat(Krylov_dim, Krylov_dim))
 
+    ! Initialise the subspace state
+    ADOnorm = norm(ADOs_in, Ntot)
+    if (ADOnorm < 1.d-15) stop 'FATAL: Initial ADOs norm is zero!'
+    ADOs_Krylov = (0.0d0, 0.0d0)
+    ADOs_Krylov(1) = ADOnorm        ! Keep the physical state intact!
+    ADOs_Krylov(Krylov_dim) = 1.0d0 ! Trigger first update
+    
+    Krylov_vecs = (0.0d0, 0.0d0)
+    Krylov_vecs(:, 1) = ADOs_in / ADOnorm 
 
-! rk4 propagation of HEOM for one step
+    ! Call the internal LAPACK workspace setup
+    call init_sia_workspace() 
+#else
+    allocate(k1(Ntot), k2(Ntot), k3(Ntot), k4(Ntot), ktmp(Ntot))
+    ! Precomputation of constants
+    dto2 = dt / (2.d0, 0.d0)               
+    dto6 = dt / (6.d0, 0.d0)               
+#endif
+end subroutine init_integrator
+!!! Cleanup of integrators
+subroutine cleanup_integrator()
+#ifdef SIA
+    if (allocated(Krylov_vecs)) deallocate(Krylov_vecs, ADOs_Krylov, L_mat)
+    call cleanup_sia_workspace()
+#else
+    if (allocated(k1)) deallocate(k1, k2, k3, k4, ktmp)
+#endif
+end subroutine cleanup_integrator
+!!! Forward step (either SIA or RK4)
+subroutine step_forward(ADOs)
+    implicit none
+    complex(8), intent(inout) :: ADOs(Ntot)
+#ifdef SIA
+            call SIAstep(ADOs)
+#else
+            call RK4step(ADOs)
+#endif
+    end subroutine
+!!! RK4 subroutines
 subroutine RK4step(ADOs)
     implicit none
     complex(8), intent(inout) :: ADOs(Ntot)
-    ! if(Imax.gt.2147483647) stop 'Imax is too large for the ADO index array'
-    ! Precomputation of constants
-    dto2 = dt/(2.d0,0.d0)               ! half the time step, used for the gradient calculation
-    dto6 = dt/(6.d0,0.d0)               ! 1/6 the time step, used for the gradient calculation
+    ! Calculate k1
+    call get_gradient(ADOs, k1) 
+    k1 = k1 * dto2 
+    ktmp = ADOs + k1
+    ! Calculate k2
+    call get_gradient(ktmp, k2) 
+    k2 = k2 * dto2
+    ktmp = ADOs + k2
+    ! Calculate k3
+    call get_gradient(ktmp, k3) 
+    k3 = k3 * dt
+    ktmp = ADOs + k3
+    ! Calculate k4
+    call get_gradient(ktmp, k4) 
+    ! Update the density matrix
+    ! Distributing the scalars allows -O3 to fuse the loop -> no temporary arrays 
+    ADOs = ADOs + dto6*k4 + twothirds*k2 + third*k3 + third*k1 
 
-    ! Calculate the k values for the Runge-Kutta method
-    call get_gradient(ADOs,k1) ! calculate the gradient of the density matrix
-    ! k1 = temp_grad*dto2 !need to split the computation here into two lines to avoid a bug
-    call zscal(Ntot,dto2,k1,1) ! scale the gradient by half the time step
-    ! ktmp = ADOs+k1
-    call zcopy(Ntot, ADOs, 1, ktmp, 1)              ! copy the ADOs to a temporary array
-    call zaxpy(Ntot, (1.d0,0.d0), k1, 1, ktmp, 1)   ! add the scaled gradient to the ADOs
+    end subroutine RK4step
 
-    call get_gradient(ktmp,k2) ! calculate the gradient of the updated density matrix
-    ! k2 = temp_grad*dto2
-    call zscal(Ntot,dto2,k2,1) ! scale the gradient by half the time step
-    ! ktmp = ADOs+k2
-    call zcopy(Ntot, ADOs, 1, ktmp, 1)              ! copy the ADOs to a temporary array
-    call zaxpy(Ntot, (1.d0,0.d0), k2, 1, ktmp, 1)   ! add the scaled gradient to the ADOs
-
-    call get_gradient(ktmp,k3) ! calculate the gradient of the updated density matrix
-    ! k3 = temp_grad*dt
-    call zscal(Ntot,dt*(1.d0,0.d0),k3,1) ! scale the gradient by half the time step
-    ! ktmp = ADOs+k3
-    call zcopy(Ntot, ADOs, 1, ktmp, 1)              ! copy the ADOs to a temporary array
-    call zaxpy(Ntot, (1.d0,0.d0), k3, 1, ktmp, 1)   ! add the scaled gradient to the ADOs
-
-    call get_gradient(ktmp,k4) 
-
-    ! ! Update the density matrix
-    ! ADOs = ADOs + dto6*k4 + twothirds*k2 + (k3 + k1)*third 
-    call zaxpy(Ntot, dto6, k4, 1, ADOs, 1)      ! ADOs = ADOs + dto6 * k4
-    call zaxpy(Ntot, twothirds, k2, 1, ADOs, 1) ! ADOs = ADOs + twothirds * k2
-    call zaxpy(Ntot, third, k3, 1, ADOs, 1)     ! ADOs = ADOs + third * k3
-    call zaxpy(Ntot, third, k1, 1, ADOs, 1)     ! ADOs = ADOs + third * k1
-
-    end subroutine
+!!! SIA subroutines
 ! Recalculate the ADOs from the Krylov vectors
 subroutine Recalculate_ADOs(ADOs)
     implicit none
     complex(8), intent(inout) :: ADOs(Ntot)
-    integer(4) :: i,j
-    !!! reset ADOs
-    ADOs=(0.d0,0.d0)
-    !!! Recalculate the ADOs from the Krylov basis
-    do i=1,Krylov_dim
-        do j=1,Ntot
-            ADOs(j) = ADOs(j) + ADOs_Krylov(i) * Krylov_vecs(i,j) ! sum over the Krylov vectors
-        end do
-    end do
+    ADOs = matmul(Krylov_vecs, ADOs_Krylov)
     end subroutine Recalculate_ADOs
+! Initialize the workspace for the diagonalisation of SIA
+subroutine init_sia_workspace()
+        complex(8) :: query_tmp(1)
+        integer :: info
+        complex(8) :: dummy_L(Krylov_dim, Krylov_dim)
+        complex(8) :: dummy_R(Krylov_dim, Krylov_dim)
+        complex(8) :: dummy_evals(Krylov_dim)
+        complex(8) :: dummy_mat(Krylov_dim, Krylov_dim)
+        ! initialize dummy mat
+        dummy_mat = (0.d0, 0.d0)
+        ! Pre-allocate rwork (Size is fixed: 2*K)
+        if (.not. allocated(rwork)) allocate(rwork(2 * Krylov_dim))
+        ! Workspace Query: Ask ZGEEV for the optimal lwork, using dummy arrays to satisfy the interface for the query
+        call zgeev('V', 'V', Krylov_dim, dummy_mat, Krylov_dim, dummy_evals, &
+                   dummy_L, Krylov_dim, dummy_R, Krylov_dim, &
+                   query_tmp, -1, rwork, info)
+        lwork = int(real(query_tmp(1)))
+        ! Allocate lwork
+        if (allocated(work)) deallocate(work)
+        allocate(work(lwork))
+    end subroutine init_sia_workspace
 ! Implicitly-Restarted Arnoldi method for the short iterative method
 subroutine SIAstep(ADOs)
     implicit none
-    complex(8), allocatable :: work(:)
-    double precision, allocatable :: rwork(:)
-    integer :: info, lwork,i,j,k
+    integer :: info,i,j,k
     complex(8) :: L_evals(Krylov_dim) ! eigenvalues of the Liouvillian matrix
     complex(8) :: U_Krylov_R(Krylov_dim,Krylov_dim),U_Krylov_L(Krylov_dim,Krylov_dim) ! Transformation matrices to diagonalise the Liouvillian in the Krylov subspace
     complex(8), intent(inout) :: ADOs(Ntot)
@@ -143,13 +162,8 @@ subroutine SIAstep(ADOs)
         L_mat_copy = L_mat ! make a copy of the Liouvillian matrix
 
         !!! Diagonalise the Liouvillian matrix (DESTROYING IT)
-        lwork= 2*(Krylov_dim)*(Krylov_dim) ! workspace size for the LAPACK routine
-        allocate(work(lwork)) ! allocate the work array for the LAPACK routine
-        allocate(rwork(2*(Krylov_dim))) ! allocate the real work array for the LAPACK routine
         call zgeev('V','V', Krylov_dim, L_mat, Krylov_dim, L_evals, &
                 U_Krylov_L, Krylov_dim, U_Krylov_R, Krylov_dim, work, lwork, rwork, info)
-        deallocate(work) ! deallocate the work array
-        deallocate(rwork) ! deallocate the real work array
         if (info /= 0) stop 'Error in zgeev'
         ! make the transformation matrices biorthogonal
         do i=1,Krylov_dim
@@ -217,42 +231,42 @@ subroutine SIAstep(ADOs)
         ! This subroutine generates the Krylov vectors for the short iterative method
         implicit none
         complex(8), intent(in) :: ADOs(Ntot) ! the ADOs in the Krylov basis
-        integer(4) :: j,k,ni,nj
-        real(8) :: ADOnorm,beta
-        complex(8) :: Phi(Ntot) ! work vector
+        integer(4) :: j,k
+        real(8) :: ADOnorm
+        complex(8) :: Phi(Ntot),beta ! work vector, projection
         
         !Get the zeroth Krylov vector
         L_mat = (0.d0,0.d0)
         ADOnorm = norm(ADOs,Ntot)                            ! calculate the norm of the ADOs
         Krylov_vecs= (0.d0,0.d0) ! initialise the Krylov vectors to zero
         phi = (0.d0,0.d0) ! initialise the work vector to zero
-        Krylov_vecs(1,:) = ADOs(:)/ADOnorm     ! normalise the zeroth Krylov vector
+        Krylov_vecs(:,1) = ADOs(:)/ADOnorm     ! normalise the zeroth Krylov vector
     
         ! calculate the rest of the Krylov vectors
         do k = 1, Krylov_dim
             ! calculate the (non-orthonormalised) Krylov vector of the i+1 th order
-            ! |phi_{k+1}> =  L|Krylov_vecs(k,:)>
-            call get_gradient(Krylov_vecs(k,:),Phi) 
+            ! |phi_{k+1}> =  L|Krylov_vecs(:,k)>
+            call get_gradient(Krylov_vecs(:,k),Phi) 
 
-            ! |phi_{k+1}> ==Gram-Schmidt Orthogonalisation==> |Krylov_vecs(k+1,:)>
+            ! |phi_{k+1}> ==Gram-Schmidt Orthogonalisation==> |Krylov_vecs(:,k+1)>
             do j = 1, k
                 ! calculate the inner product of the Krylov vector with the previous Krylov vectors
-                beta = innerprod(Krylov_vecs(j,:),Phi, Ntot) ! L_mat(i,j) = <Krylov_vecs(j,:),Phi>
+                beta = innerprod(Krylov_vecs(:,j),Phi, Ntot) ! L_mat(i,j) = <Krylov_vecs(:,j),Phi>
                 ! remove the component of the Krylov vector that is in the direction of the previous Krylov vectors
-                Phi = Phi - beta*Krylov_vecs(j,:)
+                Phi = Phi - beta*Krylov_vecs(:,j)
                 ! store the inner product in the Liouvillian matrix
-                L_mat(j,k) = beta   ! L_mat(j,k) = <Krylov_vecs(j,:)|L|Krylov_vecs(k,:)>
+                L_mat(j,k) = beta   ! L_mat(j,k) = <Krylov_vecs(:,j)|L|Krylov_vecs(:,k)>
                 
             end do
             
             ! normalise the Krylov vector, and store the k+1,k th element of the Liouvillian matrix
             ADOnorm = norm(Phi,Ntot)                        ! calculate the norm of the Krylov vector
             if (k.lt.Krylov_dim) then
-                L_mat(k+1,k) = ADOnorm ! <Krylov_vecs(k+1,:)|L|Krylov_vecs(k,:)> = <phi| * (|phi> + stuff orthogal to |phi>) = <phi|phi>
+                L_mat(k+1,k) = ADOnorm ! <Krylov_vecs(:,k+1)|L|Krylov_vecs(:,k)> = <phi| * (|phi> + stuff orthogal to |phi>) = <phi|phi>
                 if (abs(ADOnorm).lt.1d-20) then 
-                    Krylov_vecs(k+1,:) =(0.d0,0.d0) ! if the norm is too small, set the Krylov vector to zero
+                    Krylov_vecs(:,k+1) =(0.d0,0.d0) ! if the norm is too small, set the Krylov vector to zero
                 else
-                    Krylov_vecs(k+1,:) = Phi/ADOnorm ! normalise the Krylov vector
+                    Krylov_vecs(:,k+1) = Phi/ADOnorm ! normalise the Krylov vector
                 end if
             endif
         !!!
@@ -260,4 +274,15 @@ subroutine SIAstep(ADOs)
         end subroutine generate_krylov_vecs
 
     end subroutine SIAstep
+! Initialize the workspace for the diagonalisation of SIA
+subroutine cleanup_sia_workspace()
+    ! Check if allocated before deallocating to avoid crashes
+    if (allocated(work)) then
+        deallocate(work)
+    endif
+    if (allocated(rwork)) then
+        deallocate(rwork)
+    endif
+    lwork = 0
+    end subroutine cleanup_sia_workspace
 end module integrator

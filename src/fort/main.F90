@@ -1,7 +1,6 @@
 program main
     use input_output
-    use integrator, only: RK4step, k1, k2, k3, k4, ktmp!, ADOs_tmp, temp_grad
-    use integrator, only: Krylov_vecs, SIAstep, Krylov_dim,L_mat,default_Krylov_dim, Recalculate_ADOs,ADOs_Krylov
+    use integrator, only: step_forward,init_integrator,cleanup_integrator,Recalculate_ADOs
     use shared_data
     use utils, only: norm
     use complex_sparse_linalg, only: destroy_matrix
@@ -23,19 +22,8 @@ program main
 
     
     !!! Allocations for work matrices
-#ifdef SIA
-        ! Allocations exclusively for SIA
-        Krylov_dim = min(default_Krylov_dim, Ntot) 
-        allocate(Krylov_vecs(Krylov_dim,Ntot), ADOs_Krylov(Krylov_dim), L_mat(Krylov_dim,Krylov_dim))
-        !!! Initialise SIA (such that the basis is recaluclated at the first timestep)
-        ADOnorm = norm(ADOs,Ntot)
-        ADOs_Krylov(:) = (1.0d0,0.0d0)*ADOnorm  ! initialise the ADOs in the Krylov basis (made to trigger recalculation initially)
-        Krylov_vecs(:,:) = (0.0d0,0.0d0)        ! initialise the Krylov vectors
-        Krylov_vecs(1,:) = ADOs/ADOnorm ! set the first Krylov vector top be the ADOs
-#else
-        ! Allocations exclusively for RK4
-        allocate(k1(Ntot), k2(Ntot), k3(Ntot), k4(Ntot), ktmp(Ntot))
-#endif
+    call init_integrator(ADOs)
+    
 
 
     !!! PROPAGATION !!!
@@ -62,11 +50,7 @@ program main
 
         !!! verlet step (skipping last one)
         if (it < nttot) then
-#ifdef SIA
-            call SIAstep(ADOs)
-#else
-            call RK4step(ADOs)
-#endif
+            call step_forward(ADOs)
         endif
         !!! Check for divergence
         if (abs(ADOs(1)).gt.2.d0) stop 'Density matrix has diverged'
@@ -79,11 +63,8 @@ program main
     !!! Deallocations 
     deallocate(ADOs)
     call destroy_matrix(Liouvillian)
-#ifdef SIA
-        deallocate(Krylov_vecs, ADOs_Krylov, L_mat)
-#else
-        deallocate(k1,k2,k3,k4,ktmp)
-#endif
+
+    call cleanup_integrator()
 end program main
 
 

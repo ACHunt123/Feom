@@ -17,13 +17,14 @@
 #   fast            Optimized build
 #   debug           Debug build with bounds and warnings
 #   profile         Build with profiling enabled
-#   f2py            Build Python module via f2py
+#   valgrind         Build for valgrind
 #   clean           Remove all compiled executables
 # -------------------------------------------------------------------------
 
 
-# Default switches (if not specified)
+### Default switches (if not specified)
 SWITCHES?= -DSIA
+
 ### Calculate the name of the executable based on switches [replace -D with _, = with nothing, and sort alphabetically]
 NAME := propagation
 SWITCH_SUFFIX := $(strip $(shell echo $(SWITCHES) | tr ' ' '\n' | sort | sed 's/-D//g; s/=//g' | paste -sd_ -))
@@ -35,57 +36,67 @@ endif
 
 ### Compiler Selection: ('gfortran' or 'ifx')
 FC = ifx
-# Intel (ifx) Flags 
+# ifx Flags 
 ifeq ($(FC), ifx)
     F90FLAGS = -g -O3 -funroll-loops -heap-arrays ${SWITCHES}
-    F90DEBUGFLAGS = -g -traceback -check all -warn all -O0 ${SWITCHES}
-    LIBS = -qmkl
-# GNU (gfortran) Flags
+    F90DEBUGFLAGS = -g -traceback -check all -warn all -O0 -heap-arrays${SWITCHES}
+	F90VALGRINDFLAGS = -g -traceback -O0 -heap-arrays ${SWITCHES} # Valgrind specific (Removes -check all so Valgrind doesn't choke)
+	F90PROFILEFLAGS = -g -pg -O3 -heap-arrays ${SWITCHES}
+    LIBS = -qmkl 
+# gfortra Flags
 else ifeq ($(FC), gfortran)
     # -fno-stack-arrays is the equivalent of -heap-arrays
     F90FLAGS = -g -O3 -funroll-loops -fno-stack-arrays -ffree-line-length-none -cpp ${SWITCHES}
     F90DEBUGFLAGS = -g -fbacktrace -fcheck=all -Wall -O0 -ffree-line-length-none -cpp ${SWITCHES}
-    # gfortran usually links MKL via explicit paths or -lblas -llapack
-    LIBS = -L${MKLROOT}/lib/intel64 -lmkl_rt 
+	F90VALGRINDFLAGS = -g -fbacktrace -O0 -fno-stack-arrays -ffree-line-length-none -cpp ${SWITCHES} # Valgrind specific (Removes -check all so Valgrind doesn't choke)
+	F90PROFILEFLAGS = -g -pg -O3 -fno-stack-arrays -ffree-line-length-none -cpp ${SWITCHES}
+    LIBS = -L${MKLROOT}/lib/intel64 -lmkl_rt # gfortran usually links MKL via explicit paths or -lblas -llapack
 endif
+
+### Files for the compilation
 FILES = complex_sparse_linalg.F90 utils.F90 shared_data.F90 \
         input_output.F90 gradient.F90 integrator.F90 main.F90 $(LIBS)
-# Directories
+
+### Where to store the executables
 EXEC_DIR = executables
+$(shell mkdir -p $(EXEC_DIR))
 
 fast: 
 	$(FC) $(F90FLAGS) -o $(EXENAME) $(FILES)  
-	mv $(EXENAME) executables/
+	mv $(EXENAME) $(EXEC_DIR)/
 
 all:
 	$(FC) $(F90FLAGS)  -o  propagation $(FILES)
-	mv propagation executables/
+	mv propagation $(EXEC_DIR)/
 	wait
 	$(FC) $(F90FLAGS) -DLTCorr=1 -o propagation_LowTCorr $(FILES)
-	mv propagation_LowTCorr executables/
+	mv propagation_LowTCorr $(EXEC_DIR)/
 	wait
 	$(FC) $(F90FLAGS) -DPrint_ADOs -o  propagation_Print_ADOs $(FILES)
-	mv propagation_Print_ADOs executables/
+	mv propagation_Print_ADOs $(EXEC_DIR)/
 
 
 
 clean:
-	rm  executables/*
+	rm  $(EXEC_DIR)/*
 
 debug:
 	$(FC) $(F90DEBUGFLAGS) -o $(EXENAME) $(FILES)
-	mv $(EXENAME) executables/
+	mv $(EXENAME) $(EXEC_DIR)/
 
-f2py:
-	gfortran -Wall -g -fPIC -O2  -c $(FILES)  
-	f2py -c -m propagator propagation.F90  
-	rm propagation.o
-	mv propagator* executables/
+# f2py:
+# 	gfortran -Wall -g -fPIC -O2  -c $(FILES)  
+# 	f2py -c -m propagator propagation.F90  
+# 	rm propagation.o
+# 	mv propagator* $(EXEC_DIR)/
+
+valgrind:
+	$(FC) $(F90VALGRINDFLAGS) -o $(EXENAME) $(FILES)
+	mv $(EXENAME) $(EXEC_DIR)/
 
 profile: 
-	ifx -g -O0 -fpp -o $(EXENAME) $(FILES)
-	# ifx -g -prof -o $(EXENAME) $(FILES)
-	mv $(EXENAME) executables/
+	$(FC) $(F90PROFILEFLAGS) -o $(EXENAME) $(FILES)
+	mv $(EXENAME) $(EXEC_DIR)/
 
 
 

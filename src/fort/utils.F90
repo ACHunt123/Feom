@@ -25,10 +25,7 @@ function innerprod(v1,v2,size)
     complex(8), intent(in) :: v1(size), v2(size)
     integer(4) :: ii
     complex(8) :: innerprod ! the inner product of the two vectors
-    innerprod = (0.d0,0.d0) ! initialise the inner product to zero
-    do ii = 1,size
-        innerprod = innerprod + conjg(v1(ii)) * v2(ii) ! calculate the inner product
-    end do
+    innerprod = sum(conjg(v1) * v2)
 end function innerprod
 ! Norm function
 function norm(v,size)
