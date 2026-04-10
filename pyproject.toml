@@ -1,8 +1,15 @@
 [build-system]
-requires = ["meson-python", "ninja"]
+requires = ["meson-python",
+"meson-python>=0.15",
+"meson>=1.2",
+"ninja",
+"pyproject-metadata>=0.9",
+"typing_extensions>=4.6"]
 build-backend = "mesonpy"
-
 [project]
+dependencies = [
+    "numpy>=1.23",
+    "scipy"]
 name = "Feom"
 version = "0.1.0"
 description = "Fortran HEOM propagation"
