@@ -100,7 +100,8 @@ processed_data[:,3] = (rho10 + rho01)  # <s_x>
 processed_data[:,4] = rho11 # Site 1 population
 data_labels = '\n,Time /a.u. <s_z> <s_y> <s_x> P11'
 
-
+print(processed_data[-1,4])
+exit()
 import matplotlib.pyplot as plt
 plt.plot(sim.t_arr,processed_data[:,1])
 plt.show()

@@ -9,7 +9,7 @@ Defines the required arguments and default structures for the HEOM solver.
 # -----------------------------------------------------------------------------
 REQUIRED_SYS_MANUAL = {
     'H_mat',   # The system Hamiltonian matrix (numpy array)
-    's_mat',   # The system coupling operator matrix (numpy array)
+    # 's_mat',   # The system coupling operator matrix (numpy array) REMOVED as may have different coupling operators for each bath
 }
 
 # -----------------------------------------------------------------------------

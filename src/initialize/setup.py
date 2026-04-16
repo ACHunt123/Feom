@@ -6,7 +6,10 @@ import Feom.src.fort as fort_pkg
 from Feom.src.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams,read_Zvec
 from Feom.src.initialize.config import SimConfig
 import Feom.src.initialize.config_requirements as cfg  
-from Feom.src.hierarchy.complex_exps import generate_liouvillian #works for all BCFs
+# from Feom.src.hierarchy.real_exps import generate_liouvillian #works for only Debye overdamped
+# from Feom.src.hierarchy.complex_exps import generate_liouvillian #works for all BCFs
+from Feom.src.hierarchy.z_exps_multibath import generate_liouvillian #works for all BCFs + multiple baths + accelerated
+
 #
 #   Setup class for the FEOM integrator with sparse matrices
 #
@@ -15,8 +18,8 @@ class Setup:
         # save the input configuration before we do anything to it
         # config.save('config.json')
         # Unpack the configuration (either inputted through dicts or from a previous json)
-        self.pot = self._setup_system(config.system)
         self.bath = self._setup_bath(config.bath)
+        self.pot = self._setup_system(config.system)
         self.params = self._setup_params(config.params)
         self._setup_Xi(config.terminator)
         
@@ -24,18 +27,24 @@ class Setup:
         generate_liouvillian(self)
         print('liouvillian generated')
 
-        
-        ### generate the terminator
-        # generate_Terminator(self)
-
     def _setup_system(self, sys_dict):
         """
         Derives requirements for the System and builds the object.
         """
+        has_s_mat = 's_mat' in sys_dict # single coupling operator (ie single bath)
+        has_v_ks = 'V_ks' in sys_dict   # multiple coupling operators (multiple different baths)
+        if not (has_s_mat ^ has_v_ks):  # Use XOR operator (^)
+            if not has_s_mat and not has_v_ks:
+                raise ValueError("System config requires either 's_mat' or 'V_ks'.")
+            else:
+                raise ValueError("System config cannot have both 's_mat' and 'V_ks'. Pick one!")
         sys_obj= self._create_object_from_dict(
             input_dict=sys_dict,
             required_keys=cfg.REQUIRED_SYS_MANUAL,
             obj_name="ManualPotential")
+        # If s_mat specified, all V_ks are the same 
+        if has_s_mat:
+            sys_obj.V_ks = [sys_obj.s_mat for V_mat in range(len(self.bath.C_ks))]
         # Checks
         self._validate_system(sys_obj)
         # Calculate the derived quantities
@@ -47,13 +56,14 @@ class Setup:
         """
         Performs sanity checks on the manually loaded system object.
         """
-        if np.shape(pot.s_mat) != np.shape(pot.H_mat): # Array lengths
-            raise ValueError(f"System Dimension Mismatch: coupling operator has shape {np.shape(pot.s_mat)}, but Hamiltonian has shape { np.shape(pot.H_mat)}.")
+        for k,V_mat in enumerate(pot.V_ks):
+            if np.shape(V_mat) != np.shape(pot.H_mat): # Array lengths
+                raise ValueError(f"System Dimension Mismatch: the {k}th coupling operator has shape {np.shape(V_mat)}, but Hamiltonian has shape { np.shape(pot.H_mat)}.")
         try: # Type safety
-            pot.s_mat = np.array(pot.s_mat, dtype=complex)
+            pot.V_ks = [np.array(V_mat, dtype=complex) for V_mat in pot.V_ks]
             pot.H_mat = np.array(pot.H_mat, dtype=complex)
         except Exception as e:
-            raise TypeError(f"Could not convert system arrays to complex numbers: {e}")
+            raise TypeError(f"Could not convert system arrays to complex numbers: {e}")                                                                 
 
     def _setup_bath(self, bath_dict):
         """
