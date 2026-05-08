@@ -76,6 +76,23 @@ class Setup:
         self._validate_bath(bath_obj)
         # Calculate derived quantities
         bath_obj.K = len(bath_obj.C_ks)
+        # Put in complex conjugate modes in if not
+        all_gam_ks = np.unique(np.concatenate([bath_obj.gam_ks, np.conj(bath_obj.gam_ks)]))
+        if len(all_gam_ks) != len(bath_obj.gam_ks):
+            print(f"adding complex conjugate poles")
+            all_C_ks = np.zeros_like(all_gam_ks)
+            for k, gam_k in enumerate(all_gam_ks):
+                if gam_k in bath_obj.gam_ks:
+                    all_C_ks[k] = bath_obj.C_ks[np.where(bath_obj.gam_ks==gam_k)]
+            ### Uncomment the below to print the replacements
+            # print('OLD')
+            # for k, gam_k in enumerate(bath_obj.gam_ks):
+            #     print(f'k={k}       {bath_obj.C_ks[k]}-->{bath_obj.gam_ks[k]}\n')
+            # print('NEW')
+            # for k, gam_k in enumerate(all_gam_ks):
+            #     print(f'k={k}       {all_C_ks[k]}-->{all_gam_ks[k]}\n')
+            bath_obj.gam_ks = all_gam_ks
+            bath_obj.C_ks = all_C_ks
     
         return bath_obj
     
