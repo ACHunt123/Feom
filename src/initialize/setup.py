@@ -78,7 +78,7 @@ class Setup:
         bath_obj.K = len(bath_obj.C_ks)
         # Put in complex conjugate modes in if not
         all_gam_ks = np.unique(np.concatenate([bath_obj.gam_ks, np.conj(bath_obj.gam_ks)]))
-        if len(all_gam_ks) != len(bath_obj.gam_ks):
+        if len(all_gam_ks) != len(np.unique(bath_obj.gam_ks)):
             print(f"adding complex conjugate poles")
             all_C_ks = np.zeros_like(all_gam_ks)
             for k, gam_k in enumerate(all_gam_ks):
@@ -93,6 +93,7 @@ class Setup:
             #     print(f'k={k}       {all_C_ks[k]}-->{all_gam_ks[k]}\n')
             bath_obj.gam_ks = all_gam_ks
             bath_obj.C_ks = all_C_ks
+        input('\n\n Warning! Make sure that the pole doubling is correct for multiple baths.\n We need to make the code safer here, but for now just manually check it\n\nPress enter to continue\n')
     
         return bath_obj
     
