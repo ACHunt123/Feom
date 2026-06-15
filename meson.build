@@ -98,5 +98,6 @@ py.install_sources(
     'src/hierarchy/ADO_ops.py',
     'src/hierarchy/complex_exps.py',
     'src/hierarchy/real_exps.py',
+    'src/hierarchy/z_exps_multibath.py',
     subdir: 'Feom/src/hierarchy'
 )
