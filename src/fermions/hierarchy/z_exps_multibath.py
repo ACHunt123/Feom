@@ -45,7 +45,6 @@ def generate_liouvillian(sim):
         # The ordering of the + - modes in ADO space
         k_plus=k*2
         k_mnus=k*2+1
-        # print(k_plus,k_mnus)
 
         # get the coupling operators (p,m=+,- and L/R for left/right acting)
         Vp= sim.pot.V_ks_plus[k] 
@@ -65,18 +64,18 @@ def generate_liouvillian(sim):
         ### Add on the off-diagonal (nk+ and nk-) coupling
         ## Add raising terms to the Liouvillian
         # s=+
-        L_terms.append(-1.j*kron(A[k_plus], VmL, format='coo'))
-        L_terms.append(1.j*kron(P_global@A[k_plus], VmR, format='coo'))
+        L_terms.append(-1.j*kron(P_modes[k_plus]@A[k_plus], VmL, format='coo'))
+        L_terms.append(1.j*kron(P_modes[k_plus]@P_global@A[k_plus], VmR, format='coo'))
         # s=-
-        L_terms.append(-1.j*kron(A[k_mnus], VpL, format='coo'))
-        L_terms.append(1.j*kron(P_global@A[k_mnus], VpR, format='coo'))
+        L_terms.append(-1.j*kron(P_modes[k_mnus]@A[k_mnus], VpL, format='coo'))
+        L_terms.append(1.j*kron(P_modes[k_mnus]@P_global@A[k_mnus], VpR, format='coo'))
 
 
         ## Add lowering terms to the Liouvillian
         # s=+
         L_terms.append(kron(-1.j*P_modes[k_plus]@Adag[k_plus], Cp*VpL, format='coo'))
         L_terms.append(kron(-1.j*P_modes[k_plus]@P_global@Adag[k_plus], Cm.conj()*VpR, format='coo'))
-        # s=+
+        # s=-
         L_terms.append(kron(-1.j*P_modes[k_mnus]@Adag[k_mnus], Cm*VmL, format='coo'))
         L_terms.append(kron(-1.j*P_modes[k_mnus]@P_global@Adag[k_mnus], Cp.conj()*VmR, format='coo'))
         
