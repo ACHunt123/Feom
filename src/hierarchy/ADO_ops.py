@@ -76,7 +76,7 @@ if __name__=='__main__':
 
     #set the 0th ado to nonzeros
     print('setting one of the rho100... to the identity and the others to 0')
-    rho0[ns**2:2*ns**2]=(np.identity(ns)).flatten(order='F')
+    rho0[ns**2:2*ns**2]=(np.identity(ns)).flatten()
 
     # calculate the lowering and raising superoperator (summed over k)
     Aks = kron(I_ado, I_sys, format='csr')*0+0.j
@@ -91,14 +91,14 @@ if __name__=='__main__':
         AdagAks += kron(AdagAk, I_sys, format='csr')
 
     print('original rho000...')
-    print(rho0[:ns**2].reshape((ns,ns),order='F'))
+    print(rho0[:ns**2].reshape((ns,ns)))
     for k in range(K+3):
         # rho0 =Adagks.dot(rho0)
         # rho0 =AdagAks.dot(rho0)
         rho0 =Aks.dot(rho0)
         print(f'Ak ^{k+1}rho000...')
-        print(rho0[:ns**2].reshape((ns,ns),order='F'))
-        # print(rho0[ns**2:2*ns**2].reshape((ns,ns),order='F'))
+        print(rho0[:ns**2].reshape((ns,ns)))
+        # print(rho0[ns**2:2*ns**2].reshape((ns,ns)))
         
         print('the whole matrix is zero?',np.allclose(rho0 , 0))
 

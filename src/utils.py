@@ -35,8 +35,7 @@ def write_Zvec(filename, matrix):
     # If 1D, it writes e.g., "4". If 2x2, it writes "2 2".
     shape_str = " ".join(map(str, matrix.shape))
     # Flatten the array for the 1D Fortran loop.
-    # order='F' prevents transposition when read back into Fortran memory arrays.
-    vec = matrix.flatten(order='F')
+    vec = matrix.flatten()
     with open(filename, "w") as f:
         f.write(f"{shape_str}\n") # Write the header (which Fortran read(70, *) will skip)
         f.write(f"{len(vec)}\n") # Write the number of elements
@@ -68,7 +67,7 @@ def read_Zvec(filename, size=None):
     if size is not None and (np.prod(size) == n_elements):
         if isinstance(size, int): # If size is just an int, wrap it in a tuple
             size = (size,)
-        return complex_vec.reshape(size, order='F')
+        return complex_vec.reshape(size)
     return complex_vec
 
 def writeParams(filename,sim): # Writes small parameters into file
@@ -169,7 +168,7 @@ if __name__=='__main__':
     print('matrices written, now will do the product')
 
     # Flatten rho exactly as the text file writer does (Column-major / Fortran order)
-    rho_vec = rho_matrix.flatten(order='F')
+    rho_vec = rho_matrix.flatten()
 
     # Perform the matrix-vector multiplication
     result_vec = A.dot(rho_vec)
