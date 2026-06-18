@@ -50,7 +50,7 @@ def generate_ado_raising_lowering_ops(K,L):
     # Compile into perfectly square K distinct sparse matrices
     Nados = len(indices_dict)
     A = [coo_matrix((A_data[k], (A_rows[k], A_cols[k])), shape=(Nados, Nados)).tocsr() for k in range(K)]
-    Adag = [np.transpose(np.conj(A[k]))  for k in range(K)]
+    Adag = [A[k].conj().T for k in range(K)]
     AdagA = [Adag[k] @ A[k] for k in range(K)]
 
     # Generate Parity Tracking for the +/- Signs

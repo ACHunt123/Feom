@@ -2,35 +2,34 @@
 import numpy as np
 
 def JW_rl_ops(n_sites):
-    ''' 
-    Creates the matrix representations of the raising and lowering operators for n_sites 
-    Fermionic operators using the Jordan-Wigner transformation
-    '''
-    # Identity matrix  
     I = np.array([[1, 0],[0, 1]], dtype=complex)
-    # Pauli-Z Matrix (Z)
     Z = np.array([[1,  0],[0, -1]], dtype=complex)
-    # Lowering Operator (S-)
-    S_minus = np.array([[0, 0],[1, 0]], dtype=complex)
+    
+    c_local = np.array([[0, 1],[0, 0]], dtype=complex)       # Annihilation (maps |1> to |0>)
+    c_dag_local = np.array([[0, 0],[1, 0]], dtype=complex)   # Creation (maps |0> to |1>)
 
-    ## Build the basis operators; c_k = Z \otimes Z ... C \otimes I ... I, where C is at the k'th position
-    l_ops=[]
-    r_ops=[]
+    l_ops = [] # This will hold annihilation operators c
+    r_ops = [] # This will hold creation operators c_dag
+    
     for site_i in range(n_sites):
-        # Initial lowering operator
-        l_op=np.array([[1]], dtype=complex) 
+        annihilate = np.array([[1]], dtype=complex)
+        create = np.array([[1]], dtype=complex)
         for site_j in range(n_sites):
-            if site_i==site_j:
-                l_op=np.kron(l_op,S_minus)
-            if site_j<site_i:
-                l_op=np.kron(l_op,Z)
-            if site_j>site_i:
-                l_op=np.kron(l_op,I)
-        l_ops.append(l_op)
-        r_ops.append(l_op.conj().T)
-    #get the dimension of the total Hilbert space
-    ns=l_ops[0].shape[0]
-    return(r_ops,l_ops,ns)
+            # For annihilation operators
+            if site_i == site_j:   annihilate = np.kron(annihilate, c_local)
+            elif site_j < site_i:  annihilate = np.kron(annihilate, Z)
+            else:                  annihilate = np.kron(annihilate, I)
+                
+            # For creation operators
+            if site_i == site_j:   create = np.kron(create, c_dag_local)
+            elif site_j < site_i:  create = np.kron(create, Z)
+            else:                  create = np.kron(create, I)
+                
+        l_ops.append(annihilate)
+        r_ops.append(create)
+        
+    ns = l_ops[0].shape[0]
+    return (r_ops, l_ops, ns) # r_ops = c_dags, l_ops = c_s
 
 def generate_state(n_sites,excitations):
     ''' 
@@ -42,13 +41,12 @@ def generate_state(n_sites,excitations):
         raise ValueError(f"Dimension mismatch! Your model has {n_sites} sites, "
             f"but you provided {len(excitations)} excitations: {excitations}")
     n_states = 2**n_sites
-    # Initialize the state in vaccuo (-1 in JW basis above)
-    state=np.zeros(n_states, dtype=complex)
-    state[-1]=1 
-    r_ops,l_ops=JW_rl_ops(n_sites)
-    for nk,k in enumerate(excitations):
-        if k==1: #add nk'th excitation
-            state=r_ops[nk]@state
+    state = np.zeros(n_states, dtype=complex)
+    state[0] = 1 # True vacuum |00...>
+    r_ops, l_ops, ns = JW_rl_ops(n_sites)
+    for nk, k in enumerate(excitations):
+        if k == 1: 
+            state = r_ops[nk] @ state # Apply creation operator
     return state
 
 

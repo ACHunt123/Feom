@@ -73,11 +73,11 @@ def generate_liouvillian(sim):
 
         ## Add lowering terms to the Liouvillian
         # s=+
-        L_terms.append(kron(-1.j*P_modes[k_plus]@Adag[k_plus], Cp*VpL, format='coo'))
-        L_terms.append(kron(-1.j*P_modes[k_plus]@P_global@Adag[k_plus], Cm.conj()*VpR, format='coo'))
+        L_terms.append(kron(-1.j*Cp*P_modes[k_plus]@Adag[k_plus], VpL, format='coo'))
+        L_terms.append(kron(-1.j*Cm.conj()*P_modes[k_plus]@P_global@Adag[k_plus], VpR, format='coo'))
         # s=-
-        L_terms.append(kron(-1.j*P_modes[k_mnus]@Adag[k_mnus], Cm*VmL, format='coo'))
-        L_terms.append(kron(-1.j*P_modes[k_mnus]@P_global@Adag[k_mnus], Cp.conj()*VmR, format='coo'))
+        L_terms.append(kron(-1.j*Cm*P_modes[k_mnus]@Adag[k_mnus], VmL, format='coo'))
+        L_terms.append(kron(-1.j*Cp.conj()*P_modes[k_mnus]@P_global@Adag[k_mnus], VmR, format='coo'))
         
         
         ## Add on the diagonal (-n gamma) damping

@@ -155,8 +155,8 @@ class Setup:
     def set_initial_ADOs(self,x_in,mode='0th'):
         ''' Setup the initial state of the ADOs
             works with either the entire set, or the 0th
-            vectorizes the rho as well with FORTRAN ordering'''
-        x_in_flat=x_in.flatten(order='F')
+            vectorizes the rho as well with Column-Major ordering'''
+        x_in_flat=x_in.flatten()
         self.ADOs = np.zeros(self.params.Ntot, dtype=complex)
         if mode == '0th':  #just set the initial system one
             if len(x_in_flat)!= self.params.ns**2: raise RuntimeError(f"0th ADO has shape {x_in.shape} but should be {self.params.ns}*{self.params.ns}")
@@ -252,13 +252,12 @@ class Setup:
         
         #Load the data and format it and attach it to the simulation object
         data= np.loadtxt(f'{self.tmp_folder}/output')
-        t= data[:,0]
+        self.t_arr= data[:,0]
         ns= self.params.ns
         re_rho = data[:,1:1+ns**2]
         im_rho = data[:,1+ns**2:]
         rho = re_rho + 1.j*im_rho
-        self.rho = rho.reshape((len(t),ns,ns), order='C')  # reshape the data to be a 3D array
-        self.t_arr = data[:,0]
+        self.rho = np.array([np.reshape(rho[it,:],[ns,ns]) for it in range(len(self.t_arr))])  # reshape the data to be a 3D array
         raw_labels = ["Time"] + [f"{p}_{i}{j}" for p in ["Re", "Im"] for i in range(ns) for j in range(ns)]
         #Pad every label to be exactly 'w' characters wide (center-aligned)
         formatted_header = "".join([f"{label:^{25}}" for label in raw_labels])
