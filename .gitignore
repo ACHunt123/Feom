@@ -95,3 +95,7 @@ Thumbs.db
 # =========================
 .env
 .env.*
+
+#data files
+*.dat
+**data/
