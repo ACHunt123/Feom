@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 import Feom.src.fort as fort_pkg
 from Feom.src.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams,read_Zvec
-from Feom.src.initialize.config import SimConfig
+from Feom.src.bosons.initialize.config import SimConfig
 import Feom.src.fermions.initialize.config_requirements as cfg  
 from Feom.src.fermions.hierarchy.z_exps_multibath import generate_liouvillian #works for all BCFs + multiple baths + accelerated
 
