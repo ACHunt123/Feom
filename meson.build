@@ -2,16 +2,17 @@ project('fort', 'fortran',
   version: '0.1.0',
   default_options: [
     'buildtype=release',   
-    'optimization=3',     
+    'optimization=3',      
     'debug=false',         
     'b_ndebug=true']
 )
 
- 
 # get the python installation
 py = import('python').find_installation(pure: false)
+
 ### Select Compiler
 fc = meson.get_compiler('fortran')
+
 ### Robust Linear Algebra Dependency Search
 mkl_dep = []
 if host_machine.system() == 'darwin'
@@ -32,11 +33,10 @@ else
     endif
   endif
 endif
+
 if not mkl_dep.found() and host_machine.system() != 'darwin'
   error('Linear algebra library (MKL or OpenBLAS) not found. Please install one.')
 endif
-
- 
 
 ### Compiler Flags
 if fc.get_id() == 'intel-llvm' or fc.get_id() == 'intel'
@@ -56,8 +56,6 @@ fortran_sources = [
   'src/fort/main.F90'
 ]
 
- 
-
 # Binaries location inside the installed package
 bin_dir = py.get_install_dir() / 'Feom' / 'src' / 'fort' / 'executables'
 
@@ -67,37 +65,15 @@ executable('propagation', fortran_sources, fortran_args: [], dependencies: [mkl_
 executable('propagation_Print_ADOs', fortran_sources, fortran_args: ['-DPrint_ADOs'], dependencies: [mkl_dep], install: true, install_dir: bin_dir)
 executable('propagation_Print_ADOs_SIA', fortran_sources, fortran_args: ['-DSIA', '-DPrint_ADOs'], dependencies: [mkl_dep], install: true, install_dir: bin_dir)
 
- 
-### Install Python Package Structure
+### Install Python Package Structure (Refactored)
 
-
-# 1. Level: Feom/
+# 1. Install specific top-level files
 py.install_sources('__init__.py', subdir: 'Feom')
-
-# 2. Level: Feom/src/
-py.install_sources(
-    'src/__init__.py',
-    'src/utils.py',
-    subdir: 'Feom/src')
-
-# 3. Level: Feom/src/fort/
+py.install_sources('src/__init__.py', 'src/utils.py', subdir: 'Feom/src')
 py.install_sources('src/fort/__init__.py', subdir: 'Feom/src/fort')
 
-# 4. Level: Feom/src/initialize/
-py.install_sources(
-    'src/initialize/__init__.py',
-    'src/initialize/setup.py',
-    'src/initialize/config.py',
-    'src/initialize/config_requirements.py',
-    subdir: 'Feom/src/initialize'
-)
+# 2. Recursively install Python-only directories
+base_install_dir = py.get_install_dir() / 'Feom' / 'src'
 
-# 5. Level: Feom/src/hierarchy/
-py.install_sources(
-    'src/hierarchy/__init__.py',
-    'src/hierarchy/ADO_ops.py',
-    'src/hierarchy/complex_exps.py',
-    'src/hierarchy/real_exps.py',
-    'src/hierarchy/z_exps_multibath.py',
-    subdir: 'Feom/src/hierarchy'
-)
+install_subdir('src/initialize', install_dir: base_install_dir)
+install_subdir('src/hierarchy', install_dir: base_install_dir)
