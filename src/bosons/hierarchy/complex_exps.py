@@ -1,6 +1,6 @@
 import numpy as np
-from scipy.sparse import coo_matrix, eye, kron
-from Feom.src.hierarchy.ADO_ops import generate_ado_raising_lowering_ops
+from scipy.sparse import csr_matrix, eye, kron
+from Feom.src.bosons.hierarchy.ADO_ops import generate_ado_raising_lowering_ops
 
 def organize_exponents(gam_ks,tol=1e-6):
     """
@@ -72,24 +72,27 @@ def generate_liouvillian(sim):
     AdagA = ADO_ops.AdagA
     Nados = len(indices_dict)
     # Identity matrices
-    I_ado = eye(Nados, format='coo', dtype=np.complex128)
-    I_sys = eye(sim.params.ns**2, format='coo', dtype=np.complex128) # LIOUVILLE 
+    I_ado = eye(Nados, format='csr', dtype=np.complex128)
+    I_sys = eye(sim.params.ns**2, format='csr', dtype=np.complex128) # LIOUVILLE 
     # System Liouville space operators
+    V= sim.pot.s_mat
     I= np.eye(sim.pot.ns) #the hilbert space identity (NOT I_sys)
+    VL= kron(V,I, format='csr')
+    VR= kron(I,V.T, format='csr')
+    Vx= VL-VR
     H= sim.pot.H_mat #NOTE THIS IS THE RENORMALIZED HAMILTONIAN
 
     ### Build the Liouvillian
 
     ## Diagonal, ado-index-independent terms
-    L_terms = [] # This list will hold all components of the Liouvillian
-
+    L = kron(I_ado, I_sys, format='csr')*0+0.j
     # add system free liouviliian matrix
-    Lsys0 = coo_matrix(-1.j*(np.kron(H,I) - np.kron(I,H.T)), dtype=np.complex128)
-    L_terms.append(kron(I_ado, Lsys0, format='coo'))
+    Lsys0 = csr_matrix(-1.j*(np.kron(H,I) - np.kron(I,H.T)), dtype=np.complex128)
+    L += kron(I_ado, Lsys0, format='csr')
     # add on terminator
     Xi= sim.Xi
     if sim.params.LTCorr == 'same_for_each_ADO':
-        L_terms.append(kron(I_ado, Xi, format='coo'))
+        L += kron(I_ado, Xi, format='csr')
     elif sim.params.LTCorr == 'different_for_each_ADO':
         print('not implemented yet')
 
@@ -98,22 +101,16 @@ def generate_liouvillian(sim):
     k_decay_inds, k_oscil_inds = organize_exponents(sim.bath.gam_ks)
     ## pure decay modes first
     for ki in k_decay_inds:
-        # get the coupling operators
-        V= sim.pot.V_ks[ki] 
-        VL= kron(V,I, format='coo')
-        VR= kron(I,V.T, format='coo')
-        Vx= VL-VR
-
         # get the coefficients
         Ck=sim.bath.C_ks[ki]
         gamk=sim.bath.gam_ks[ki]
         # Add on the off-diagonal (nk+ and nk-) coupling
         Lk_dn = -(1.j/np.sqrt(np.abs(Ck)))*(Ck*VL-Ck.conj()*VR) #coupling to ados lower in excitation
         Lk_up = -1.j*np.sqrt(np.abs(Ck))*Vx                     #coupling to ados higher in excitation
-        L_terms.append(kron(Adag[ki], Lk_dn, format='coo'))
-        L_terms.append(kron(A[ki], Lk_up, format='coo'))
+        L += kron(Adag[ki], Lk_dn, format='csr')
+        L += kron(A[ki], Lk_up, format='csr')
         # Add on the diagonal (-n gamma) damping
-        L_terms.append(-gamk*kron(AdagA[ki], I_sys, format='coo'))  
+        L += -gamk*kron(AdagA[ki], I_sys, format='csr')    
 
     ## oscilitory modes now
     # we assume sum-difference expansion from of the IF expansion
@@ -121,14 +118,7 @@ def generate_liouvillian(sim):
     # a simple rotation in creation annihilation operators of ADOs
     # and is a simple couple extra lines of code
     for k_plus,k_minus in k_oscil_inds:
-        # get the coupling operators + check if they are the same for k_plus and k_minus
-        V= sim.pot.V_ks[k_plus] 
-        if not np.array_equal(V,sim.pot.V_ks[k_minus]):
-            raise ValueError(f"Coupling operators at indices {k_plus} and {k_minus} must be identical.")
-        VL= kron(V,I, format='coo')
-        VR= kron(I,V.T, format='coo')
-        Vx= VL-VR
-    
+
         # get the coefficients
         Ck_plus=sim.bath.C_ks[k_plus]
         Ck_minus=sim.bath.C_ks[k_minus]
@@ -147,20 +137,18 @@ def generate_liouvillian(sim):
         Lk_dn_plus = -(1.j / Wk) * (Ck_plus * VL - np.conj(Ck_minus) * VR)
         Lk_dn_minus = -(1.j / Wk) * (Ck_minus * VL - np.conj(Ck_plus) * VR)
         # Add raising terms to the Liouvillian
-        L_terms.append(kron(A[k_plus], Lk_up_plus, format='coo'))
-        L_terms.append(kron(A[k_minus], Lk_up_minus, format='coo'))
+        L += kron(A[k_plus], Lk_up_plus, format='csr')
+        L += kron(A[k_minus], Lk_up_minus, format='csr')
         # Add lowering terms to the Liouvillian
-        L_terms.append(kron(Adag[k_plus], Lk_dn_plus, format='coo'))
-        L_terms.append(kron(Adag[k_minus], Lk_dn_minus, format='coo'))
+        L += kron(Adag[k_plus], Lk_dn_plus, format='csr')
+        L += kron(Adag[k_minus], Lk_dn_minus, format='csr')
 
         ## Add on the diagonal (-n gamma) damping
-        L_terms.append(-gamk_plus*kron(AdagA[k_plus], I_sys, format='coo'))  
-        L_terms.append(-gamk_minus*kron(AdagA[k_minus], I_sys, format='coo'))
+        L += -gamk_plus*kron(AdagA[k_plus], I_sys, format='csr')  
+        L += -gamk_minus*kron(AdagA[k_minus], I_sys, format='csr')  
 
     # set the outputs
-    L_combined = sum(L_terms)
-    # Now convert to the correct size CSR matrix for the solver
-    sim.Liouvillian = L_combined.tocsr()
+    sim.Liouvillian = L
     sim.params.Nados=Nados
     sim.params.Ntot=sim.params.Nados*sim.params.ns**2
     

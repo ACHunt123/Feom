@@ -4,11 +4,11 @@ import shutil
 from pathlib import Path
 import Feom.src.fort as fort_pkg
 from Feom.src.utils import FORT_SWITCHES,write_sparse,write_Zvec,writeParams,read_Zvec
-from Feom.src.initialize.config import SimConfig
-import Feom.src.initialize.config_requirements as cfg  
+from Feom.src.bosons.initialize.config import SimConfig
+import Feom.src.bosons.initialize.config_requirements as cfg  
 # from Feom.src.hierarchy.real_exps import generate_liouvillian #works for only Debye overdamped
 # from Feom.src.hierarchy.complex_exps import generate_liouvillian #works for all BCFs
-from Feom.src.hierarchy.z_exps_multibath import generate_liouvillian #works for all BCFs + multiple baths + accelerated
+from Feom.src.bosons.hierarchy.z_exps_multibath import generate_liouvillian #works for all BCFs + multiple baths + accelerated
 
 #
 #   Setup class for the FEOM integrator with sparse matrices

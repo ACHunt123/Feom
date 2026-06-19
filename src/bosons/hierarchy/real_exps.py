@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.sparse import csr_matrix, eye, kron
-from Feom.src.hierarchy.ADO_ops import generate_ado_raising_lowering_ops
+from Feom.src.bosons.hierarchy.ADO_ops import generate_ado_raising_lowering_ops
 
 
 def generate_liouvillian(sim):
