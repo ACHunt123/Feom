@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import matplotlib.pyplot as plt
-from Feom.src.initialize.setup import Setup,SimConfig
+from Feom.src.bosons.initialize.setup import Setup,SimConfig
 from A34BCFs import A4_BCF,A3_BCF,make_bcf_func, Sbeta_exact
 
 # plotting switches

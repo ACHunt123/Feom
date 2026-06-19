@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-from Feom.src.initialize.setup import Setup,SimConfig
+from Feom.src.bosons.initialize.setup import Setup,SimConfig
 # from pyA4.Bose_BCF import BoseBCF
 
 # general params

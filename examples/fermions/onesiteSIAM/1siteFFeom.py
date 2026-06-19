@@ -77,3 +77,4 @@ except:
     print('align the t axes please')
 plt.tight_layout()
 plt.show()
+plt.savefig('plot.pdf')
