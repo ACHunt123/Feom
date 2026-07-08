@@ -33,4 +33,5 @@ REQUIRED_PARAMS_MANUAL = {
 DEFAULT_PARAMS_MANUAL = {
             'noSIA': False,         # Whether to use SIA or not
             'print_ADOs': False,    # Whether to output all of the ADOs (very memory intensive)
+            'IT_RWAterms':False      # Whether to do the Ishizaki-Tanimura on the RWA inputs
         }

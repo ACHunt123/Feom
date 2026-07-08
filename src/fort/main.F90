@@ -14,20 +14,16 @@ program main
 
     !!! LOAD PARAMETERS AND MATRICIES !!!
     open(10, file='Fortparams.inp', status='old', action='read', iostat=stat); read(10,*)
-    read(10,'(I10, D22.15, I10)') ns, dt, nttot
+    read(10,'(I10, D22.15, I10, I10)') ns, dt, nttot, ntout
     close(10)
     call read_matrix('FortLiouvillian.inp', Liouvillian)
     call read_Zvec("Fortrho.inp", ADOs)
     Ntot = size(ADOs)
 
-    
     !!! Allocations for work matrices
     call init_integrator(ADOs)
-    
-
 
     !!! PROPAGATION !!!
-    ntout = int(max(nttot / 1000,1)) ! how often to print the output
     nttot = (nttot / ntout) * ntout  ! force the last timestep to be printed out
     open(10, file='output', status='unknown', action='write')
     ! Propagate the system

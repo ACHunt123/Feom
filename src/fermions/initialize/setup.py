@@ -169,7 +169,7 @@ class Setup:
         self._ADOs_loaded=True
 
     def read_final_ADOs(self):
-        ADOs=read_Zvec(f"{self.tmp_folder}/Fortrho.oup", size=(self.params.ns,self.params.ns,self.params.Nados))
+        ADOs=read_Zvec(f"{self.tmp_folder}/Fortrho.oup")
         return ADOs
 
 

@@ -73,10 +73,26 @@ def read_Zvec(filename, size=None):
 def writeParams(filename,sim): # Writes small parameters into file
     params=sim.params
     bath=sim.bath
-    nttot = round(params.tmax / params.dt) # calculate the total number of time steps
+    # calculate the total number of time steps for propagation
+    nttot = round(params.tmax / params.dt) 
+    # get the output ntout (how often to plot)
+    custom_dtout = getattr(sim.params, 'dtout', None)
+    custom_ntout = getattr(sim.params, 'ntout', None)
+    # Check for the 'never' flag first
+    if custom_dtout == 'never' or custom_ntout == 'never':
+        ntout = max(nttot, 1)
+    # If the user provided a physical time interval, convert it to steps
+    elif custom_dtout is not None:
+        ntout = max(round(custom_dtout / params.dt), 1)
+    elif custom_ntout is not None:
+        ntout = int(custom_ntout)
+    else:
+        ntout = int(max(nttot / 1000, 1))
+    print(ntout)
+    ## Write to the params file for the FORTRAN
     with open(f"{filename}", "w") as f:
         f.write("ns,dt,nttot\n")
-        f.write(f"{params.ns:10d}{params.dt:22.15e}{nttot:10d}\n".replace('e','d'))
+        f.write(f"{params.ns:10d}{params.dt:22.15e}{nttot:10d}{ntout:10d}\n".replace('e','d'))
         f.write("/\n")
     return
 
