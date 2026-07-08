@@ -67,13 +67,19 @@ executable('propagation_Print_ADOs_SIA', fortran_sources, fortran_args: ['-DSIA'
 
 ### Install Python Package Structure (Refactored)
 
-# 1. Install specific top-level files
+# Install top-level package marker
 py.install_sources('__init__.py', subdir: 'Feom')
-py.install_sources('src/__init__.py', 'src/utils.py', subdir: 'Feom/src')
-py.install_sources('src/fort/__init__.py', subdir: 'Feom/src/fort')
 
-# 2. Recursively install Python-only directories
-base_install_dir = py.get_install_dir() / 'Feom' / 'src'
-
-install_subdir('src/initialize', install_dir: base_install_dir)
-install_subdir('src/hierarchy', install_dir: base_install_dir)
+ 
+# Automatically install the full Feom/src Python tree
+install_subdir(
+  'src',
+  install_dir: py.get_install_dir() / 'Feom',
+  exclude_files: [
+    'complex_sparse_linalg.F90',
+    'utils.F90',
+    'shared_data.F90',
+    'input_output.F90',
+    'gradient.F90',
+    'integrator.F90',
+    'main.F90'])

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.sparse import coo_matrix, eye, kron
 from Feom.src.bosons.hierarchy.ADO_ops import generate_ado_raising_lowering_ops
 
-def organize_exponents(gam_ks,tol=1e-6):
+def organize_exponents(gam_ks,tol=1e-16):
     """
     This function categorizes BCF exponents (gam_ks) based on their imaginary parts. 
     Real exponents (e.g., Matsubara terms) are identified as purely exponential 
